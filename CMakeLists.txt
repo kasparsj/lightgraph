@@ -11,11 +11,6 @@ option(LIGHTPATH_CORE_ENABLE_ASAN "Enable AddressSanitizer for host builds" OFF)
 option(LIGHTPATH_CORE_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer for host builds" OFF)
 option(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings and treat warnings as errors" OFF)
 option(
-  LIGHTPATH_CORE_INSTALL_LEGACY_HEADERS
-  "Install legacy compatibility headers that expose internal types"
-  OFF
-)
-option(
   LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS
   "Expose src/ as a public include root for transitional internal module includes"
   OFF
@@ -56,6 +51,12 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/engine.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/status.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/types.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/debug.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/factory.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/objects.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/rendering.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/runtime.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/topology.hpp"
 )
 
 install(
@@ -70,18 +71,6 @@ install(
   FILES ${LIGHTPATH_CORE_PUBLIC_HEADERS}
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/lightpath"
 )
-
-if(LIGHTPATH_CORE_INSTALL_LEGACY_HEADERS)
-  install(
-    FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/legacy.hpp"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/lightpath"
-  )
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/legacy"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/lightpath"
-    FILES_MATCHING PATTERN "*.hpp"
-  )
-endif()
 
 configure_package_config_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/lightpathConfig.cmake.in"
