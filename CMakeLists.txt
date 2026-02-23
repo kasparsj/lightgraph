@@ -3,9 +3,15 @@ cmake_minimum_required(VERSION 3.20)
 project(lightpath_core LANGUAGES CXX)
 
 option(LIGHTPATH_CORE_BUILD_TESTS "Build Lightpath core tests" ON)
+option(LIGHTPATH_CORE_BUILD_EXAMPLES "Build Lightpath examples" ON)
 option(LIGHTPATH_CORE_ENABLE_ASAN "Enable AddressSanitizer for host builds" OFF)
 option(LIGHTPATH_CORE_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer for host builds" OFF)
 option(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings and treat warnings as errors" OFF)
+option(
+  LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS
+  "Expose legacy src include path for downstream compatibility"
+  ON
+)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,13 +25,20 @@ file(
 )
 
 add_library(lightpath_core STATIC ${LIGHTPATH_CORE_SOURCES})
+add_library(lightpath::lightpath ALIAS lightpath_core)
 
 target_include_directories(
   lightpath_core
   PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/host/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
+
+if(LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS)
+  target_include_directories(lightpath_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+endif()
 
 if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -73,8 +86,23 @@ if(LIGHTPATH_CORE_ENABLE_UBSAN)
   endif()
 endif()
 
+if(LIGHTPATH_CORE_BUILD_EXAMPLES)
+  add_executable(
+    lightpath_core_minimal_example
+    examples/minimal_usage.cpp
+  )
+  target_link_libraries(lightpath_core_minimal_example PRIVATE lightpath_core)
+  if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightpath_core_minimal_example PRIVATE ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+endif()
+
 if(LIGHTPATH_CORE_BUILD_TESTS)
   enable_testing()
+
+  if(TARGET lightpath_core_minimal_example)
+    add_test(NAME lightpath_core_example COMMAND lightpath_core_minimal_example)
+  endif()
 
   add_executable(
     lightpath_core_smoke
@@ -99,4 +127,16 @@ if(LIGHTPATH_CORE_BUILD_TESTS)
   endif()
 
   add_test(NAME lightpath_core_regression COMMAND lightpath_core_regression)
+
+  add_executable(
+    lightpath_core_public_api
+    tests/public_api_test.cpp
+  )
+
+  target_link_libraries(lightpath_core_public_api PRIVATE lightpath_core)
+  if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightpath_core_public_api PRIVATE ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+
+  add_test(NAME lightpath_core_public_api COMMAND lightpath_core_public_api)
 endif()

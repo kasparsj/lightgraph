@@ -1,4 +1,5 @@
 /build/
+/build-*/
 /build-asan/
 /build-ubsan/
 /build-warnings/
