@@ -1,0 +1,45 @@
+PROJECT_NAME           = "Lightpath"
+PROJECT_BRIEF          = "C++17 light-graph engine API reference"
+OUTPUT_DIRECTORY       = build/docs
+CREATE_SUBDIRS         = NO
+OUTPUT_LANGUAGE        = English
+OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_JAVA   = NO
+
+INPUT                  = include/lightpath docs/API.md README.md
+FILE_PATTERNS          = *.hpp *.md
+RECURSIVE              = YES
+EXCLUDE                = src vendor tests examples build build-* cmake
+USE_MDFILE_AS_MAINPAGE = docs/API.md
+EXTENSION_MAPPING      = md=markdown
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 3
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+EXTRACT_LOCAL_CLASSES  = NO
+
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+STRIP_FROM_PATH        = .
+JAVADOC_AUTOBRIEF      = YES
+SORT_MEMBER_DOCS       = YES
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_COLORSTYLE        = LIGHT
+FULL_SIDEBAR           = YES
+HTML_DYNAMIC_MENUS     = YES
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+
+GENERATE_LATEX         = NO
+
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES

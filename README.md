@@ -133,3 +133,17 @@ target_link_libraries(your_target PRIVATE lightpath::lightpath)
 - API reference: `docs/API.md`
 - Migration notes: `MIGRATION.md`
 - Changelog: `CHANGELOG.md`
+
+### Generated API Reference (GitHub Pages)
+
+The repository publishes Doxygen API docs to GitHub Pages through GitHub Actions.
+
+Local generation:
+
+```bash
+doxygen Doxyfile
+```
+
+Generated HTML output:
+
+- `build/docs/html/index.html`
