@@ -1,14 +1,14 @@
 #pragma once
 
-#include "../../src/rendering/Palette.h"
-#include "../../src/rendering/Palettes.h"
+#include "../../../src/rendering/Palette.h"
+#include "../../../src/rendering/Palettes.h"
 
 /**
  * @file rendering.hpp
  * @brief Public palette and rendering utilities.
  */
 
-namespace lightpath {
+namespace lightpath::integration {
 
 using Palette = ::Palette;
 
@@ -31,4 +31,4 @@ inline Palette paletteAt(uint8_t index) {
     return ::getPalette(index);
 }
 
-}  // namespace lightpath
+}  // namespace lightpath::integration

@@ -10,7 +10,7 @@
  * @brief Convenience constructors for built-in topology objects.
  */
 
-namespace lightpath {
+namespace lightpath::integration {
 
 enum class BuiltinObjectType {
     Heptagon919,
@@ -42,4 +42,4 @@ inline std::unique_ptr<Object> makeObject(BuiltinObjectType type, uint16_t pixel
     return std::unique_ptr<Object>(new Line(pixelCount > 0 ? pixelCount : kLinePixelCount));
 }
 
-}  // namespace lightpath
+}  // namespace lightpath::integration

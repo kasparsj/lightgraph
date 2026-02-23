@@ -1,14 +1,14 @@
 #pragma once
 
-#include "../../src/debug/LPDebugger.h"
+#include "../../../src/debug/LPDebugger.h"
 
 /**
  * @file debug.hpp
  * @brief Debugging helpers for topology/runtime inspection.
  */
 
-namespace lightpath {
+namespace lightpath::integration {
 
 using Debugger = ::LPDebugger;
 
-}  // namespace lightpath
+}  // namespace lightpath::integration

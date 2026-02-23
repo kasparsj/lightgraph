@@ -9,5 +9,6 @@
  * @brief Umbrella header for the stable, installable Lightpath API.
  *
  * For source-level topology/runtime integration, include module headers directly
- * (for example `lightpath/runtime.hpp`, `lightpath/topology.hpp`).
+ * (for example `lightpath/integration/runtime.hpp`,
+ * `lightpath/integration/topology.hpp`).
  */
