@@ -10,6 +10,5 @@
 namespace lightpath {
 
 using Debugger = ::LPDebugger;
-using LPDebugger = ::LPDebugger;  // compatibility alias
 
 }  // namespace lightpath

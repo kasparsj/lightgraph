@@ -23,12 +23,10 @@ using EmitParam = ::EmitParam;
 using EmitParams = ::EmitParams;
 using Behaviour = ::Behaviour;
 using RuntimeLight = ::LPLight;
-using LPLight = ::LPLight;  // compatibility alias
 using Light = ::Light;
 using LightList = ::LightList;
 using BgLight = ::BgLight;
 using RuntimeState = ::State;
-using State = ::State;  // compatibility alias
 
 /**
  * @brief RAII facade owning a topology object and runtime state.

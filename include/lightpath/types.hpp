@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../../src/Config.h"
+#include "../../src/core/Types.h"
+#include "../../src/core/Limits.h"
 #include "../../src/Globals.h"
 
 /**
@@ -11,7 +12,6 @@
 namespace lightpath {
 
 using Color = ::ColorRGB;
-using ColorRGB = ::ColorRGB;  // compatibility alias
 using ListOrder = ::ListOrder;
 using ListHead = ::ListHead;
 using BlendMode = ::BlendMode;

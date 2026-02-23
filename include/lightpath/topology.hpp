@@ -17,7 +17,6 @@
 namespace lightpath {
 
 using Owner = ::LPOwner;
-using LPOwner = ::LPOwner;  // compatibility alias
 using Port = ::Port;
 using InternalPort = ::InternalPort;
 using ExternalPort = ::ExternalPort;
@@ -26,7 +25,6 @@ using Model = ::Model;
 using Intersection = ::Intersection;
 using Connection = ::Connection;
 using Object = ::LPObject;
-using LPObject = ::LPObject;  // compatibility alias
 using PixelGap = ::PixelGap;
 
 }  // namespace lightpath
