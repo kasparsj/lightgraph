@@ -1,116 +1,100 @@
 # Lightpath Migration Guide
 
-## Summary
-
-Lightpath now publishes a stable public API under `include/lightpath/` and
-introduces a source-level API break for command parameter access to remove
-manual heap ownership.
+This guide covers migration to the current refactored Lightpath layout.
 
 ## What Changed
 
-1. Added public namespaced API headers:
-   - `lightpath/lightpath.hpp` (umbrella)
-   - `lightpath/types.hpp`, `topology.hpp`, `runtime.hpp`, `rendering.hpp`, `objects.hpp`, `factory.hpp`, `debug.hpp`
-2. Added CMake target alias:
-   - `lightpath::lightpath` (aliases existing `lightpath_core`)
-3. Added `lightpath::Engine` facade and `lightpath::makeObject(...)` factory helpers.
-4. Added example target and public API test coverage.
-5. Updated parent integrations (simulator + firmware) to include the new public headers.
-6. Source-level API break:
-   - `LPObject::getParams(char)` now returns `std::optional<EmitParams>` and is `const`.
-   - `LPObject::getModelParams(int)` now returns `EmitParams` by value and is `const`.
-   - Derived object overrides must match the new signatures.
-7. Topology editing API updates:
-   - `LPObject` now exposes `removeConnection(uint8_t groupIndex, size_t index)` and `removeConnection(Connection*)`.
-   - `Intersection::ports` is now `std::vector<Port*>` (no manual array allocation/deallocation).
-8. `src/` was reorganized to mirror public API modules:
-   - `src/topology/`, `src/runtime/`, `src/rendering/`, `src/debug/`, plus existing `src/objects/`.
+1. Introduced a stable high-level API:
+   - `lightpath/lightpath.hpp`
+   - `lightpath/engine.hpp`
+   - `lightpath/types.hpp`
+   - `lightpath/status.hpp`
+2. Moved historical broad API into a compatibility namespace/header set:
+   - `lightpath/legacy.hpp`
+   - `lightpath/legacy/*.hpp`
+3. Added CMake install/export support:
+   - installable target: `lightpath::lightpath`
+   - generated package config: `lightpathConfig.cmake`
+4. Added CI-friendly preset profiles (`CMakePresets.json`).
+5. Fixed runtime memory-safety issues found by fuzz/sanitizer tests:
+   - pixel write/read bounds hardening in `State`
+   - `LightList` reallocation/delete size mismatch
+   - connection render index UB under UBSAN
 
-## Why
+## Breaking Changes
 
-- Provide a professional, discoverable API boundary for external users.
-- Decouple public usage from internal file layout under `src/`.
-- Remove error-prone ownership transfer (`new`/`delete`) from command parameter lookups.
-- Keep runtime behavior stable while modernizing API safety.
+1. Top-level historical headers are no longer under `include/lightpath/*.hpp`:
+   - `topology.hpp`, `runtime.hpp`, `rendering.hpp`, `objects.hpp`,
+     `factory.hpp`, `debug.hpp` moved to `include/lightpath/legacy/`.
+2. Consumers of the old broad API must now include:
+   - `#include <lightpath/legacy.hpp>`
+   - or individual `lightpath/legacy/*.hpp` headers.
+3. Stable API is intentionally smaller and engine-oriented; it does not expose
+   direct topology/runtime internals.
 
-## Migration Steps
+## Migration Paths
 
-1. Prefer replacing direct `src/*` includes with:
-   - `#include <lightpath/lightpath.hpp>`
-   - or module-specific headers under `lightpath/`.
-2. In CMake consumers, link `lightpath::lightpath`.
-3. Optionally migrate to facade-based startup:
-   - `auto object = lightpath::makeObject(...);`
-   - `lightpath::Engine engine(std::move(object));`
-4. Update command parameter usage from owning pointers to values:
+### Path A: Stay on Legacy API (fastest)
+
+Use:
 
 ```cpp
-// Before
-EmitParams* params = object->getParams(command);
-if (params != nullptr) {
-  doEmit(*params);
-}
-delete params;
-
-// After
-if (std::optional<EmitParams> params = object->getParams(command)) {
-  doEmit(*params);
-}
+#include <lightpath/legacy.hpp>
 ```
-5. Update custom object overrides:
+
+No semantic changes are required for most existing MeshLED-style code.
+
+### Path B: Migrate to Stable API (recommended for new integrations)
+
+Use:
 
 ```cpp
-// Before
-EmitParams* getModelParams(int model) override;
-EmitParams* getParams(char command) override;
-
-// After
-EmitParams getModelParams(int model) const override;
-std::optional<EmitParams> getParams(char command) const override;
+#include <lightpath/lightpath.hpp>
 ```
-6. If you mutate topology at runtime, replace direct connection delete/erase with:
 
-```cpp
-// Before
-delete object->conn[group][index];
-object->conn[group].erase(object->conn[group].begin() + index);
+Then:
 
-// After
-object->removeConnection(group, index);
+1. Replace direct `State`/`LPObject` ownership with `lightpath::Engine`.
+2. Replace imperative parameter mutation with `lightpath::EmitCommand`.
+3. Replace raw return/error conventions with `lightpath::Result<T>`.
+
+## CMake Migration
+
+### As a subdirectory
+
+```cmake
+add_subdirectory(external/lightpath)
+target_link_libraries(your_target PRIVATE lightpath::lightpath)
 ```
-7. If you include private/internal headers directly, prefer module paths under `src/`:
-   - `src/topology/...`, `src/runtime/...`, `src/rendering/...`, `src/debug/...`
-8. If you consume namespaced APIs, use canonical names:
-   - `lightpath::Object`, `lightpath::RuntimeState`, `lightpath::RuntimeLight`, `lightpath::Debugger`
 
-## Compatibility / Deprecation Notes
+### As an installed package
 
-- Flat compatibility headers in `src/*.h` were removed.
-- Shared core internals were split from `src/Config.h` into:
-  - `src/core/Platform.h`, `src/core/Types.h`, `src/core/Limits.h`
-- Internal includes must use module paths under `src/`:
-  - `src/topology/...`, `src/runtime/...`, `src/rendering/...`, `src/debug/...`
-- `LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS=ON` only exports `src/` as a
-  public include root for module-prefixed internal headers.
-- `lightpath::LP*` public compatibility aliases were removed.
-- No runtime behavior changes are intended in this migration.
-- There is no pointer-based compatibility shim for `getParams`/`getModelParams`; callers and overrides must migrate to value semantics.
-- Port-slot lifetime is now managed automatically during connection teardown; manual `Intersection` port cleanup is no longer needed.
+```cmake
+find_package(lightpath CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE lightpath::lightpath)
+```
+
+Legacy headers are installed only when:
+
+```cmake
+-DLIGHTPATH_CORE_INSTALL_LEGACY_HEADERS=ON
+```
 
 ## Parent Migration Notes (MeshLED)
 
-The parent repository was migrated in the same change set:
+Parent code was updated in the same change set:
 
-1. Firmware headers now consume public API headers:
-   - `firmware/esp/LightPath.h` -> `<lightpath/lightpath.hpp>`
-   - `firmware/esp/WebServerLayers.h` -> `<lightpath/rendering.hpp>`
-   - `firmware/esp/homo_deus.ino` (debug path) -> `<lightpath/debug.hpp>`
-2. PlatformIO now exports the public include directory:
-   - `firmware/esp/platformio.ini` adds `-I../../packages/lightpath/include`
-3. Simulator now includes the umbrella API header:
-   - `apps/simulator/src/ofApp.h` -> `\"lightpath/lightpath.hpp\"`
-   - `apps/simulator/config.make` adds include path `-I../../packages/lightpath/include`
-4. Parent command dispatchers migrated to optional/value API:
-   - `apps/simulator/src/ofApp.cpp` now consumes `std::optional<EmitParams>`
-   - `firmware/esp/LEDLib.h` now consumes `std::optional<EmitParams>`
-5. Parent firmware topology editor now uses `LPObject::removeConnection(...)` and no longer manually deletes from connection vectors.
+1. Simulator now includes:
+   - `apps/simulator/src/ofApp.h` -> `#include "lightpath/legacy.hpp"`
+2. Firmware now includes:
+   - `firmware/esp/LightPath.h` -> `#include <lightpath/legacy.hpp>`
+   - `firmware/esp/WebServerLayers.h` -> `#include <lightpath/legacy/rendering.hpp>`
+   - `firmware/esp/homo_deus.ino` (debug mode) -> `#include <lightpath/legacy/debug.hpp>`
+3. Existing include paths for `packages/lightpath/include` remain valid.
+
+## Compatibility Notes
+
+- Legacy API remains source-compatible where possible but is now explicitly
+  marked as compatibility surface.
+- Stable API and legacy API can evolve independently.
+- Internal `src/` headers remain non-API and may continue to change.

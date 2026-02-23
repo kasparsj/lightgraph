@@ -1,139 +1,131 @@
 # Lightpath
 
-Lightpath is a standalone C++ light-graph engine extracted from MeshLED.
-It models LED topology (intersections/connections), runs animation state updates,
-and produces deterministic per-pixel color output.
+Lightpath is a standalone C++17 light-graph engine extracted from MeshLED.
+It builds topology, runs animation/runtime state, and produces per-pixel RGB output.
 
-## Highlights
+## API Layout
 
-- Topology graph engine (`LPObject`, `Intersection`, `Connection`, `Model`)
-- Runtime animation/state system (`State`, `LightList`, `LPLight`)
-- Palette + blend-mode rendering (`Palette`, built-in palettes, blend operators)
-- Public namespaced API surface under `include/lightpath/`
-- Module-aligned internal sources under `src/`
+Lightpath currently ships two API layers:
+
+- Stable high-level API (`include/lightpath/`):
+  - `lightpath/lightpath.hpp`
+  - `lightpath/engine.hpp`
+  - `lightpath/types.hpp`
+  - `lightpath/status.hpp`
+- Legacy compatibility API (`include/lightpath/legacy.hpp`, `include/lightpath/legacy/*.hpp`):
+  - Exposes historical topology/runtime/rendering types used by MeshLED integrations.
+  - Backed by internal headers in `src/`.
 
 ## Build and Test
 
 ```bash
 git submodule update --init --recursive
-cmake -S . -B build -DLIGHTPATH_CORE_BUILD_TESTS=ON
+cmake -S . -B build -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_BUILD_EXAMPLES=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
-## Quickstart (Public API)
+## CI Presets
+
+`CMakePresets.json` includes CI-friendly profiles:
+
+- `default`: normal build + tests + example
+- `warnings`: warnings as errors
+- `asan`: AddressSanitizer
+- `ubsan`: UndefinedBehaviorSanitizer
+
+```bash
+cmake --preset default
+cmake --build --preset default
+ctest --preset default
+```
+
+## Quickstart (Stable API)
 
 ```cpp
 #include <lightpath/lightpath.hpp>
 
 int main() {
-    auto object = lightpath::makeObject(lightpath::BuiltinObjectType::Line);
-    lightpath::Engine engine(std::move(object));
+    lightpath::EngineConfig config;
+    config.object_type = lightpath::ObjectType::Line;
+    config.pixel_count = 64;
 
-    lightpath::EmitParams params(0, 1.0f, 0x33CC99);
-    params.setLength(6);
-    engine.state().emit(params);
+    lightpath::Engine engine(config);
 
-    lightpath::millis() += 16;
-    engine.update(lightpath::millis());
+    lightpath::EmitCommand emit;
+    emit.model = 0;
+    emit.length = 8;
+    emit.speed = 1.0f;
+    emit.color = 0x33CC99;
 
-    lightpath::Color p0 = engine.state().getPixel(0);
-    return (p0.R || p0.G || p0.B) ? 0 : 1;
+    const auto emitted = engine.emit(emit);
+    if (!emitted) {
+        return 1;
+    }
+
+    engine.tick(16);
+
+    const auto p0 = engine.pixel(0);
+    if (!p0) {
+        return 1;
+    }
+
+    const lightpath::Color color = p0.value();
+    return (color.r || color.g || color.b) ? 0 : 1;
 }
 ```
 
-A complete compiling sample is available at `examples/minimal_usage.cpp`.
-
-## Core Concepts
-
-- Topology:
-  - `LPObject` owns grouped `Intersection` and `Connection` graphs plus `Model` weights.
-  - Built-in shapes are available via `lightpath::makeObject(...)`.
-- Runtime State:
-  - `State` owns layered `LightList` instances and computes frame-by-frame pixel output.
-  - `emit(...)` adds or reuses active light lists.
-- Rendering:
-  - `Palette` controls color interpolation and wrap behavior.
-  - Blend modes combine active layers into final pixel color.
+A compiling example is provided in `examples/minimal_usage.cpp`.
 
 ## CMake Integration
 
-### Option 1: `add_subdirectory`
+### `add_subdirectory`
 
 ```cmake
 add_subdirectory(external/lightpath)
 target_link_libraries(your_target PRIVATE lightpath::lightpath)
 ```
 
-### Option 2: `FetchContent`
+### Install + `find_package`
+
+Install:
+
+```bash
+cmake -S . -B build -DLIGHTPATH_CORE_BUILD_TESTS=OFF
+cmake --build build --parallel
+cmake --install build --prefix /path/to/install
+```
+
+Consume:
 
 ```cmake
-include(FetchContent)
-FetchContent_Declare(
-  lightpath
-  GIT_REPOSITORY https://github.com/kasparsj/lightpath.git
-  GIT_TAG main
-)
-FetchContent_MakeAvailable(lightpath)
-
+find_package(lightpath CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE lightpath::lightpath)
 ```
 
-## Public Headers
+## Build Options
 
-- `lightpath/lightpath.hpp` (umbrella)
-- `lightpath/types.hpp`
-- `lightpath/topology.hpp`
-- `lightpath/runtime.hpp`
-- `lightpath/rendering.hpp`
-- `lightpath/objects.hpp`
-- `lightpath/factory.hpp`
-- `lightpath/debug.hpp`
+- `LIGHTPATH_CORE_BUILD_TESTS` (default: `ON`)
+- `LIGHTPATH_CORE_BUILD_EXAMPLES` (default: `ON`)
+- `LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS` (default: `OFF`)
+- `LIGHTPATH_CORE_ENABLE_ASAN` (default: `OFF`)
+- `LIGHTPATH_CORE_ENABLE_UBSAN` (default: `OFF`)
+- `LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS` (default: `OFF`)
+- `LIGHTPATH_CORE_INSTALL_LEGACY_HEADERS` (default: `OFF`)
 
 ## Source Layout
 
-`src/` is now organized by module to mirror the public API:
-
-- `src/topology/` graph and routing primitives (`LPObject`, `Intersection`, `Connection`, `Model`, `Port`)
-- `src/runtime/` animation/state machinery (`State`, `LightList`, `LPLight`, `EmitParams`, `Behaviour`)
-- `src/rendering/` palette and blend support (`Palette`, built-in palettes)
-- `src/debug/` debugger helpers (`LPDebugger`)
+- `include/lightpath/` stable public API
+- `include/lightpath/legacy/` compatibility surface
+- `src/topology/` graph objects and routing
+- `src/runtime/` state update and animation
+- `src/rendering/` palette/blend implementation
 - `src/objects/` built-in topology definitions
-- `src/core/` shared non-platform primitives (`Types.h`, `Limits.h`) and platform adapter macros (`Platform.h`)
+- `src/debug/` debug helpers
+- `src/core/` shared constants/types/platform macros
 
-## Compatibility
-
-Flat compatibility headers at `src/*.h` were removed. If you include internals
-directly, use module paths (`src/topology/...`, `src/runtime/...`, etc.).
-
-`LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS` controls whether `src/` is exported
-as a public include directory for transitional builds that include module
-headers via `topology/...`, `runtime/...`, `rendering/...`, `debug/...`.
-
-Source-level API break: command parameter APIs are now value-based:
-
-- `LPObject::getParams(char)` -> `std::optional<EmitParams>`
-- `LPObject::getModelParams(int)` -> `EmitParams` (by value)
-
-This removes manual `new`/`delete` ownership patterns for command dispatch.
-
-Public namespace cleanup:
-
-- Canonical names are now `lightpath::Object`, `lightpath::RuntimeState`, `lightpath::RuntimeLight`, `lightpath::Debugger`.
-- `lightpath::LP*` compatibility aliases were removed from public headers.
-
-## Additional Docs
+## Docs
 
 - API reference: `docs/API.md`
 - Migration notes: `MIGRATION.md`
-- Audit report: `docs/CORE_AUDIT_REPORT.md`
-
-## Build Profiles
-
-Address/undefined sanitizers and strict warnings are supported:
-
-```bash
-CC=clang CXX=clang++ cmake -S . -B build-asan -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_ASAN=ON
-CC=clang CXX=clang++ cmake -S . -B build-ubsan -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_UBSAN=ON
-CC=clang CXX=clang++ cmake -S . -B build-warnings -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_STRICT_WARNINGS=ON
-```
+- Changelog: `CHANGELOG.md`
