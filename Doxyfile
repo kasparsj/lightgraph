@@ -1,6 +1,6 @@
 PROJECT_NAME           = "Lightpath"
 PROJECT_BRIEF          = "C++17 light-graph engine API reference"
-OUTPUT_DIRECTORY       = build/docs
+OUTPUT_DIRECTORY       = build
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
 OPTIMIZE_OUTPUT_FOR_C  = NO
@@ -11,7 +11,6 @@ FILE_PATTERNS          = *.hpp *.md
 RECURSIVE              = YES
 EXCLUDE                = src vendor tests examples build build-* cmake
 USE_MDFILE_AS_MAINPAGE = docs/API.md
-EXTENSION_MAPPING      = md=markdown
 MARKDOWN_SUPPORT       = YES
 TOC_INCLUDE_HEADINGS   = 3
 
@@ -31,7 +30,7 @@ JAVADOC_AUTOBRIEF      = YES
 SORT_MEMBER_DOCS       = YES
 
 GENERATE_HTML          = YES
-HTML_OUTPUT            = html
+HTML_OUTPUT            = docs/html
 HTML_COLORSTYLE        = LIGHT
 FULL_SIDEBAR           = YES
 HTML_DYNAMIC_MENUS     = YES
