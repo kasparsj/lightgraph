@@ -1,6 +1,7 @@
 #include "Port.h"
 #include "Connection.h"
 #include "Intersection.h"
+#include "../runtime/Behaviour.h"
 #include "../runtime/LPLight.h"
 
 // Initialize function pointer to null

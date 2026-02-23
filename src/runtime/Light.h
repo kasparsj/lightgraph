@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "LPLight.h"
 #include "../Globals.h"
 
@@ -28,7 +30,9 @@ class Light : public LPLight {
         return lifeMillis;
     }
     void setDuration(uint32_t durMillis) {
-        lifeMillis = MIN(gMillis + durMillis, INFINITE_DURATION);
+        lifeMillis = static_cast<uint32_t>(std::min(
+            static_cast<unsigned long>(gMillis + durMillis),
+            static_cast<unsigned long>(INFINITE_DURATION)));
     }
     ColorRGB getColor() const {
         return color;

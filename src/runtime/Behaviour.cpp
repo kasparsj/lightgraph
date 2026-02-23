@@ -1,5 +1,6 @@
 #include "Behaviour.h"
 #include "LPLight.h"
+#include "../core/Platform.h"
 #include "../topology/Model.h"
 #include "../Globals.h"
 

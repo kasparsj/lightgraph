@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../Config.h"
+#include <cstdint>
 #include "LPOwner.h"
 #include "Port.h"
-#include "../runtime/LPLight.h"
 
 class Intersection;
+class LPLight;
 
 class Connection : public LPOwner {
 
@@ -23,14 +23,7 @@ class Connection : public LPOwner {
     ~Connection() override;
     
     uint8_t getType() override { return TYPE_CONNECTION; };
-    inline void add(LPLight* const light) const {
-        if (numLeds > 0) {
-            LPOwner::add(light);
-        }
-        else {
-            outgoing(light);
-        }
-    }
+    void add(LPLight* const light) const;
     void emit(LPLight* const light) const override;
     void update(LPLight* const light) const override;
     uint16_t getPixel(uint16_t i) const {

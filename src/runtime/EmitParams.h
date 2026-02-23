@@ -2,7 +2,8 @@
 
 #include <algorithm>
 #include <optional>
-#include "../Config.h"
+#include "../core/Types.h"
+#include "../core/Limits.h"
 #include "../LPRandom.h"
 #include <vector>
 #include "../rendering/Palette.h"

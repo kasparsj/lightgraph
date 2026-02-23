@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
-#include "../Config.h"
 #include "LPOwner.h"
 #include "Port.h"
-#include "../runtime/Behaviour.h"
+
+class Behaviour;
+class Model;
 
 class Intersection : public LPOwner {
 

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../Config.h"
+#include "../core/Types.h"
+#include "../core/Limits.h"
+#include "../LPRandom.h"
 #include "../topology/LPObject.h"
 
 enum HeptagonStarModel {

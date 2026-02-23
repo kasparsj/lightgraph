@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../Config.h"
-#include "../runtime/LPLight.h"
+#include <cstdint>
+
+class LPLight;
 
 class LPOwner
 {
@@ -16,9 +17,6 @@ class LPOwner
 
     virtual uint8_t getType() = 0;
     virtual void emit(LPLight* const light) const = 0;
-    inline void add(LPLight* const light) const {
-        light->owner = this;
-        light->owner->update(light);
-    }
+    void add(LPLight* const light) const;
     virtual void update(LPLight* const light) const = 0;
 };

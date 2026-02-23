@@ -1,6 +1,10 @@
 #include "Palette.h"
 #include "../../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
 
+namespace ofxColorTheory {
+extern template const std::vector<std::shared_ptr<ColorWheelScheme_<ColorRGB>>> ColorWheelSchemes_<ColorRGB>::SCHEMES;
+}  // namespace ofxColorTheory
+
 ColorRGB Palette::noColor = ColorRGB(0, 0, 0);
 
 Palette::Palette() : colorRule(-1), rgbCacheDirty(true) {

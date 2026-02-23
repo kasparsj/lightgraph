@@ -1,6 +1,11 @@
 #include "State.h"
+
+#include "../core/Platform.h"
+#include "../topology/LPObject.h"
 #include "../topology/Model.h"
 #include "Behaviour.h"
+#include "BgLight.h"
+#include "EmitParams.h"
 #include "LightList.h"
 #include "../rendering/Palettes.h"
 
@@ -9,6 +14,24 @@
 #endif
 
 EmitParams State::autoParams(EmitParams::DEFAULT_MODEL, RANDOM_SPEED);
+
+State::State(LPObject& obj)
+    : object(obj),
+      pixelValuesR(obj.pixelCount, 0),
+      pixelValuesG(obj.pixelCount, 0),
+      pixelValuesB(obj.pixelCount, 0),
+      pixelDiv(obj.pixelCount, 0) {
+    setupBg(0);
+}
+
+State::~State() {
+    for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
+        if (lightLists[i] != NULL) {
+            delete lightLists[i];
+            lightLists[i] = NULL;
+        }
+    }
+}
 
 uint8_t State::randomModel() {
   return floor(LP_RANDOM(object.models.size()));
@@ -404,6 +427,24 @@ void State::stopAll() {
     if (lightLists[i] == NULL) continue;
     lightLists[i]->setDuration(0);
   }
+}
+
+bool State::isOn() {
+    for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
+        if (lightLists[i] != NULL && lightLists[i]->visible) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void State::setOn(bool newState) {
+    if (lightLists[0]) {
+        lightLists[0]->visible = newState;
+    }
+    if (!newState) {
+        autoEnabled = false;
+    }
 }
 
 int8_t State::findList(uint8_t noteId) const {

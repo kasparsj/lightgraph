@@ -1,8 +1,11 @@
 #pragma once
 
-#include <vector>
 #include <algorithm>
-#include "../Config.h"
+#include <cmath>
+#include <vector>
+
+#include "../core/Types.h"
+#include "../core/Limits.h"
 #include "../../vendor/ofxColorTheory/src/ColorScheme.h"
 #include "../../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
 
@@ -47,9 +50,9 @@ public:
                 
         // Apply segmentation if enabled
         if (segmentation > 0.0f && total > 0) {
-            size_t segmentSize = MAX((size_t)1, total / segmentation);
+            const size_t segmentSize = std::max<size_t>(1, static_cast<size_t>(total / segmentation));
             float segmentNum;
-            float segmentFrac = std::modf((float) colorIndex / segmentSize, &segmentNum);
+            const float segmentFrac = std::modf(static_cast<float>(colorIndex) / segmentSize, &segmentNum);
             
             // Check for segment boundary condition - first segment's last color clamp
             if (wrapMode == WRAP_CLAMP_TO_EDGE && segmentation >= 2.0f && segmentNum >= 1) {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Config.h"
+#include "../core/Types.h"
 #include "EmitParams.h"
 
 class LPLight;

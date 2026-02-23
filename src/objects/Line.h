@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../Config.h"
+#include "../core/Types.h"
+#include "../core/Limits.h"
+#include "../LPRandom.h"
 #include "../topology/LPObject.h"
 
 #define LINE_PIXEL_COUNT 300  // Line from pixel 0 to 287

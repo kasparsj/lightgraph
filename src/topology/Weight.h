@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Config.h"
+#include "../core/Limits.h"
 #include "Port.h"
 #include "../HashMap.h"
 

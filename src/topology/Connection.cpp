@@ -2,6 +2,8 @@
 #include "Connection.h"
 #include "Intersection.h"
 #include "LPObject.h"
+#include "../runtime/Behaviour.h"
+#include "../runtime/LPLight.h"
 
 Connection::Connection(Intersection *from, Intersection *to, uint8_t group, int16_t forceNumLeds) : LPOwner(group) {
   this->from = from;
@@ -59,6 +61,14 @@ Connection::~Connection() {
     delete toPort;
     toPort = nullptr;
   }
+}
+
+void Connection::add(LPLight* const light) const {
+    if (numLeds > 0) {
+        LPOwner::add(light);
+    } else {
+        outgoing(light);
+    }
 }
 
 void Connection::emit(LPLight* const light) const {

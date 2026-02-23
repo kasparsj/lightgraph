@@ -74,15 +74,19 @@ class bounce{
 class circ{
 	public:
 	inline static float easeIn (float t,float b , float c, float d) {
-		return -c * (sqrt(1 - (t/=d)*t) - 1) + b;
+		const float scaled = t / d;
+		return -c * (sqrt(1 - scaled * scaled) - 1) + b;
 	}
 	inline static float easeOut(float t,float b , float c, float d) {
-		return c * sqrt(1 - (t=t/d-1)*t) + b;
+		const float shifted = t / d - 1;
+		return c * sqrt(1 - shifted * shifted) + b;
 	}
 
 	inline static float easeInOut(float t,float b , float c, float d) {
-		if ((t/=d/2) < 1) return c/2 * (1 - sqrt(1 - t*t)) + b;
-		return c/2 * (sqrt(1 - (t-=2)*t) + 1) + b;
+		float scaled = t / (d / 2);
+		if (scaled < 1) return c / 2 * (1 - sqrt(1 - scaled * scaled)) + b;
+		scaled -= 2;
+		return c / 2 * (sqrt(1 - scaled * scaled) + 1) + b;
 	}
 };
 
@@ -90,15 +94,19 @@ class cubic{
 	public:
 
 	inline static float easeIn (float t,float b , float c, float d) {
-		return c*(t/=d)*t*t + b;
+		const float scaled = t / d;
+		return c * scaled * scaled * scaled + b;
 	}
 	inline static float easeOut(float t,float b , float c, float d) {
-		return c*((t=t/d-1)*t*t + 1) + b;
+		const float shifted = t / d - 1;
+		return c * (shifted * shifted * shifted + 1) + b;
 	}
 
 	inline static float easeInOut(float t,float b , float c, float d) {
-		if ((t/=d/2) < 1) return c/2*t*t*t + b;
-		return c/2*((t-=2)*t*t + 2) + b;
+		float scaled = t / (d / 2);
+		if (scaled < 1) return c / 2 * scaled * scaled * scaled + b;
+		scaled -= 2;
+		return c / 2 * (scaled * scaled * scaled + 2) + b;
 	}
 };
 
@@ -186,15 +194,19 @@ class linear{
 class quad{
 	public:
 	inline static float easeIn (float t,float b , float c, float d) {
-		return c*(t/=d)*t + b;
+		const float scaled = t / d;
+		return c * scaled * scaled + b;
 	}
 	inline static float easeOut(float t,float b , float c, float d) {
-		return -c *(t/=d)*(t-2) + b;
+		const float scaled = t / d;
+		return -c * scaled * (scaled - 2) + b;
 	}
 
 	inline static float easeInOut(float t,float b , float c, float d) {
-		if ((t/=d/2) < 1) return c/2*t*t + b;
-		return -c/2 * ((--t)*(t-2) - 1) + b;
+		float scaled = t / (d / 2);
+		if (scaled < 1) return c / 2 * scaled * scaled + b;
+		scaled -= 1;
+		return -c / 2 * (scaled * (scaled - 2) - 1) + b;
 
 		/*
 
@@ -217,30 +229,38 @@ class quad{
 class quart{
 	public:
 	inline static float easeIn (float t,float b , float c, float d) {
-		return c*(t/=d)*t*t*t + b;
+		const float scaled = t / d;
+		return c * scaled * scaled * scaled * scaled + b;
 	}
 	inline static float easeOut(float t,float b , float c, float d) {
-		return -c * ((t=t/d-1)*t*t*t - 1) + b;
+		const float shifted = t / d - 1;
+		return -c * (shifted * shifted * shifted * shifted - 1) + b;
 	}
 
 	inline static float easeInOut(float t,float b , float c, float d) {
-		if ((t/=d/2) < 1) return c/2*t*t*t*t + b;
-		return -c/2 * ((t-=2)*t*t*t - 2) + b;
+		float scaled = t / (d / 2);
+		if (scaled < 1) return c / 2 * scaled * scaled * scaled * scaled + b;
+		scaled -= 2;
+		return -c / 2 * (scaled * scaled * scaled * scaled - 2) + b;
 	}
 };
 
 class quint{
 	public:
 	inline static float easeIn (float t,float b , float c, float d) {
-		return c*(t/=d)*t*t*t*t + b;
+		const float scaled = t / d;
+		return c * scaled * scaled * scaled * scaled * scaled + b;
 	}
 	inline static float easeOut(float t,float b , float c, float d) {
-		return c*((t=t/d-1)*t*t*t*t + 1) + b;
+		const float shifted = t / d - 1;
+		return c * (shifted * shifted * shifted * shifted * shifted + 1) + b;
 	}
 
 	inline static float easeInOut(float t,float b , float c, float d) {
-		if ((t/=d/2) < 1) return c/2*t*t*t*t*t + b;
-		return c/2*((t-=2)*t*t*t*t + 2) + b;
+		float scaled = t / (d / 2);
+		if (scaled < 1) return c / 2 * scaled * scaled * scaled * scaled * scaled + b;
+		scaled -= 2;
+		return c / 2 * (scaled * scaled * scaled * scaled * scaled + 2) + b;
 	}
 };
 

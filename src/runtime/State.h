@@ -2,10 +2,16 @@
 
 #include <vector>
 
-#include "../Config.h"
-#include "EmitParams.h"
-#include "../topology/LPObject.h"
-#include "BgLight.h"
+#include "../core/Types.h"
+#include "../core/Limits.h"
+
+class EmitParams;
+class LPObject;
+class LightList;
+class Model;
+class Behaviour;
+class LPOwner;
+class LPLight;
 
 class State {
 
@@ -27,23 +33,8 @@ class State {
     bool showIntersections = false;
     bool showConnections = false;
 
-    State(LPObject &obj)
-        : object(obj),
-          pixelValuesR(obj.pixelCount, 0),
-          pixelValuesG(obj.pixelCount, 0),
-          pixelValuesB(obj.pixelCount, 0),
-          pixelDiv(obj.pixelCount, 0) {
-        // there is always lightList[0]
-        setupBg(0);
-    }
-    ~State() {
-      for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
-        if (lightLists[i] != NULL) {
-          delete lightLists[i];
-          lightLists[i] = NULL;
-        }
-      }
-    }
+    explicit State(LPObject &obj);
+    ~State();
 
     uint8_t randomModel();
     ColorRGB paletteColor(uint8_t index, uint8_t maxBrightness = FULL_BRIGHTNESS);
@@ -63,22 +54,8 @@ class State {
     void stopNote(uint8_t i);
     ColorRGB getPixel(uint16_t i, uint8_t maxBrightness = FULL_BRIGHTNESS);
     void debug();
-    bool isOn() {
-        for (uint8_t i=0; i<MAX_LIGHT_LISTS; i++) {
-            if (lightLists[i] != NULL && lightLists[i]->visible) {
-                return true;
-            }
-        }
-        return false;
-    }
-    void setOn(bool newState) {
-        if (lightLists[0]) {
-            lightLists[0]->visible = newState;
-        }
-        if (newState == false) {
-            autoEnabled = false;
-        }
-    }
+    bool isOn();
+    void setOn(bool newState);
     void setupBg(uint8_t i);
     void doEmit(LPOwner* from, LightList *lightList, uint8_t emitOffset = 0);
 

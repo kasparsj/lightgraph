@@ -1,4 +1,5 @@
 #include "Weight.h"
+#include "../core/Platform.h"
 
 void Weight::add(const Port *incoming, uint8_t w) {
     if (conditional->willOverflow()) {

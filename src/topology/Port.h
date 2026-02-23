@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Config.h"
+#include <cstdint>
 
 class Connection;
 class Intersection;

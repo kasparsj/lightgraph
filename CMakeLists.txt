@@ -48,17 +48,25 @@ if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
       -Wextra
       -Wpedantic
       -Werror
-      -Wno-unsequenced
+    )
+    target_compile_options(
+      lightpath_core
+      PRIVATE
+        ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS}
+    )
+
+    set(
+      LIGHTPATH_CORE_VENDOR_WARNING_SUPPRESSIONS
       -Wno-delete-non-abstract-non-virtual-dtor
       -Wno-overloaded-virtual
       -Wno-reorder-ctor
       -Wno-sometimes-uninitialized
       -Wno-undefined-var-template
     )
-    target_compile_options(
-      lightpath_core
-      PRIVATE
-        ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS}
+    set_source_files_properties(
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/rendering/ColorTheory.cpp"
+      PROPERTIES
+        COMPILE_OPTIONS "${LIGHTPATH_CORE_VENDOR_WARNING_SUPPRESSIONS}"
     )
   elseif(MSVC)
     set(LIGHTPATH_CORE_STRICT_WARNING_FLAGS /W4 /WX)

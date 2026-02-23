@@ -1,5 +1,8 @@
 #include "LPDebugger.h"
 
+#include "../core/Platform.h"
+#include "../topology/LPObject.h"
+
 LPDebugger::LPDebugger(LPObject &object) : object(object) {
     interPixels = new bool[object.pixelCount]{false};
     connPixels = new bool[object.pixelCount]{false};

@@ -1,9 +1,11 @@
 #pragma once
 
-#include "../Config.h"
+#include "../core/Types.h"
+#include "../core/Limits.h"
 #include "../ofxEasing.h"
 #include "Behaviour.h"
 #include "LPLight.h"
+#include <stdexcept>
 #include <vector>
 #include "../rendering/Palette.h"
 

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../Config.h"
+#include "../core/Types.h"
+#include "../core/Limits.h"
+#include "../LPRandom.h"
 #include "../topology/LPObject.h"
 
 #define CROSS_PIXEL_COUNT 288  // 2 lines with 144 pixels each

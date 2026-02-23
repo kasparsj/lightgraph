@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../topology/LPObject.h"
+#include <cstdint>
+
+class LPObject;
 
 #define AVG_FPS_FRAMES 120
 
