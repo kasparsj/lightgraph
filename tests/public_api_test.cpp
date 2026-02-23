@@ -35,6 +35,9 @@ int main() {
     if (invalid_result.ok() || invalid_result.status().code() != lightpath::ErrorCode::InvalidModel) {
         return fail("Invalid model emit did not return ErrorCode::InvalidModel");
     }
+    if (invalid_result.status().message().empty()) {
+        return fail("Invalid model emit did not return an explanatory message");
+    }
 
     lightpath::EmitCommand invalid_brightness;
     invalid_brightness.model = 0;
@@ -44,6 +47,9 @@ int main() {
     if (invalid_brightness_result.ok() ||
         invalid_brightness_result.status().code() != lightpath::ErrorCode::InvalidArgument) {
         return fail("Invalid brightness bounds did not return ErrorCode::InvalidArgument");
+    }
+    if (invalid_brightness_result.status().message().empty()) {
+        return fail("Invalid brightness emit did not return an explanatory message");
     }
 
     lightpath::EmitCommand command;
