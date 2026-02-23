@@ -1,6 +1,6 @@
 # Lightpath
 
-Lightpath is a standalone C++17 light-graph engine extracted from MeshLED.
+Lightpath is a standalone C++17 light-graph engine extracted from [MeshLED](https://github.com/kasparsj/meshled).
 It builds topology, runs animation/runtime state, and produces per-pixel RGB output.
 
 ## API Layout
@@ -12,7 +12,7 @@ Lightpath provides two header tiers:
   - `lightpath/engine.hpp`
   - `lightpath/types.hpp`
   - `lightpath/status.hpp`
-- Source-integration module headers (for in-repo integrations like MeshLED):
+- Source-integration module headers (for in-repo integrations like [MeshLED](https://github.com/kasparsj/meshled)):
   - `lightpath/topology.hpp`
   - `lightpath/runtime.hpp`
   - `lightpath/rendering.hpp`
