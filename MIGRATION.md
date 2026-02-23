@@ -80,14 +80,19 @@ object->removeConnection(group, index);
 ```
 7. If you include private/internal headers directly, prefer module paths under `src/`:
    - `src/topology/...`, `src/runtime/...`, `src/rendering/...`, `src/debug/...`
+8. If you consume namespaced APIs, use canonical names:
+   - `lightpath::Object`, `lightpath::RuntimeState`, `lightpath::RuntimeLight`, `lightpath::Debugger`
 
 ## Compatibility / Deprecation Notes
 
 - Flat compatibility headers in `src/*.h` were removed.
+- Shared core internals were split from `src/Config.h` into:
+  - `src/core/Platform.h`, `src/core/Types.h`, `src/core/Limits.h`
 - Internal includes must use module paths under `src/`:
   - `src/topology/...`, `src/runtime/...`, `src/rendering/...`, `src/debug/...`
 - `LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS=ON` only exports `src/` as a
   public include root for module-prefixed internal headers.
+- `lightpath::LP*` public compatibility aliases were removed.
 - No runtime behavior changes are intended in this migration.
 - There is no pointer-based compatibility shim for `getParams`/`getModelParams`; callers and overrides must migrate to value semantics.
 - Port-slot lifetime is now managed automatically during connection teardown; manual `Intersection` port cleanup is no longer needed.

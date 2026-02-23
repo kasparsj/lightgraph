@@ -99,6 +99,7 @@ target_link_libraries(your_target PRIVATE lightpath::lightpath)
 - `src/rendering/` palette and blend support (`Palette`, built-in palettes)
 - `src/debug/` debugger helpers (`LPDebugger`)
 - `src/objects/` built-in topology definitions
+- `src/core/` shared non-platform primitives (`Types.h`, `Limits.h`) and platform adapter macros (`Platform.h`)
 
 ## Compatibility
 
@@ -115,6 +116,11 @@ Source-level API break: command parameter APIs are now value-based:
 - `LPObject::getModelParams(int)` -> `EmitParams` (by value)
 
 This removes manual `new`/`delete` ownership patterns for command dispatch.
+
+Public namespace cleanup:
+
+- Canonical names are now `lightpath::Object`, `lightpath::RuntimeState`, `lightpath::RuntimeLight`, `lightpath::Debugger`.
+- `lightpath::LP*` compatibility aliases were removed from public headers.
 
 ## Additional Docs
 

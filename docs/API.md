@@ -37,7 +37,7 @@ Invariants:
 
 ## Topology Module (`topology.hpp`)
 
-- `lightpath::Object` / `lightpath::LPObject`
+- `lightpath::Object`
 - `lightpath::Intersection`
 - `lightpath::Connection`
 - `lightpath::Model`
@@ -77,9 +77,9 @@ Rules:
 
 ## Runtime Module (`runtime.hpp`)
 
-- `lightpath::RuntimeState` / `lightpath::State`
+- `lightpath::RuntimeState`
 - `lightpath::LightList`, `lightpath::BgLight`
-- `lightpath::LPLight`, `lightpath::Light`
+- `lightpath::RuntimeLight`, `lightpath::Light`
 - `lightpath::Behaviour`
 - `lightpath::Engine` facade
 
@@ -125,14 +125,14 @@ Default pixel counts for line/cross/triangle are exposed as:
 
 ## Debug Module (`debug.hpp`)
 
-- `lightpath::Debugger` / `lightpath::LPDebugger`
+- `lightpath::Debugger`
 
 Provides inspection helpers for intersections, connections, and weighted model coverage.
 
 ## Compatibility Notes
 
 - Flat compatibility headers at `src/*.h` were removed.
-- Public aliases intentionally map to existing types to preserve behavior.
+- Legacy `lightpath::LP*` compatibility aliases were removed from the public namespace.
 - Pointer-based `EmitParams*` command lookup signatures are no longer supported.
 - `Intersection::ports` is no longer a raw array pointer and should not be deleted manually.
 - Internal source modules live under `src/topology`, `src/runtime`, `src/rendering`, and `src/debug`.

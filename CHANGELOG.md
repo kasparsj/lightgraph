@@ -8,6 +8,7 @@
 - Added umbrella include `lightpath/lightpath.hpp`.
 - Added object factory helper `lightpath::makeObject(...)`.
 - Added RAII runtime facade `lightpath::Engine`.
+- Removed `lightpath::LP*` compatibility aliases from public headers; canonical names are now `Object`, `RuntimeState`, `RuntimeLight`, and `Debugger`.
 - Breaking change: `LPObject::getParams(char)` now returns `std::optional<EmitParams>` and `LPObject::getModelParams(int)` now returns `EmitParams` by value (both `const`).
 - Added topology editing helpers `LPObject::removeConnection(uint8_t,size_t)` and `LPObject::removeConnection(Connection*)`.
 - Breaking change: `Intersection::ports` moved from raw array pointer to `std::vector<Port*>`.
@@ -28,9 +29,13 @@
 - Reorganized `src/` into module folders (`topology`, `runtime`, `rendering`, `debug`) aligned with public API headers.
 - Removed flat forwarding headers in `src/*.h` (intentional source-level BC break for internal includes).
 - Moved `Weight.cpp` to `src/topology/Weight.cpp` to co-locate topology implementation files.
+- Split monolithic `src/Config.h` into focused core headers (`src/core/Platform.h`, `src/core/Types.h`, `src/core/Limits.h`) and updated internals to include only required dependencies.
+- Reduced cross-module header coupling using forward declarations and out-of-line implementations (`LPOwner::add`, `State` ctor/dtor/on-off helpers, debugger includes).
 - Refactored `Intersection` port storage to RAII vector-backed slots.
 - Fixed connection teardown lifecycle by detaching ports from endpoint intersections in `Port::~Port`.
 - Hardened debugger initialization against null/removed ports in edited topologies.
+- Isolated ofxColorTheory explicit instantiation into `src/rendering/ColorTheory.cpp` to keep vendor wiring out of runtime internals.
+- Rewrote side-effecting easing formulas in `src/ofxEasing.h` to avoid unsequenced-expression warnings.
 
 ### Tests
 
