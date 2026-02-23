@@ -12,6 +12,7 @@ Lightpath provides two header tiers:
   - `lightpath/engine.hpp`
   - `lightpath/types.hpp`
   - `lightpath/status.hpp`
+  - `lightpath/version.hpp`
 - Source-integration module headers (for in-repo integrations like [MeshLED](https://github.com/kasparsj/meshled)):
   - `lightpath/integration.hpp`
   - `lightpath/integration/topology.hpp`
@@ -40,11 +41,23 @@ ctest --test-dir build --output-on-failure
 - `warnings`: warnings as errors
 - `asan`: AddressSanitizer
 - `ubsan`: UndefinedBehaviorSanitizer
+- `static-analysis`: compile commands + benchmark target for analysis tooling
+- `docs`: Doxygen docs target
 
 ```bash
 cmake --preset default
 cmake --build --preset default
 ctest --preset default
+```
+
+## Static Analysis
+
+Lightweight static analysis helpers are included:
+
+```bash
+./scripts/check-clang-format.sh
+cmake -S . -B build/static-analysis -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLIGHTPATH_CORE_BUILD_TESTS=OFF -DLIGHTPATH_CORE_BUILD_EXAMPLES=OFF -DLIGHTPATH_CORE_BUILD_BENCHMARKS=ON
+./scripts/run-clang-tidy.sh build/static-analysis
 ```
 
 ## Quickstart (Stable API)
@@ -114,10 +127,29 @@ target_link_libraries(your_target PRIVATE lightpath::lightpath)
 
 - `LIGHTPATH_CORE_BUILD_TESTS` (default: `ON`)
 - `LIGHTPATH_CORE_BUILD_EXAMPLES` (default: `ON`)
+- `LIGHTPATH_CORE_BUILD_BENCHMARKS` (default: `OFF`)
+- `LIGHTPATH_CORE_BUILD_DOCS` (default: `OFF`)
 - `LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS` (default: `OFF`)
 - `LIGHTPATH_CORE_ENABLE_ASAN` (default: `OFF`)
 - `LIGHTPATH_CORE_ENABLE_UBSAN` (default: `OFF`)
 - `LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS` (default: `OFF`)
+
+## Benchmarks
+
+Micro-benchmark target:
+
+```bash
+cmake -S . -B build-bench -DLIGHTPATH_CORE_BUILD_BENCHMARKS=ON -DLIGHTPATH_CORE_BUILD_TESTS=OFF -DLIGHTPATH_CORE_BUILD_EXAMPLES=OFF
+cmake --build build-bench --parallel
+./build-bench/lightpath_core_benchmark
+```
+
+## Package Distribution
+
+In addition to CMake install/export:
+
+- Conan recipe: `conanfile.py`
+- vcpkg overlay templates: `packaging/vcpkg/`
 
 ## Source Layout
 
@@ -132,6 +164,8 @@ target_link_libraries(your_target PRIVATE lightpath::lightpath)
 ## Docs
 
 - API reference: `docs/API.md`
+- API compatibility policy: `docs/API_POLICY.md`
+- Packaging guide: `docs/PACKAGING.md`
 - Migration notes: `MIGRATION.md`
 - Changelog: `CHANGELOG.md`
 

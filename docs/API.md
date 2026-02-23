@@ -2,6 +2,9 @@
 
 This document describes the supported public API in `include/lightpath/`.
 
+Compatibility and deprecation guarantees for this API are defined in
+`docs/API_POLICY.md`.
+
 ## 1) Umbrella Include
 
 ```cpp
@@ -13,6 +16,7 @@ The umbrella header re-exports stable installable API headers:
 - `lightpath/engine.hpp`
 - `lightpath/types.hpp`
 - `lightpath/status.hpp`
+- `lightpath/version.hpp`
 
 ## 2) High-Level Engine API
 
@@ -48,6 +52,16 @@ Key fields:
 ### `lightpath::ErrorCode`, `lightpath::Status`, `lightpath::Result<T>`
 
 Typed error and result model used by `Engine`.
+
+### `lightpath/version.hpp`
+
+Version and deprecation surface:
+
+- `LIGHTPATH_VERSION_MAJOR`
+- `LIGHTPATH_VERSION_MINOR`
+- `LIGHTPATH_VERSION_PATCH`
+- `LIGHTPATH_VERSION_STRING`
+- `LIGHTPATH_DEPRECATED("message")`
 
 ### `lightpath::Engine`
 
