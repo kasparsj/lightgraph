@@ -4,15 +4,15 @@
 #include <string>
 #include <vector>
 
-#include "../src/BgLight.h"
-#include "../src/Connection.h"
+#include "../src/runtime/BgLight.h"
+#include "../src/topology/Connection.h"
 #include "../src/Config.h"
-#include "../src/EmitParams.h"
+#include "../src/runtime/EmitParams.h"
 #include "../src/Globals.h"
-#include "../src/Intersection.h"
-#include "../src/Palette.h"
-#include "../src/Port.h"
-#include "../src/State.h"
+#include "../src/topology/Intersection.h"
+#include "../src/rendering/Palette.h"
+#include "../src/topology/Port.h"
+#include "../src/runtime/State.h"
 #include "../src/objects/Cross.h"
 #include "../src/objects/Line.h"
 #include "../src/objects/Triangle.h"

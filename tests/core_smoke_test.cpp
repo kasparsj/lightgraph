@@ -3,10 +3,10 @@
 #include <iostream>
 #include <string>
 
-#include "../src/EmitParams.h"
+#include "../src/runtime/EmitParams.h"
 #include "../src/HashMap.h"
-#include "../src/Model.h"
-#include "../src/State.h"
+#include "../src/topology/Model.h"
+#include "../src/runtime/State.h"
 #include "../src/objects/Line.h"
 
 namespace {
