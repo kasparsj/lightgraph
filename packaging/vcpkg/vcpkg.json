@@ -3,5 +3,5 @@
   "version-string": "1.0.0",
   "description": "C++17 light-graph engine for topology, runtime animation, and pixel rendering.",
   "homepage": "https://github.com/kasparsj/lightpath",
-  "license": "MIT"
+  "license": "AGPL-3.0-only"
 }

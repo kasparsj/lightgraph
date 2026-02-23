@@ -7,7 +7,7 @@ class LightpathConan(ConanFile):
     version = "1.0.0"
     package_type = "library"
 
-    license = "MIT"
+    license = "AGPL-3.0-only"
     url = "https://github.com/kasparsj/lightpath"
     description = "C++17 light-graph engine for topology, runtime animation, and pixel rendering."
     topics = ("led", "animation", "graphics", "routing")
