@@ -3,6 +3,7 @@
 #include "engine.hpp"
 #include "status.hpp"
 #include "types.hpp"
+#include <lightpath/version.hpp>
 
 /**
  * @file lightpath.hpp

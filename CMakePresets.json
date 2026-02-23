@@ -49,6 +49,30 @@
         "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
         "LIGHTPATH_CORE_ENABLE_UBSAN": "ON"
       }
+    },
+    {
+      "name": "static-analysis",
+      "displayName": "Static Analysis",
+      "description": "Compile commands for clang-tidy and format checks",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/preset-static-analysis",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
+        "LIGHTPATH_CORE_BUILD_BENCHMARKS": "ON"
+      }
+    },
+    {
+      "name": "docs",
+      "displayName": "Docs",
+      "description": "Doxygen docs target",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/preset-docs",
+      "cacheVariables": {
+        "LIGHTPATH_CORE_BUILD_TESTS": "OFF",
+        "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
+        "LIGHTPATH_CORE_BUILD_DOCS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -67,6 +91,17 @@
     {
       "name": "ubsan",
       "configurePreset": "ubsan"
+    },
+    {
+      "name": "static-analysis",
+      "configurePreset": "static-analysis"
+    },
+    {
+      "name": "docs",
+      "configurePreset": "docs",
+      "targets": [
+        "lightpath_core_docs"
+      ]
     }
   ],
   "testPresets": [

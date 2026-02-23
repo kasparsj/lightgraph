@@ -20,6 +20,13 @@ bool isNonBlack(const lightpath::Color& color) {
 int main() {
     std::srand(11);
 
+    if (lightpath::kVersionMajor < 1) {
+        return fail("Version major must be >= 1");
+    }
+    if (std::string(lightpath::kVersionString).empty()) {
+        return fail("Version string must not be empty");
+    }
+
     lightpath::EngineConfig config;
     config.object_type = lightpath::ObjectType::Line;
     config.pixel_count = 64;

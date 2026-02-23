@@ -7,6 +7,8 @@ include(GNUInstallDirs)
 
 option(LIGHTPATH_CORE_BUILD_TESTS "Build Lightpath core tests" ON)
 option(LIGHTPATH_CORE_BUILD_EXAMPLES "Build Lightpath examples" ON)
+option(LIGHTPATH_CORE_BUILD_BENCHMARKS "Build Lightpath micro-benchmarks" OFF)
+option(LIGHTPATH_CORE_BUILD_DOCS "Build Lightpath Doxygen docs target" OFF)
 option(LIGHTPATH_CORE_ENABLE_ASAN "Enable AddressSanitizer for host builds" OFF)
 option(LIGHTPATH_CORE_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer for host builds" OFF)
 option(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings and treat warnings as errors" OFF)
@@ -19,6 +21,15 @@ option(
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(LIGHTPATH_CORE_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
+file(MAKE_DIRECTORY "${LIGHTPATH_CORE_GENERATED_INCLUDE_DIR}/lightpath")
+
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.hpp.in"
+  "${LIGHTPATH_CORE_GENERATED_INCLUDE_DIR}/lightpath/version.hpp"
+  @ONLY
+)
 
 file(
   GLOB_RECURSE LIGHTPATH_CORE_SOURCES
@@ -35,6 +46,7 @@ target_include_directories(
   lightpath_core
   PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<BUILD_INTERFACE:${LIGHTPATH_CORE_GENERATED_INCLUDE_DIR}>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
   PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
@@ -53,6 +65,11 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/include/lightpath/types.hpp"
 )
 
+set(
+  LIGHTPATH_CORE_GENERATED_PUBLIC_HEADERS
+  "${LIGHTPATH_CORE_GENERATED_INCLUDE_DIR}/lightpath/version.hpp"
+)
+
 install(
   TARGETS lightpath_core
   EXPORT lightpathTargets
@@ -63,6 +80,11 @@ install(
 
 install(
   FILES ${LIGHTPATH_CORE_PUBLIC_HEADERS}
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/lightpath"
+)
+
+install(
+  FILES ${LIGHTPATH_CORE_GENERATED_PUBLIC_HEADERS}
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/lightpath"
 )
 
@@ -155,6 +177,28 @@ if(LIGHTPATH_CORE_BUILD_EXAMPLES)
   if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
     target_compile_options(lightpath_core_minimal_example PRIVATE ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS})
   endif()
+endif()
+
+if(LIGHTPATH_CORE_BUILD_BENCHMARKS)
+  add_executable(
+    lightpath_core_benchmark
+    benchmarks/core_benchmark.cpp
+  )
+  target_link_libraries(lightpath_core_benchmark PRIVATE lightpath_core)
+  if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightpath_core_benchmark PRIVATE ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+endif()
+
+if(LIGHTPATH_CORE_BUILD_DOCS)
+  find_package(Doxygen REQUIRED)
+  add_custom_target(
+    lightpath_core_docs
+    COMMAND ${DOXYGEN_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Generating Lightpath API documentation"
+    VERBATIM
+  )
 endif()
 
 if(LIGHTPATH_CORE_BUILD_TESTS)
