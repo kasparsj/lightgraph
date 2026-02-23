@@ -3,8 +3,8 @@
 #include <vector>
 #include <algorithm>
 #include "Config.h"
-#include "../../../vendor/ofxColorTheory/src/ColorScheme.h"
-#include "../../../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
+#include "../vendor/ofxColorTheory/src/ColorScheme.h"
+#include "../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
 
 #define WRAP_NOWRAP -1
 #define WRAP_CLAMP_TO_EDGE 0

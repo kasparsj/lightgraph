@@ -15,7 +15,7 @@ file(
   GLOB_RECURSE LIGHTGRAPH_CORE_SOURCES
   CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/ofxColorTheory/src/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxColorTheory/src/*.cpp"
 )
 
 add_library(lightgraph_core STATIC ${LIGHTGRAPH_CORE_SOURCES})

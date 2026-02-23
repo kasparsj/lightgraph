@@ -1,0 +1,11 @@
+/build/
+/build-asan/
+/build-ubsan/
+/build-warnings/
+/build-warnscan/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+Testing/

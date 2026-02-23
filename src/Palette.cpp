@@ -1,5 +1,5 @@
 #include "Palette.h"
-#include "../../../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
+#include "../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
 
 ColorRGB Palette::noColor = ColorRGB(0, 0, 0);
 

@@ -1,0 +1,3 @@
+[submodule "vendor/ofxColorTheory"]
+	path = vendor/ofxColorTheory
+	url = git@github.com:kasparsj/ofxColorTheory.git
