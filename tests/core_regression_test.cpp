@@ -5,9 +5,11 @@
 #include <vector>
 
 #include "../src/BgLight.h"
+#include "../src/Connection.h"
 #include "../src/Config.h"
 #include "../src/EmitParams.h"
 #include "../src/Globals.h"
+#include "../src/Intersection.h"
 #include "../src/Palette.h"
 #include "../src/Port.h"
 #include "../src/State.h"
@@ -30,6 +32,16 @@ bool isApproxColor(const ColorRGB& color, uint8_t r, uint8_t g, uint8_t b, int t
     return std::abs(static_cast<int>(color.R) - static_cast<int>(r)) <= tolerance &&
            std::abs(static_cast<int>(color.G) - static_cast<int>(g)) <= tolerance &&
            std::abs(static_cast<int>(color.B) - static_cast<int>(b)) <= tolerance;
+}
+
+uint8_t countConnectedPorts(const Intersection& intersection) {
+    uint8_t used = 0;
+    for (uint8_t i = 0; i < intersection.numPorts; i++) {
+        if (intersection.ports[i] != nullptr) {
+            used++;
+        }
+    }
+    return used;
 }
 
 class SinglePixelObject : public LPObject {
@@ -121,6 +133,40 @@ int main() {
         }
         if (line.getParams('x').has_value()) {
             return fail("Line::getParams('x') should return no params");
+        }
+    }
+
+    // Topology editing regression: removing a connection must detach intersection ports.
+    {
+        SinglePixelObject object;
+        Intersection* from = object.addIntersection(new Intersection(3, 10, -1, GROUP1));
+        Intersection* to = object.addIntersection(new Intersection(3, 20, -1, GROUP1));
+        Connection* initial = object.addConnection(new Connection(from, to, GROUP1, 0));
+
+        if (countConnectedPorts(*from) != 1 || countConnectedPorts(*to) != 1) {
+            return fail("Initial connection should consume exactly one port on each intersection");
+        }
+
+        if (!object.removeConnection(initial)) {
+            return fail("LPObject::removeConnection(pointer) failed to remove an existing connection");
+        }
+        if (!object.conn[0].empty()) {
+            return fail("LPObject::removeConnection(pointer) should erase connection from group list");
+        }
+        if (countConnectedPorts(*from) != 0 || countConnectedPorts(*to) != 0) {
+            return fail("Connection removal should clear ports from both endpoint intersections");
+        }
+
+        object.addConnection(new Connection(from, to, GROUP1, 0));
+        if (countConnectedPorts(*from) != 1 || countConnectedPorts(*to) != 1) {
+            return fail("Reconnecting after removal should reuse cleared intersection port slots");
+        }
+
+        if (!object.removeConnection(0, 0)) {
+            return fail("LPObject::removeConnection(group,index) failed for a valid connection slot");
+        }
+        if (countConnectedPorts(*from) != 0 || countConnectedPorts(*to) != 0) {
+            return fail("Indexed connection removal should also detach endpoint ports");
         }
     }
 

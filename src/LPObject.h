@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <vector>
 #include "Intersection.h"
@@ -34,6 +35,8 @@ class LPObject {
     virtual Model* addModel(Model *model);
     virtual Intersection* addIntersection(Intersection *intersection);
     virtual Connection* addConnection(Connection *connection);
+    bool removeConnection(uint8_t groupIndex, size_t index);
+    bool removeConnection(Connection* connection);
     virtual Connection* addBridge(uint16_t fromPixel, uint16_t toPixel, uint8_t group, uint8_t numPorts = 2);
     Model* getModel(int i) {
       return i >= 0 && static_cast<size_t>(i) < models.size() ? models[i] : nullptr;

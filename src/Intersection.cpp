@@ -10,15 +10,12 @@ Intersection::Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPi
   this->numPorts = numPorts;
   this->topPixel = topPixel;
   this->bottomPixel = bottomPixel;
-  ports = new Port*[numPorts];
-  for (uint8_t i=0; i<numPorts; i++) {
-    ports[i] = NULL;
-  }
+  ports.assign(numPorts, nullptr);
 }
 
 void Intersection::addPort(Port *p) {
   for (uint8_t i=0; i<numPorts; i++) {
-    if (ports[i] == NULL) {
+    if (ports[i] == nullptr) {
       ports[i] = p;
       p->intersection = this;
       break;
@@ -26,12 +23,22 @@ void Intersection::addPort(Port *p) {
   }
 }
 
+void Intersection::removePort(const Port* p) {
+    for (uint8_t i = 0; i < numPorts; i++) {
+        if (ports[i] == p) {
+            ports[i] = nullptr;
+            break;
+        }
+    }
+}
+
 void Intersection::emit(LPLight* const light) const {
     // go straight out of zeroConnection
     const Behaviour *behaviour = light->getBehaviour();
     if (numPorts == 2) {
       for (uint8_t i=0; i<2; i++) {
-        if (behaviour->forceBounce() ? ports[i]->connection->numLeds > 0 : ports[i]->connection->numLeds == 0) {
+        if (ports[i] != nullptr &&
+            (behaviour->forceBounce() ? ports[i]->connection->numLeds > 0 : ports[i]->connection->numLeds == 0)) {
           light->setInPort(ports[i]);
           break;
         }
@@ -82,17 +89,32 @@ uint16_t Intersection::sumW(const Model* const model, const Port* const incoming
   uint16_t sum = 0;
   for (uint8_t i=0; i<numPorts; i++) {
     Port *port = ports[i];
+    if (port == nullptr) {
+        continue;
+    }
     sum += model->get(port, incoming);
   }
   return sum;
 }
 
 Port* Intersection::randomPort(const Port* const incoming, const Behaviour* const behaviour) const {
-  Port *port;
-  do {
-    port = ports[(uint8_t) LP_RANDOM(numPorts)];
-  } while (!behaviour->allowBounce() && behaviour->forceBounce() ? port != incoming : port == incoming);
-  return port;
+  std::vector<Port*> candidates;
+  candidates.reserve(numPorts);
+  for (uint8_t i = 0; i < numPorts; i++) {
+      Port* port = ports[i];
+      if (port == nullptr) {
+          continue;
+      }
+      const bool reject = (!behaviour->allowBounce() && behaviour->forceBounce()) ? (port != incoming)
+                                                                                   : (port == incoming);
+      if (!reject) {
+          candidates.push_back(port);
+      }
+  }
+  if (candidates.empty()) {
+      return nullptr;
+  }
+  return candidates[(uint8_t) LP_RANDOM(candidates.size())];
 }
 
 Port* Intersection::choosePort(const Model* const model, const LPLight* const light) const {
@@ -104,6 +126,9 @@ Port* Intersection::choosePort(const Model* const model, const LPLight* const li
     uint16_t rnd = LP_RANDOM(sum);
     for (uint8_t i=0; i<numPorts; i++) {
        Port *port = ports[i];
+       if (port == nullptr) {
+           continue;
+       }
        uint8_t w = model->get(port, incoming);
        if (port == incoming || w == 0) continue;
        if (rnd < w) {

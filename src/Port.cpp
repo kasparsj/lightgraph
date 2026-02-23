@@ -21,6 +21,9 @@ Port::Port(Connection* connection, Intersection* intersection, bool direction, u
 }
 
 Port::~Port() {
+    if (intersection != nullptr) {
+        intersection->removePort(this);
+    }
     removeFromPool(this);
 }
 

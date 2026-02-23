@@ -13,6 +13,9 @@ LPDebugger::LPDebugger(LPObject &object) : object(object) {
             }
             for (uint8_t k=0; k<intersection->numPorts; k++) {
                 Port *port = intersection->ports[k];
+                if (port == nullptr) {
+                    continue;
+                }
                 ports[port->id] = port;
             }
         }
@@ -26,9 +29,15 @@ LPDebugger::LPDebugger(LPObject &object) : object(object) {
     for (uint8_t i=0; i<object.models.size(); i++) {
         weightPixels[i] = new bool[object.pixelCount]{false};
         Model* model = object.models[i];
+        if (model == nullptr) {
+            continue;
+        }
         for (uint8_t j=0; j<model->weights->size(); j++) {
             uint8_t portId = model->weights->keyAt(j);
             Port* port = ports[portId];
+            if (port == nullptr) {
+                continue;
+            }
             //Weight* weight = model->weights->valueAt(j);
             weightPixels[model->id][port->intersection->topPixel] = true;
         }

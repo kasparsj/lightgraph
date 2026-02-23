@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "LPObject.h"
 #include "Port.h"
 
@@ -63,6 +64,31 @@ Connection* LPObject::addConnection(Connection *connection) {
         }
     }
     return connection;
+}
+
+bool LPObject::removeConnection(uint8_t groupIndex, size_t index) {
+    if (groupIndex >= MAX_GROUPS || index >= conn[groupIndex].size()) {
+        return false;
+    }
+    Connection* connection = conn[groupIndex][index];
+    conn[groupIndex].erase(conn[groupIndex].begin() + static_cast<std::ptrdiff_t>(index));
+    delete connection;
+    return true;
+}
+
+bool LPObject::removeConnection(Connection* connection) {
+    if (connection == nullptr) {
+        return false;
+    }
+    for (uint8_t i = 0; i < MAX_GROUPS; i++) {
+        auto it = std::find(conn[i].begin(), conn[i].end(), connection);
+        if (it != conn[i].end()) {
+            conn[i].erase(it);
+            delete connection;
+            return true;
+        }
+    }
+    return false;
 }
 
 void LPObject::addGap(uint16_t fromPixel, uint16_t toPixel) {

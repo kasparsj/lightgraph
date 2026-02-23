@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include "Config.h"
 #include "LPOwner.h"
 #include "Port.h"
@@ -13,7 +14,7 @@ class Intersection : public LPOwner {
   
     uint8_t id;
     uint8_t numPorts;
-    Port **ports; // 2 or 4 ports
+    std::vector<Port*> ports; // typically 2, 3, or 4 ports
     uint16_t topPixel;
     int16_t bottomPixel;
 
@@ -24,12 +25,11 @@ class Intersection : public LPOwner {
 
     }
   
-    ~Intersection() override {
-      delete[] ports;
-    }
+    ~Intersection() override = default;
     
     uint8_t getType() override { return TYPE_INTERSECTION; };
     void addPort(Port *p);
+    void removePort(const Port* p);
     void emit(LPLight* const light) const override;
     void update(LPLight* const light) const override;
 
