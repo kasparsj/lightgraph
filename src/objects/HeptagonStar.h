@@ -79,8 +79,6 @@ class HeptagonStar : public LPObject {
     }
 
   private:
-    virtual void setup() = 0;
-    
     uint16_t mirrorPixels[3];
 
 };

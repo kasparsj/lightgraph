@@ -12,10 +12,10 @@ class Heptagon3024 : public HeptagonStar {
     
 public:
     Heptagon3024() : HeptagonStar(HEPTAGON3024_PIXEL_COUNT) {
-        setup();
+        Heptagon3024::setup();
     }
     
 private:
-  void setup() override;
+  void setup();
     
 };
