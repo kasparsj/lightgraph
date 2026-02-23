@@ -146,16 +146,18 @@ void State::update() {
 
     bool allExpired = lightList->update();
     if (allExpired) {
-      totalLights -= lightList->numLights;
-      totalLightLists--;
-
+      // Keep slot 0 allocated for background, but make it non-visible once expired.
       if (i == 0) {
           lightList->visible = false;
+          continue;
       }
-      else {
-          delete lightLists[i];
-          lightLists[i] = NULL;
+
+      totalLights -= lightList->numLights;
+      if (totalLightLists > 0) {
+          totalLightLists--;
       }
+      delete lightLists[i];
+      lightLists[i] = NULL;
     }
     else if (lightList->visible) {
       // Check if the lightList is a BgLight

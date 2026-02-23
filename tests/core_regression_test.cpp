@@ -226,5 +226,60 @@ int main() {
         }
     }
 
+    // Long-run lifecycle regression: repeated emit/update/stop cycles should remain bounded.
+    {
+        std::srand(7);
+        gMillis = 0;
+
+        Line line(LINE_PIXEL_COUNT);
+        State state(line);
+        state.lightLists[0]->visible = false;  // Ignore background layer for this stress check.
+
+        for (int frame = 0; frame < 1200; frame++) {
+            if (frame % 40 == 0) {
+                EmitParams params(0, 1.0f, 0x55AAFF);
+                params.setLength(6);
+                params.noteId = static_cast<uint8_t>((frame / 40) % 4 + 1);
+                if (state.emit(params) < 0) {
+                    return fail("Long-run emit loop unexpectedly failed");
+                }
+            }
+
+            if (frame % 120 == 0) {
+                const uint8_t noteToStop = static_cast<uint8_t>((frame / 120) % 4 + 1);
+                state.stopNote(noteToStop);
+            }
+
+            gMillis += 16;
+            state.update();
+
+            if (state.totalLights > MAX_TOTAL_LIGHTS) {
+                return fail("Long-run loop exceeded MAX_TOTAL_LIGHTS bound");
+            }
+            if (state.totalLightLists > MAX_LIGHT_LISTS) {
+                return fail("Long-run loop exceeded MAX_LIGHT_LISTS bound");
+            }
+        }
+
+        state.stopAll();
+        // A full Line traversal can span nearly LINE_PIXEL_COUNT frames before expiry.
+        for (int i = 0; i < (LINE_PIXEL_COUNT + 64); i++) {
+            gMillis += 16;
+            state.update();
+        }
+        if (state.totalLights != 0) {
+            int activeLists = 0;
+            for (int i = 0; i < MAX_LIGHT_LISTS; i++) {
+                if (state.lightLists[i] != nullptr) {
+                    activeLists++;
+                }
+            }
+            return fail("Long-run loop did not drain lights after stopAll (totalLights=" +
+                        std::to_string(state.totalLights) +
+                        ", totalLightLists=" + std::to_string(state.totalLightLists) +
+                        ", nonNullLists=" + std::to_string(activeLists) + ")");
+        }
+    }
+
     return 0;
 }
