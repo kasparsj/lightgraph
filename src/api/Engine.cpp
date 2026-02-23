@@ -20,16 +20,16 @@ namespace {
 
 uint16_t defaultPixelCountFor(ObjectType type) {
     switch (type) {
-        case ObjectType::Heptagon919:
-            return HEPTAGON919_PIXEL_COUNT;
-        case ObjectType::Heptagon3024:
-            return HEPTAGON3024_PIXEL_COUNT;
-        case ObjectType::Line:
-            return LINE_PIXEL_COUNT;
-        case ObjectType::Cross:
-            return CROSS_PIXEL_COUNT;
-        case ObjectType::Triangle:
-            return TRIANGLE_PIXEL_COUNT;
+    case ObjectType::Heptagon919:
+        return HEPTAGON919_PIXEL_COUNT;
+    case ObjectType::Heptagon3024:
+        return HEPTAGON3024_PIXEL_COUNT;
+    case ObjectType::Line:
+        return LINE_PIXEL_COUNT;
+    case ObjectType::Cross:
+        return CROSS_PIXEL_COUNT;
+    case ObjectType::Triangle:
+        return TRIANGLE_PIXEL_COUNT;
     }
     return LINE_PIXEL_COUNT;
 }
@@ -39,28 +39,26 @@ std::unique_ptr<LPObject> makeObject(const EngineConfig& config) {
         config.pixel_count > 0 ? config.pixel_count : defaultPixelCountFor(config.object_type);
 
     switch (config.object_type) {
-        case ObjectType::Heptagon919:
-            return std::unique_ptr<LPObject>(new Heptagon919());
-        case ObjectType::Heptagon3024:
-            return std::unique_ptr<LPObject>(new Heptagon3024());
-        case ObjectType::Line:
-            return std::unique_ptr<LPObject>(new Line(pixel_count));
-        case ObjectType::Cross:
-            return std::unique_ptr<LPObject>(new Cross(pixel_count));
-        case ObjectType::Triangle:
-            return std::unique_ptr<LPObject>(new Triangle(pixel_count));
+    case ObjectType::Heptagon919:
+        return std::unique_ptr<LPObject>(new Heptagon919());
+    case ObjectType::Heptagon3024:
+        return std::unique_ptr<LPObject>(new Heptagon3024());
+    case ObjectType::Line:
+        return std::unique_ptr<LPObject>(new Line(pixel_count));
+    case ObjectType::Cross:
+        return std::unique_ptr<LPObject>(new Cross(pixel_count));
+    case ObjectType::Triangle:
+        return std::unique_ptr<LPObject>(new Triangle(pixel_count));
     }
 
     return std::unique_ptr<LPObject>(new Line(pixel_count));
 }
 
-}  // namespace
+} // namespace
 
 struct Engine::Impl {
     explicit Impl(const EngineConfig& config)
-        : object(makeObject(config)),
-          state(*object),
-          now_millis(0) {
+        : object(makeObject(config)), state(*object), now_millis(0) {
         state.autoEnabled = config.auto_emit;
     }
 
@@ -82,8 +80,7 @@ struct Engine::Impl {
     mutable std::mutex mutex;
 };
 
-Engine::Engine(const EngineConfig& config)
-    : impl_(new Impl(config)) {}
+Engine::Engine(const EngineConfig& config) : impl_(new Impl(config)) {}
 
 Engine::~Engine() = default;
 
@@ -94,29 +91,25 @@ Result<int8_t> Engine::emit(const EmitCommand& command) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
 
     if (command.max_brightness < command.min_brightness) {
-        return Result<int8_t>::error(
-            ErrorCode::InvalidArgument,
-            "max_brightness must be >= min_brightness");
+        return Result<int8_t>::error(ErrorCode::InvalidArgument,
+                                     "max_brightness must be >= min_brightness");
     }
 
     const int8_t model_index = command.model;
     if (model_index < 0 || impl_->object->getModel(model_index) == nullptr) {
-        return Result<int8_t>::error(
-            ErrorCode::InvalidModel,
-            "model index is invalid for the current object");
+        return Result<int8_t>::error(ErrorCode::InvalidModel,
+                                     "model index is invalid for the current object");
     }
 
     if (!impl_->hasFreeListSlot(command.note_id)) {
-        return Result<int8_t>::error(
-            ErrorCode::NoFreeLightList,
-            "no free light-list slots are available");
+        return Result<int8_t>::error(ErrorCode::NoFreeLightList,
+                                     "no free light-list slots are available");
     }
 
     if (command.length.has_value() &&
         impl_->state.totalLights + *command.length > MAX_TOTAL_LIGHTS) {
-        return Result<int8_t>::error(
-            ErrorCode::CapacityExceeded,
-            "emit request exceeds MAX_TOTAL_LIGHTS");
+        return Result<int8_t>::error(ErrorCode::CapacityExceeded,
+                                     "emit request exceeds MAX_TOTAL_LIGHTS");
     }
 
     EmitParams params(model_index, command.speed, command.color.value_or(RANDOM_COLOR));
@@ -139,22 +132,18 @@ Result<int8_t> Engine::emit(const EmitCommand& command) {
         const uint8_t emit_groups = params.getEmitGroups(model->emitGroups);
         if ((params.behaviourFlags & B_EMIT_FROM_CONN) != 0) {
             if (impl_->object->countConnections(params.emitGroups) == 0) {
-                return Result<int8_t>::error(
-                    ErrorCode::NoEmitterAvailable,
-                    "no matching connections are available for emit");
+                return Result<int8_t>::error(ErrorCode::NoEmitterAvailable,
+                                             "no matching connections are available for emit");
             }
         } else if (impl_->object->countIntersections(emit_groups) == 0) {
-            return Result<int8_t>::error(
-                ErrorCode::NoEmitterAvailable,
-                "no matching intersections are available for emit");
+            return Result<int8_t>::error(ErrorCode::NoEmitterAvailable,
+                                         "no matching intersections are available for emit");
         }
     }
 
     const int8_t list_index = impl_->state.emit(params);
     if (list_index < 0) {
-        return Result<int8_t>::error(
-            ErrorCode::InternalError,
-            "emit failed unexpectedly");
+        return Result<int8_t>::error(ErrorCode::InternalError, "emit failed unexpectedly");
     }
     return Result<int8_t>(list_index);
 }
@@ -208,13 +197,11 @@ uint16_t Engine::pixelCount() const {
 Result<Color> Engine::pixel(uint16_t index, uint8_t max_brightness) const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (index >= impl_->object->pixelCount) {
-        return Result<Color>::error(
-            ErrorCode::OutOfRange,
-            "pixel index is out of range");
+        return Result<Color>::error(ErrorCode::OutOfRange, "pixel index is out of range");
     }
 
     const ColorRGB value = impl_->state.getPixel(index, max_brightness);
     return Result<Color>(Color{value.R, value.G, value.B});
 }
 
-}  // namespace lightpath
+} // namespace lightpath

@@ -39,9 +39,9 @@ void runEmitTickBenchmark() {
 
     const auto elapsed_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    const double fps = elapsed_ms > 0
-                           ? static_cast<double>(kFrames) / (static_cast<double>(elapsed_ms) / 1000.0)
-                           : 0.0;
+    const double fps =
+        elapsed_ms > 0 ? static_cast<double>(kFrames) / (static_cast<double>(elapsed_ms) / 1000.0)
+                       : 0.0;
 
     std::cout << "Benchmark emit+tick frames: " << kFrames << "\n";
     std::cout << "Benchmark successful emits: " << emit_success << "\n";
@@ -49,7 +49,7 @@ void runEmitTickBenchmark() {
     std::cout << "Benchmark approx frames/sec: " << fps << "\n";
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     runEmitTickBenchmark();

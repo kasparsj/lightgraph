@@ -77,4 +77,4 @@ struct EmitCommand {
     bool linked = true;
 };
 
-}  // namespace lightpath
+} // namespace lightpath

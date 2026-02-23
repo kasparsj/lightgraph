@@ -31,15 +31,12 @@ class Status {
   public:
     Status() = default;
 
-    Status(ErrorCode code, std::string message)
-        : code_(code), message_(std::move(message)) {}
+    Status(ErrorCode code, std::string message) : code_(code), message_(std::move(message)) {}
 
     /**
      * @brief Construct a success status.
      */
-    static Status success() {
-        return Status();
-    }
+    static Status success() { return Status(); }
 
     /**
      * @brief Construct an error status with code and message.
@@ -51,35 +48,26 @@ class Status {
     /**
      * @brief True when status code is `ErrorCode::Ok`.
      */
-    bool ok() const {
-        return code_ == ErrorCode::Ok;
-    }
+    bool ok() const { return code_ == ErrorCode::Ok; }
 
-    explicit operator bool() const {
-        return ok();
-    }
+    explicit operator bool() const { return ok(); }
 
     /**
      * @brief Return the stable error code.
      */
-    ErrorCode code() const {
-        return code_;
-    }
+    ErrorCode code() const { return code_; }
 
     /**
      * @brief Return the human-readable error message.
      */
-    const std::string& message() const {
-        return message_;
-    }
+    const std::string& message() const { return message_; }
 
   private:
     ErrorCode code_ = ErrorCode::Ok;
     std::string message_;
 };
 
-template <typename T>
-class Result {
+template <typename T> class Result {
   public:
     Result(T value, Status status = Status::success())
         : value_(std::move(value)), status_(std::move(status)) {}
@@ -96,37 +84,27 @@ class Result {
     /**
      * @brief True when result status is success.
      */
-    bool ok() const {
-        return status_.ok();
-    }
+    bool ok() const { return status_.ok(); }
 
-    explicit operator bool() const {
-        return ok();
-    }
+    explicit operator bool() const { return ok(); }
 
     /**
      * @brief Access the contained value.
      *
      * Callers should only use this when `ok()` is true.
      */
-    const T& value() const {
-        return value_;
-    }
+    const T& value() const { return value_; }
 
-    T& value() {
-        return value_;
-    }
+    T& value() { return value_; }
 
     /**
      * @brief Access the operation status.
      */
-    const Status& status() const {
-        return status_;
-    }
+    const Status& status() const { return status_; }
 
   private:
     T value_;
     Status status_;
 };
 
-}  // namespace lightpath
+} // namespace lightpath

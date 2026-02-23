@@ -20,15 +20,11 @@ constexpr int8_t kWrapRepeatMirror = WRAP_REPEAT_MIRROR;
 /**
  * @brief Return the number of built-in palettes.
  */
-inline uint8_t paletteCount() {
-    return ::getPaletteCount();
-}
+inline uint8_t paletteCount() { return ::getPaletteCount(); }
 
 /**
  * @brief Get a built-in palette by index.
  */
-inline Palette paletteAt(uint8_t index) {
-    return ::getPalette(index);
-}
+inline Palette paletteAt(uint8_t index) { return ::getPalette(index); }
 
-}  // namespace lightpath::integration
+} // namespace lightpath::integration

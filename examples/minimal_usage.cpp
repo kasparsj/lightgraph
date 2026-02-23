@@ -32,10 +32,8 @@ int main() {
     }
 
     const lightpath::Color pixel = pixel_result.value();
-    std::cout << "Pixel(0): "
-              << static_cast<int>(pixel.r) << ","
-              << static_cast<int>(pixel.g) << ","
-              << static_cast<int>(pixel.b) << std::endl;
+    std::cout << "Pixel(0): " << static_cast<int>(pixel.r) << "," << static_cast<int>(pixel.g)
+              << "," << static_cast<int>(pixel.b) << std::endl;
 
     return 0;
 }

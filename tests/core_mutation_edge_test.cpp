@@ -26,24 +26,20 @@ uint8_t countConnectedPorts(const Intersection& intersection) {
 
 class MinimalObject : public LPObject {
   public:
-    MinimalObject() : LPObject(16) {
-        addModel(new Model(0, 10, GROUP1));
-    }
+    MinimalObject() : LPObject(16) { addModel(new Model(0, 10, GROUP1)); }
 
     uint16_t* getMirroredPixels(uint16_t, LPOwner*, bool) override {
         mirrored_[0] = 0;
         return mirrored_;
     }
 
-    EmitParams getModelParams(int model) const override {
-        return EmitParams(model % 1, 1.0f);
-    }
+    EmitParams getModelParams(int model) const override { return EmitParams(model % 1, 1.0f); }
 
   private:
     uint16_t mirrored_[2] = {0};
 };
 
-}  // namespace
+} // namespace
 
 int main() {
     MinimalObject object;

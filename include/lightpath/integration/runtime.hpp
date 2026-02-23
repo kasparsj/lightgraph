@@ -25,4 +25,4 @@ using LightList = ::LightList;
 using BgLight = ::BgLight;
 using RuntimeState = ::State;
 
-}  // namespace lightpath::integration
+} // namespace lightpath::integration

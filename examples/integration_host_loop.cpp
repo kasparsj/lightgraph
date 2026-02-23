@@ -45,7 +45,7 @@ int runLoop(lp::Object& object, lp::RuntimeState& state, lp::EmitParams& params,
     return non_black_samples;
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     auto line = lp::makeObject(lp::BuiltinObjectType::Line, 144);

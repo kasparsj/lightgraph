@@ -11,4 +11,4 @@ namespace lightpath::integration {
 
 using Debugger = ::LPDebugger;
 
-}  // namespace lightpath::integration
+} // namespace lightpath::integration

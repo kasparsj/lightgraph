@@ -85,4 +85,4 @@ class Engine {
     std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace lightpath
+} // namespace lightpath

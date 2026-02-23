@@ -206,6 +206,16 @@ if(LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS)
       PRIVATE
         ${LIGHTPATH_CORE_STRICT_WARNING_FLAGS}
     )
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # FastNoise is vendored legacy code; keep strict mode while carving out
+      # the known GCC-only diagnostics that are non-trivial to rewrite.
+      set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/FastNoise.cpp"
+        PROPERTIES
+          COMPILE_OPTIONS
+            "-Wno-error=strict-aliasing;-Wno-error=implicit-fallthrough;-Wno-error=maybe-uninitialized;-Wno-strict-aliasing"
+      )
+    endif()
 
     set(
       LIGHTPATH_CORE_VENDOR_WARNING_SUPPRESSIONS
@@ -293,6 +303,7 @@ if(LIGHTPATH_CORE_BUILD_DOCS)
   find_package(Doxygen REQUIRED)
   add_custom_target(
     lightpath_core_docs
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/build/docs/html"
     COMMAND ${DOXYGEN_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Generating Lightpath API documentation"

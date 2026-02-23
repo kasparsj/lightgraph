@@ -11,11 +11,9 @@ int fail(const std::string& message) {
     return 1;
 }
 
-bool isNonBlack(const lightpath::Color& color) {
-    return color.r > 0 || color.g > 0 || color.b > 0;
-}
+bool isNonBlack(const lightpath::Color& color) { return color.r > 0 || color.g > 0 || color.b > 0; }
 
-}  // namespace
+} // namespace
 
 int main() {
     std::srand(11);
@@ -39,7 +37,8 @@ int main() {
     lightpath::EmitCommand invalid;
     invalid.model = 99;
     const auto invalid_result = engine.emit(invalid);
-    if (invalid_result.ok() || invalid_result.status().code() != lightpath::ErrorCode::InvalidModel) {
+    if (invalid_result.ok() ||
+        invalid_result.status().code() != lightpath::ErrorCode::InvalidModel) {
         return fail("Invalid model emit did not return ErrorCode::InvalidModel");
     }
     if (invalid_result.status().message().empty()) {

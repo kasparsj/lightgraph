@@ -27,4 +27,4 @@ using Connection = ::Connection;
 using Object = ::LPObject;
 using PixelGap = ::PixelGap;
 
-}  // namespace lightpath::integration
+} // namespace lightpath::integration

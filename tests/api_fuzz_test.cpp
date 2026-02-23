@@ -11,7 +11,7 @@ int fail(const std::string& message) {
     return 1;
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     std::srand(1234);
@@ -34,7 +34,8 @@ int main() {
 
         const auto emit_result = engine.emit(command);
         if (command.model == 42) {
-            if (emit_result.ok() || emit_result.status().code() != lightpath::ErrorCode::InvalidModel) {
+            if (emit_result.ok() ||
+                emit_result.status().code() != lightpath::ErrorCode::InvalidModel) {
                 return fail("Invalid model in fuzz loop did not return ErrorCode::InvalidModel");
             }
         }
