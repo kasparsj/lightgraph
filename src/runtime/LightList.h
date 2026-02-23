@@ -117,7 +117,7 @@ class LightList {
 
     virtual ~LightList() {
       if (lights != NULL) {
-        for (uint16_t i = 0; i < numLights; i++) {
+        for (uint16_t i = 0; i < allocatedLights; i++) {
           delete lights[i];
         }
         delete[] lights;
@@ -205,5 +205,6 @@ class LightList {
     inline uint16_t body() {
         return numLights - lead - trail;
     }
+    uint16_t allocatedLights = 0;
 
 };

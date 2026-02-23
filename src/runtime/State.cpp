@@ -223,6 +223,9 @@ void State::updateLight(LPLight* light) {
 
 ColorRGB State::getPixel(uint16_t i, uint8_t maxBrightness) {
   ColorRGB color = ColorRGB(0, 0, 0);
+  if (i >= pixelDiv.size()) {
+    return color;
+  }
   if (pixelDiv[i]) {
     color.R = min(pixelValuesR[i] / pixelDiv[i] / 255.f, 1.f) * maxBrightness;
     color.G = min(pixelValuesG[i] / pixelDiv[i] / 255.f, 1.f) * maxBrightness;
@@ -246,6 +249,10 @@ void State::setPixels(uint16_t pixel, ColorRGB &color, const LightList* const li
 }
 
 void State::setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+    if (pixel >= pixelValuesR.size()) {
+        return;
+    }
+
     // Apply blend mode based on the light list's setting
     BlendMode mode = lightList ? lightList->blendMode : BLEND_NORMAL;
 

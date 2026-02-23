@@ -9,35 +9,29 @@ LPObject::LPObject(uint16_t pixelCount) : pixelCount(pixelCount), realPixelCount
 }
 
 LPObject::~LPObject() {
-    // Clean up connections first (owns Port instances).
+    // Keep public views stable while releasing ownership via smart pointers.
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
-        for (Connection* connection : conn[i]) {
-            delete connection;
-        }
         conn[i].clear();
     }
+    ownedConnections_.clear();
 
-    // Then clean up intersections.
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
-        for (Intersection* intersection : inter[i]) {
-            delete intersection;
-        }
         inter[i].clear();
     }
-    
-    // Clean up models
-    for (Model* model : models) {
-        delete model;
-    }
+    ownedIntersections_.clear();
+
     models.clear();
-    
-    // Gaps don't need deletion as they're stored by value
+    ownedModels_.clear();
+
     gaps.clear();
+    instance = nullptr;
 }
 
 // Initialization methods removed - vectors handle dynamic sizing
 
 Model* LPObject::addModel(Model *model) {
+    ownedModels_.emplace_back(model);
+
     // Ensure vector is large enough
     while (models.size() <= model->id) {
         models.push_back(nullptr);
@@ -47,6 +41,8 @@ Model* LPObject::addModel(Model *model) {
 }
 
 Intersection* LPObject::addIntersection(Intersection *intersection) {
+    ownedIntersections_.emplace_back(intersection);
+
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
         if (intersection->group & groupMaskForIndex(i)) {
             inter[i].push_back(intersection);
@@ -57,6 +53,8 @@ Intersection* LPObject::addIntersection(Intersection *intersection) {
 }
 
 Connection* LPObject::addConnection(Connection *connection) {
+    ownedConnections_.emplace_back(connection);
+
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
         if (connection->group & groupMaskForIndex(i)) {
             conn[i].push_back(connection);
@@ -72,7 +70,7 @@ bool LPObject::removeConnection(uint8_t groupIndex, size_t index) {
     }
     Connection* connection = conn[groupIndex][index];
     conn[groupIndex].erase(conn[groupIndex].begin() + static_cast<std::ptrdiff_t>(index));
-    delete connection;
+    releaseOwnership(connection);
     return true;
 }
 
@@ -84,11 +82,22 @@ bool LPObject::removeConnection(Connection* connection) {
         auto it = std::find(conn[i].begin(), conn[i].end(), connection);
         if (it != conn[i].end()) {
             conn[i].erase(it);
-            delete connection;
+            releaseOwnership(connection);
             return true;
         }
     }
     return false;
+}
+
+void LPObject::releaseOwnership(Connection* connection) {
+    auto it = std::find_if(
+        ownedConnections_.begin(),
+        ownedConnections_.end(),
+        [connection](const std::unique_ptr<Connection>& candidate) { return candidate.get() == connection; });
+
+    if (it != ownedConnections_.end()) {
+        ownedConnections_.erase(it);
+    }
 }
 
 void LPObject::addGap(uint16_t fromPixel, uint16_t toPixel) {

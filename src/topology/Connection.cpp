@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <math.h>
 #include "Connection.h"
 #include "Intersection.h"
@@ -98,10 +99,15 @@ bool Connection::shouldExpire(const LPLight* const light) const {
 bool Connection::render(LPLight* const light) const {
     // handle float inprecision
     float pos = round(light->position * 1000) / 1000.0;
-    if (pos < numLeds) {
+    if (numLeds > 0 && pos < numLeds) {
         pos = ofxeasing::map(light->position, 0, numLeds, 0, numLeds, light->getEasing());
-        const uint16_t ledIdx = light->outPort->direction ? ceil((float) numLeds - pos - 1.0) : floor(pos);
-        light->pixel1 = getPixel(ledIdx);
+        const float led_idx =
+            light->outPort->direction ? ceil((float) numLeds - pos - 1.0) : floor(pos);
+        const int32_t clamped_led_idx = std::clamp<int32_t>(
+            static_cast<int32_t>(led_idx),
+            0,
+            static_cast<int32_t>(numLeds) - 1);
+        light->pixel1 = getPixel(static_cast<uint16_t>(clamped_led_idx));
         return true;
     }
     return false;

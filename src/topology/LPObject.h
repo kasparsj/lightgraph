@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <vector>
 #include "Intersection.h"
@@ -98,4 +99,11 @@ class LPObject {
     }
     virtual EmitParams getModelParams(int model) const = 0;
 
+  protected:
+    void releaseOwnership(Connection* connection);
+
+  private:
+    std::vector<std::unique_ptr<Intersection>> ownedIntersections_;
+    std::vector<std::unique_ptr<Connection>> ownedConnections_;
+    std::vector<std::unique_ptr<Model>> ownedModels_;
 };

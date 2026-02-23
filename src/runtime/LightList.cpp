@@ -10,12 +10,15 @@ uint16_t LightList::nextId = 0;
 
 void LightList::init(uint16_t numLights) {
     if (lights != NULL) {
-        for (uint16_t i=0; i<this->numLights; i++) {
+        for (uint16_t i = 0; i < allocatedLights; i++) {
             delete lights[i];
         }
         delete[] lights;
+        lights = NULL;
+        allocatedLights = 0;
     }
     this->numLights = numLights;
+    allocatedLights = numLights;
     numEmitted = 0;
     lights = new LPLight*[numLights]();
 }
