@@ -2,13 +2,13 @@
 
 #include <memory>
 
-#include "../../src/Behaviour.h"
-#include "../../src/EmitParams.h"
-#include "../../src/LPLight.h"
-#include "../../src/Light.h"
-#include "../../src/LightList.h"
-#include "../../src/BgLight.h"
-#include "../../src/State.h"
+#include "../../src/runtime/Behaviour.h"
+#include "../../src/runtime/EmitParams.h"
+#include "../../src/runtime/LPLight.h"
+#include "../../src/runtime/Light.h"
+#include "../../src/runtime/LightList.h"
+#include "../../src/runtime/BgLight.h"
+#include "../../src/runtime/State.h"
 #include "types.hpp"
 #include "topology.hpp"
 

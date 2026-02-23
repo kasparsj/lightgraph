@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../src/LPDebugger.h"
+#include "../../src/debug/LPDebugger.h"
 
 /**
  * @file debug.hpp

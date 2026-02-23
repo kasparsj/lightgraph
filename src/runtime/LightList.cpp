@@ -13,15 +13,15 @@
 #pragma clang diagnostic ignored "-Wundefined-var-template"
 #endif
 
-#include "../vendor/ofxColorTheory/src/Rules/Analogous.h"
-#include "../vendor/ofxColorTheory/src/Rules/Complementary.h"
-#include "../vendor/ofxColorTheory/src/Rules/Compound.h"
-#include "../vendor/ofxColorTheory/src/Rules/FlippedCompound.h"
-#include "../vendor/ofxColorTheory/src/Rules/Monochrome.h"
-#include "../vendor/ofxColorTheory/src/Rules/SplitComplementary.h"
-#include "../vendor/ofxColorTheory/src/Rules/Tetrad.h"
-#include "../vendor/ofxColorTheory/src/Rules/Triad.h"
-#include "../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
+#include "../../vendor/ofxColorTheory/src/Rules/Analogous.h"
+#include "../../vendor/ofxColorTheory/src/Rules/Complementary.h"
+#include "../../vendor/ofxColorTheory/src/Rules/Compound.h"
+#include "../../vendor/ofxColorTheory/src/Rules/FlippedCompound.h"
+#include "../../vendor/ofxColorTheory/src/Rules/Monochrome.h"
+#include "../../vendor/ofxColorTheory/src/Rules/SplitComplementary.h"
+#include "../../vendor/ofxColorTheory/src/Rules/Tetrad.h"
+#include "../../vendor/ofxColorTheory/src/Rules/Triad.h"
+#include "../../vendor/ofxColorTheory/src/ColorWheelSchemes.h"
 
 namespace ofxColorTheory {
 

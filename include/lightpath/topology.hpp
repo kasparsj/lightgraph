@@ -1,13 +1,13 @@
 #pragma once
 
 #include "../../src/HashMap.h"
-#include "../../src/LPOwner.h"
-#include "../../src/Port.h"
-#include "../../src/Weight.h"
-#include "../../src/Model.h"
-#include "../../src/Intersection.h"
-#include "../../src/Connection.h"
-#include "../../src/LPObject.h"
+#include "../../src/topology/LPOwner.h"
+#include "../../src/topology/Port.h"
+#include "../../src/topology/Weight.h"
+#include "../../src/topology/Model.h"
+#include "../../src/topology/Intersection.h"
+#include "../../src/topology/Connection.h"
+#include "../../src/topology/LPObject.h"
 
 /**
  * @file topology.hpp

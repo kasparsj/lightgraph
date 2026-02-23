@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../src/Palette.h"
-#include "../../src/Palettes.h"
+#include "../../src/rendering/Palette.h"
+#include "../../src/rendering/Palettes.h"
 #include "types.hpp"
 
 /**
