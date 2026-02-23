@@ -10,7 +10,7 @@ and produces deterministic per-pixel color output.
 - Runtime animation/state system (`State`, `LightList`, `LPLight`)
 - Palette + blend-mode rendering (`Palette`, built-in palettes, blend operators)
 - Public namespaced API surface under `include/lightpath/`
-- Compatibility-preserving legacy headers under `src/`
+- Module-aligned internal sources under `src/`
 
 ## Build and Test
 
@@ -100,13 +100,14 @@ target_link_libraries(your_target PRIVATE lightpath::lightpath)
 - `src/debug/` debugger helpers (`LPDebugger`)
 - `src/objects/` built-in topology definitions
 
-Flat headers at `src/*.h` are lightweight forwarding headers for transitional compatibility.
-
 ## Compatibility
 
-Legacy includes from `src/` are no longer exported by default. The CMake option
+Flat compatibility headers at `src/*.h` were removed. If you include internals
+directly, use module paths (`src/topology/...`, `src/runtime/...`, etc.).
+
 `LIGHTPATH_CORE_ENABLE_LEGACY_INCLUDE_PATHS` controls whether `src/` is exported
-as a public include directory for transitional builds.
+as a public include directory for transitional builds that include module
+headers via `topology/...`, `runtime/...`, `rendering/...`, `debug/...`.
 
 Source-level API break: command parameter APIs are now value-based:
 

@@ -55,10 +55,10 @@ Canonical location: `lightpath/docs/CORE_AUDIT_REPORT.md` in the Lightpath repos
 
 ### Key classes/modules and responsibilities
 
-- `State` (`packages/lightpath/src/State.h`): owns active `LightList`s and pixel accumulators; orchestrates `autoEmit`, `emit`, `update`, and final pixel sampling.
-- `LightList` (`packages/lightpath/src/LightList.h`): per-layer configuration/state (speed, easing, fade, palette, behavior, blend mode), light allocation/reset/update.
-- `LPLight`/`Light` (`packages/lightpath/src/LPLight.h`, `packages/lightpath/src/Light.h`): per-light progression on topology and color/brightness computation.
-- `LPObject` (`packages/lightpath/src/LPObject.h`): topology container for intersections/connections/models and command presets.
+- `State` (`packages/lightpath/src/runtime/State.h`): owns active `LightList`s and pixel accumulators; orchestrates `autoEmit`, `emit`, `update`, and final pixel sampling.
+- `LightList` (`packages/lightpath/src/runtime/LightList.h`): per-layer configuration/state (speed, easing, fade, palette, behavior, blend mode), light allocation/reset/update.
+- `LPLight`/`Light` (`packages/lightpath/src/runtime/LPLight.h`, `packages/lightpath/src/runtime/Light.h`): per-light progression on topology and color/brightness computation.
+- `LPObject` (`packages/lightpath/src/topology/LPObject.h`): topology container for intersections/connections/models and command presets.
 - `Intersection`/`Connection`/`Port`: route lights across graph edges and optionally out to external sinks.
 - `Model`/`Weight`: weighted routing table per model.
 - `Palette`/`Palettes`: color handling, interpolation and presets, optional color-rule generation through `ofxColorTheory`.
@@ -185,7 +185,7 @@ Outputs
 
 - Predominantly raw `new`/`delete` ownership.
 - Ownership boundaries are implicit and in places incomplete (see risks in section 6).
-- `State` destructor does not release `lightLists` (`packages/lightpath/src/State.h:36`), implying leaks on teardown/object switches.
+- `State` destructor does not release `lightLists` (`packages/lightpath/src/runtime/State.h:36`), implying leaks on teardown/object switches.
 
 ### Config/parameter system
 
@@ -209,7 +209,7 @@ Outputs
 
 - OSC pair/triplet param contract maps to `EmitParam` IDs and `EmitParams` fields.
 - HTTP control panel endpoints (e.g. `/get_layers`, `/update_palette`, `/update_behaviour_flags`) mutate `state->lightLists[...]` fields directly in firmware handlers.
-- Core supports external propagation hook via `ExternalPort` + `sendLightViaESPNow` function pointer (`packages/lightpath/src/Port.h:62`).
+- Core supports external propagation hook via `ExternalPort` + `sendLightViaESPNow` function pointer (`packages/lightpath/src/topology/Port.h:62`).
 
 ### Reliability considerations
 
