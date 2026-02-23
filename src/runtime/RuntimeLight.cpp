@@ -2,7 +2,7 @@
 #include "LightList.h"
 #include "../topology/Connection.h"
 #include "../topology/Port.h"
-#include "../ofxEasing.h"
+#include "../../vendor/ofxEasing/ofxEasing.h"
 #include "../Globals.h"
 
 uint16_t RuntimeLight::pixels[CONNECTION_MAX_LEDS] = {0};

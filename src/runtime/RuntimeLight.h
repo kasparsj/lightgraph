@@ -2,7 +2,7 @@
 
 #include "../core/Types.h"
 #include "../core/Limits.h"
-#include "../ofxEasing.h"
+#include "../../vendor/ofxEasing/ofxEasing.h"
 
 class LightList;
 class Model;
