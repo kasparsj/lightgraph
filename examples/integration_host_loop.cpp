@@ -3,9 +3,9 @@
 #include <memory>
 #include <vector>
 
-#include <lightpath/integration.hpp>
+#include <lightgraph/integration.hpp>
 
-namespace lp = lightpath::integration;
+namespace lp = lightgraph::integration;
 
 namespace {
 

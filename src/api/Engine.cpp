@@ -2,7 +2,7 @@
 #include <mutex>
 #include <utility>
 
-#include <lightpath/engine.hpp>
+#include <lightgraph/engine.hpp>
 
 #include "../core/Limits.h"
 #include "../Globals.h"
@@ -14,7 +14,7 @@
 #include "../runtime/EmitParams.h"
 #include "../runtime/State.h"
 
-namespace lightpath {
+namespace lightgraph {
 
 namespace {
 
@@ -204,4 +204,4 @@ Result<Color> Engine::pixel(uint16_t index, uint8_t max_brightness) const {
     return Result<Color>(Color{value.R, value.G, value.B});
 }
 
-} // namespace lightpath
+} // namespace lightgraph

@@ -9,5 +9,5 @@
 
 /**
  * @file integration.hpp
- * @brief Umbrella header for source-integration Lightpath APIs.
+ * @brief Umbrella header for source-integration Lightgraph APIs.
  */

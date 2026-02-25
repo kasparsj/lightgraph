@@ -7,4 +7,4 @@
 - Retrieved: 2026-02-23
 
 This header is vendored to avoid adding another nested git submodule dependency
-inside the `packages/lightpath` submodule.
+inside the `packages/lightgraph` submodule.

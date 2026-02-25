@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BENCHMARK_BIN="${1:-$ROOT_DIR/build/preset-static-analysis/lightpath_core_benchmark}"
-MIN_FPS="${2:-${LIGHTPATH_MIN_BENCHMARK_FPS:-10000}}"
+BENCHMARK_BIN="${1:-$ROOT_DIR/build/preset-static-analysis/lightgraph_core_benchmark}"
+MIN_FPS="${2:-${LIGHTGRAPH_MIN_BENCHMARK_FPS:-10000}}"
 
 if [[ ! -x "$BENCHMARK_BIN" ]]; then
   echo "Benchmark binary not found or not executable: $BENCHMARK_BIN" >&2

@@ -1,10 +1,10 @@
-# Lightpath API Policy
+# Lightgraph API Policy
 
-This document defines compatibility rules for Lightpath as a reusable library.
+This document defines compatibility rules for Lightgraph as a reusable library.
 
 ## Versioning
 
-Lightpath follows semantic versioning for the stable installable API:
+Lightgraph follows semantic versioning for the stable installable API:
 
 - `MAJOR`: incompatible API changes
 - `MINOR`: backward-compatible additions
@@ -12,11 +12,11 @@ Lightpath follows semantic versioning for the stable installable API:
 
 Stable API scope:
 
-- `lightpath/lightpath.hpp`
-- `lightpath/engine.hpp`
-- `lightpath/types.hpp`
-- `lightpath/status.hpp`
-- `lightpath/version.hpp`
+- `lightgraph/lightgraph.hpp`
+- `lightgraph/engine.hpp`
+- `lightgraph/types.hpp`
+- `lightgraph/status.hpp`
+- `lightgraph/version.hpp`
 
 ## Compatibility Guarantees
 
@@ -26,14 +26,14 @@ Within a major version:
 - Existing stable function semantics remain compatible, except for bug fixes.
 - Error codes remain stable for existing failure classes.
 
-Source-integration headers under `lightpath/integration*` are intentionally less stable
+Source-integration headers under `lightgraph/integration*` are intentionally less stable
 and may evolve with internal architecture changes.
 
 ## Deprecation Policy
 
 Deprecation mechanism:
 
-- Use `LIGHTPATH_DEPRECATED("message")` from `lightpath/version.hpp`.
+- Use `LIGHTGRAPH_DEPRECATED("message")` from `lightgraph/version.hpp`.
 
 Deprecation lifecycle for stable API:
 

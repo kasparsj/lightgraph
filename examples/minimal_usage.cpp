@@ -1,16 +1,16 @@
 #include <cstdint>
 #include <iostream>
 
-#include <lightpath/lightpath.hpp>
+#include <lightgraph/lightgraph.hpp>
 
 int main() {
-    lightpath::EngineConfig config;
-    config.object_type = lightpath::ObjectType::Line;
+    lightgraph::EngineConfig config;
+    config.object_type = lightgraph::ObjectType::Line;
     config.pixel_count = 64;
 
-    lightpath::Engine engine(config);
+    lightgraph::Engine engine(config);
 
-    lightpath::EmitCommand command;
+    lightgraph::EmitCommand command;
     command.model = 0;
     command.speed = 1.0f;
     command.length = 6;
@@ -31,7 +31,7 @@ int main() {
         return 1;
     }
 
-    const lightpath::Color pixel = pixel_result.value();
+    const lightgraph::Color pixel = pixel_result.value();
     std::cout << "Pixel(0): " << static_cast<int>(pixel.r) << "," << static_cast<int>(pixel.g)
               << "," << static_cast<int>(pixel.b) << std::endl;
 

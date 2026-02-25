@@ -1,6 +1,6 @@
-# Lightpath API Reference
+# Lightgraph API Reference
 
-This document describes the supported public API in `include/lightpath/`.
+This document describes the supported public API in `include/lightgraph/`.
 
 Compatibility and deprecation guarantees for this API are defined in
 `docs/API_POLICY.md`.
@@ -8,19 +8,19 @@ Compatibility and deprecation guarantees for this API are defined in
 ## 1) Umbrella Include
 
 ```cpp
-#include <lightpath/lightpath.hpp>
+#include <lightgraph/lightgraph.hpp>
 ```
 
 The umbrella header re-exports stable installable API headers:
 
-- `lightpath/engine.hpp`
-- `lightpath/types.hpp`
-- `lightpath/status.hpp`
-- `lightpath/version.hpp`
+- `lightgraph/engine.hpp`
+- `lightgraph/types.hpp`
+- `lightgraph/status.hpp`
+- `lightgraph/version.hpp`
 
 ## 2) High-Level Engine API
 
-### `lightpath::ObjectType`
+### `lightgraph::ObjectType`
 
 Built-in object selection enum:
 
@@ -30,7 +30,7 @@ Built-in object selection enum:
 - `Cross`
 - `Triangle`
 
-### `lightpath::EngineConfig`
+### `lightgraph::EngineConfig`
 
 Engine configuration fields:
 
@@ -38,7 +38,7 @@ Engine configuration fields:
 - `pixel_count` (`0` uses object default)
 - `auto_emit`
 
-### `lightpath::EmitCommand`
+### `lightgraph::EmitCommand`
 
 Value command for one emit request.
 
@@ -49,21 +49,21 @@ Key fields:
 - `behaviour_flags`, `emit_groups`, `emit_offset`
 - `duration_ms`, `from`, `linked`
 
-### `lightpath::ErrorCode`, `lightpath::Status`, `lightpath::Result<T>`
+### `lightgraph::ErrorCode`, `lightgraph::Status`, `lightgraph::Result<T>`
 
 Typed error and result model used by `Engine`.
 
-### `lightpath/version.hpp`
+### `lightgraph/version.hpp`
 
 Version and deprecation surface:
 
-- `LIGHTPATH_VERSION_MAJOR`
-- `LIGHTPATH_VERSION_MINOR`
-- `LIGHTPATH_VERSION_PATCH`
-- `LIGHTPATH_VERSION_STRING`
-- `LIGHTPATH_DEPRECATED("message")`
+- `LIGHTGRAPH_VERSION_MAJOR`
+- `LIGHTGRAPH_VERSION_MINOR`
+- `LIGHTGRAPH_VERSION_PATCH`
+- `LIGHTGRAPH_VERSION_STRING`
+- `LIGHTGRAPH_DEPRECATED("message")`
 
-### `lightpath::Engine`
+### `lightgraph::Engine`
 
 Thread-safe runtime facade:
 
@@ -80,14 +80,14 @@ Thread-safe runtime facade:
 
 ### Thread-safety
 
-- `lightpath::Engine` is safe for concurrent calls on the same instance.
+- `lightgraph::Engine` is safe for concurrent calls on the same instance.
 - No additional external locking is required for `emit/update/tick/pixel/...` on one instance.
-- Source-integration types (`lightpath::integration::*`) are not thread-safe by default.
+- Source-integration types (`lightgraph::integration::*`) are not thread-safe by default.
 
 ### Determinism
 
 - With fixed inputs, deterministic command ordering, and a fixed `std::rand` seed
-  (`std::srand(...)`), `lightpath::Engine` emits deterministic output.
+  (`std::srand(...)`), `lightgraph::Engine` emits deterministic output.
 - Any call path that uses random defaults (for example omitted color/length in low-level
   integrations) inherits `std::rand` global-state behavior.
 
@@ -108,68 +108,68 @@ They are source-level integration headers and are not part of the installable st
 Primary integration umbrella:
 
 ```cpp
-#include <lightpath/integration.hpp>
+#include <lightgraph/integration.hpp>
 ```
 
 For CMake source-tree consumers, link the dedicated target:
 
 ```cmake
-target_link_libraries(your_target PRIVATE lightpath::integration)
+target_link_libraries(your_target PRIVATE lightgraph::integration)
 ```
 
-### `lightpath/integration/topology.hpp`
+### `lightgraph/integration/topology.hpp`
 
 Namespace aliases:
 
-- `lightpath::integration::Object` (`TopologyObject`)
-- `lightpath::integration::Intersection`
-- `lightpath::integration::Connection`
-- `lightpath::integration::Model`
-- `lightpath::integration::Owner`
-- `lightpath::integration::Port`, `lightpath::integration::InternalPort`, `lightpath::integration::ExternalPort`
-- `lightpath::integration::Weight`
+- `lightgraph::integration::Object` (`TopologyObject`)
+- `lightgraph::integration::Intersection`
+- `lightgraph::integration::Connection`
+- `lightgraph::integration::Model`
+- `lightgraph::integration::Owner`
+- `lightgraph::integration::Port`, `lightgraph::integration::InternalPort`, `lightgraph::integration::ExternalPort`
+- `lightgraph::integration::Weight`
 
-### `lightpath/integration/runtime.hpp`
+### `lightgraph/integration/runtime.hpp`
 
 Namespace aliases:
 
-- `lightpath::integration::EmitParam`
-- `lightpath::integration::EmitParams`
-- `lightpath::integration::Behaviour`
-- `lightpath::integration::RuntimeLight`
-- `lightpath::integration::Light`
-- `lightpath::integration::LightList`
-- `lightpath::integration::BgLight`
-- `lightpath::integration::RuntimeState`
+- `lightgraph::integration::EmitParam`
+- `lightgraph::integration::EmitParams`
+- `lightgraph::integration::Behaviour`
+- `lightgraph::integration::RuntimeLight`
+- `lightgraph::integration::Light`
+- `lightgraph::integration::LightList`
+- `lightgraph::integration::BgLight`
+- `lightgraph::integration::RuntimeState`
 
-### `lightpath/integration/rendering.hpp`
+### `lightgraph/integration/rendering.hpp`
 
 Namespace aliases/helpers:
 
-- `lightpath::integration::Palette`
-- `lightpath::integration::kWrapNoWrap`
-- `lightpath::integration::kWrapClampToEdge`
-- `lightpath::integration::kWrapRepeat`
-- `lightpath::integration::kWrapRepeatMirror`
-- `lightpath::integration::paletteCount()`
-- `lightpath::integration::paletteAt(index)`
+- `lightgraph::integration::Palette`
+- `lightgraph::integration::kWrapNoWrap`
+- `lightgraph::integration::kWrapClampToEdge`
+- `lightgraph::integration::kWrapRepeat`
+- `lightgraph::integration::kWrapRepeatMirror`
+- `lightgraph::integration::paletteCount()`
+- `lightgraph::integration::paletteAt(index)`
 
-### `lightpath/integration/objects.hpp`
+### `lightgraph/integration/objects.hpp`
 
 Namespace aliases/constants:
 
-- `lightpath::integration::Heptagon919`, `lightpath::integration::Heptagon3024`, `lightpath::integration::Line`, `lightpath::integration::Cross`, `lightpath::integration::Triangle`
+- `lightgraph::integration::Heptagon919`, `lightgraph::integration::Heptagon3024`, `lightgraph::integration::Line`, `lightgraph::integration::Cross`, `lightgraph::integration::Triangle`
 - model enums for built-ins
 - default pixel-count constants (`kLinePixelCount`, etc.)
 
-### `lightpath/integration/factory.hpp`
+### `lightgraph/integration/factory.hpp`
 
-- `lightpath::integration::BuiltinObjectType`
-- `lightpath::integration::makeObject(...)`
+- `lightgraph::integration::BuiltinObjectType`
+- `lightgraph::integration::makeObject(...)`
 
-### `lightpath/integration/debug.hpp`
+### `lightgraph/integration/debug.hpp`
 
-- `lightpath::integration::Debugger`
+- `lightgraph::integration::Debugger`
 
 ## 5) Invariants
 

@@ -1,9 +1,9 @@
-# Lightpath Core Audit Report
+# Lightgraph Core Audit Report
 
 Date: 2026-02-23
 Scope: `src` and core-adjacent runtime adapters. Downstream integration references to MeshLED (`apps/simulator`, `firmware/esp`) are included where relevant.
 
-Canonical location: `lightpath/docs/CORE_AUDIT_REPORT.md` in the Lightpath repository.
+Canonical location: `lightgraph/docs/CORE_AUDIT_REPORT.md` in the Lightgraph repository.
 
 ## 1) Executive Summary
 
@@ -13,7 +13,7 @@ Canonical location: `lightpath/docs/CORE_AUDIT_REPORT.md` in the Lightpath repos
 - Maintains runtime animation layers (`LightList`) that emit and update light particles (`RuntimeLight`/`Light`) every frame.
 - Applies color/palette interpolation (including `ofxColorTheory` color rules) and per-layer blend modes into shared pixel accumulators in `State`.
 - Supports behavior flags for movement/brightness/mirroring/segment rendering (`BehaviourFlags` in `Config.h`) that alter propagation and rendering semantics.
-- Is reused in two surfaces: desktop simulator (openFrameworks + OSC input) and ESP firmware (Arduino + OSC/HTTP control), with firmware compiling core through a symlink (`firmware/esp/src -> ../../packages/lightpath/src`).
+- Is reused in two surfaces: desktop simulator (openFrameworks + OSC input) and ESP firmware (Arduino + OSC/HTTP control), with firmware compiling core through a symlink (`firmware/esp/src -> ../../packages/lightgraph/src`).
 
 ### Readiness score (0-10)
 
@@ -38,7 +38,7 @@ Canonical location: `lightpath/docs/CORE_AUDIT_REPORT.md` in the Lightpath repos
 
 ### Directory/module map
 
-- `packages/lightpath/src`
+- `packages/lightgraph/src`
 - Purpose: shared native engine used by firmware and simulator.
 - Notable files:
 - `State.*`: frame update, emission, blending, layer lifecycle.
@@ -55,10 +55,10 @@ Canonical location: `lightpath/docs/CORE_AUDIT_REPORT.md` in the Lightpath repos
 
 ### Key classes/modules and responsibilities
 
-- `State` (`packages/lightpath/src/runtime/State.h`): owns active `LightList`s and pixel accumulators; orchestrates `autoEmit`, `emit`, `update`, and final pixel sampling.
-- `LightList` (`packages/lightpath/src/runtime/LightList.h`): per-layer configuration/state (speed, easing, fade, palette, behavior, blend mode), light allocation/reset/update.
-- `RuntimeLight`/`Light` (`packages/lightpath/src/runtime/RuntimeLight.h`, `packages/lightpath/src/runtime/Light.h`): per-light progression on topology and color/brightness computation.
-- `TopologyObject` (`packages/lightpath/src/topology/TopologyObject.h`): topology container for intersections/connections/models and command presets.
+- `State` (`packages/lightgraph/src/runtime/State.h`): owns active `LightList`s and pixel accumulators; orchestrates `autoEmit`, `emit`, `update`, and final pixel sampling.
+- `LightList` (`packages/lightgraph/src/runtime/LightList.h`): per-layer configuration/state (speed, easing, fade, palette, behavior, blend mode), light allocation/reset/update.
+- `RuntimeLight`/`Light` (`packages/lightgraph/src/runtime/RuntimeLight.h`, `packages/lightgraph/src/runtime/Light.h`): per-light progression on topology and color/brightness computation.
+- `TopologyObject` (`packages/lightgraph/src/topology/TopologyObject.h`): topology container for intersections/connections/models and command presets.
 - `Intersection`/`Connection`/`Port`: route lights across graph edges and optionally out to external sinks.
 - `Model`/`Weight`: weighted routing table per model.
 - `Palette`/`Palettes`: color handling, interpolation and presets, optional color-rule generation through `ofxColorTheory`.
@@ -89,7 +89,7 @@ Outputs
 
 ### Addons/plugins and third-party integration
 
-- `ofxColorTheory` submodule (`packages/lightpath/vendor/ofxColorTheory`) is used directly in `Palette.h` and `LightList.cpp` for color rules/schemes.
+- `ofxColorTheory` submodule (`packages/lightgraph/vendor/ofxColorTheory`) is used directly in `Palette.h` and `LightList.cpp` for color rules/schemes.
 - `ofxOsc` is used in simulator (`apps/simulator/addons.make`, `apps/simulator/src/ofApp.h`) for OSC input.
 - `ofxEasing.h` is vendored in core and used heavily for timing/easing.
 - `FastNoise.*` is vendored in core for noise-driven behavior.
@@ -98,7 +98,7 @@ Outputs
 
 ### Build systems detected
 
-- Standalone host build for core: CMake (`packages/lightpath/CMakeLists.txt`).
+- Standalone host build for core: CMake (`packages/lightgraph/CMakeLists.txt`).
 - openFrameworks simulator build surfaces:
 - GNU Make (`apps/simulator/Makefile` + `config.make` + `addons.make`).
 - QBS (`apps/simulator/simulator.qbs`).
@@ -116,7 +116,7 @@ Outputs
 
 - Required external:
 - openFrameworks checkout for simulator.
-- `packages/lightpath/vendor/ofxColorTheory` submodule.
+- `packages/lightgraph/vendor/ofxColorTheory` submodule.
 - PlatformIO + Arduino framework for firmware integration build path.
 - Core-local/vendored:
 - `ofxEasing.h`
@@ -134,20 +134,20 @@ Outputs
 
 ### Current build verification from this audit
 
-- `cmake -S packages/lightpath -B packages/lightpath/build -DLIGHTPATH_CORE_BUILD_TESTS=ON` succeeded.
-- `cmake --build packages/lightpath/build` succeeded (builds core static library and host test executables).
-- `ctest --test-dir packages/lightpath/build --output-on-failure` succeeded (2/2 passing).
-- `CC=clang CXX=clang++ cmake -S packages/lightpath -B packages/lightpath/build-asan -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_ASAN=ON` succeeded.
-- `ASAN_OPTIONS=detect_leaks=0 ctest --test-dir packages/lightpath/build-asan --output-on-failure` succeeded (2/2 passing).
-- `CC=clang CXX=clang++ cmake -S packages/lightpath -B packages/lightpath/build-ubsan -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_UBSAN=ON` succeeded.
-- `ctest --test-dir packages/lightpath/build-ubsan --output-on-failure` succeeded (2/2 passing).
+- `cmake -S packages/lightgraph -B packages/lightgraph/build -DLIGHTGRAPH_CORE_BUILD_TESTS=ON` succeeded.
+- `cmake --build packages/lightgraph/build` succeeded (builds core static library and host test executables).
+- `ctest --test-dir packages/lightgraph/build --output-on-failure` succeeded (2/2 passing).
+- `CC=clang CXX=clang++ cmake -S packages/lightgraph -B packages/lightgraph/build-asan -DLIGHTGRAPH_CORE_BUILD_TESTS=ON -DLIGHTGRAPH_CORE_ENABLE_ASAN=ON` succeeded.
+- `ASAN_OPTIONS=detect_leaks=0 ctest --test-dir packages/lightgraph/build-asan --output-on-failure` succeeded (2/2 passing).
+- `CC=clang CXX=clang++ cmake -S packages/lightgraph -B packages/lightgraph/build-ubsan -DLIGHTGRAPH_CORE_BUILD_TESTS=ON -DLIGHTGRAPH_CORE_ENABLE_UBSAN=ON` succeeded.
+- `ctest --test-dir packages/lightgraph/build-ubsan --output-on-failure` succeeded (2/2 passing).
 - `pio run -e esp32dev -t compiledb` succeeded (core sources compile under firmware toolchain).
 - `make -n` in `apps/simulator` failed locally due missing openFrameworks path at expected default (`../../../../openframeworks`).
 
 ### Typical failure modes and debugging
 
 - Missing OF checkout or wrong `OF_ROOT` causes simulator make failure.
-- Missing/uninitialized submodule (`packages/lightpath/vendor/ofxColorTheory`) causes compile failures in core palette code.
+- Missing/uninitialized submodule (`packages/lightgraph/vendor/ofxColorTheory`) causes compile failures in core palette code.
 - Firmware-core path depends on symlink (`firmware/esp/src`) which can be problematic on environments that do not preserve symlinks.
 - Debug visibility:
 - `LP_LOG*` macros route to `Serial` (Arduino) or `ofLog` (OF).
@@ -185,7 +185,7 @@ Outputs
 
 - Predominantly raw `new`/`delete` ownership.
 - Ownership boundaries are implicit and in places incomplete (see risks in section 6).
-- `State` destructor does not release `lightLists` (`packages/lightpath/src/runtime/State.h:36`), implying leaks on teardown/object switches.
+- `State` destructor does not release `lightLists` (`packages/lightgraph/src/runtime/State.h:36`), implying leaks on teardown/object switches.
 
 ### Config/parameter system
 
@@ -209,7 +209,7 @@ Outputs
 
 - OSC pair/triplet param contract maps to `EmitParam` IDs and `EmitParams` fields.
 - HTTP control panel endpoints (e.g. `/get_layers`, `/update_palette`, `/update_behaviour_flags`) mutate `state->lightLists[...]` fields directly in firmware handlers.
-- Core supports external propagation hook via `ExternalPort` + `sendLightViaESPNow` function pointer (`packages/lightpath/src/topology/Port.h:62`).
+- Core supports external propagation hook via `ExternalPort` + `sendLightViaESPNow` function pointer (`packages/lightgraph/src/topology/Port.h:62`).
 
 ### Reliability considerations
 
@@ -243,17 +243,17 @@ Outputs
 
 - Medium testability in current form:
 - strong coupling to globals/macros.
-- host build target now exists (`packages/lightpath/CMakeLists.txt`) and can run in CI.
+- host build target now exists (`packages/lightgraph/CMakeLists.txt`) and can run in CI.
 - topology setup code is deterministic and testable once harness exists.
 
 ### Existing tests and coverage gaps
 
-- Added baseline smoke tests in `packages/lightpath/tests/core_smoke_test.cpp`:
+- Added baseline smoke tests in `packages/lightgraph/tests/core_smoke_test.cpp`:
 - `HashMap` const lookup behavior.
 - `LightList::setDuration` assignment correctness.
 - `State::emit` invalid model guard.
 - `State::emit` zero-emitter guard via dummy object.
-- Added regression tests in `packages/lightpath/tests/core_regression_test.cpp`:
+- Added regression tests in `packages/lightgraph/tests/core_regression_test.cpp`:
 - model-selection wrap behavior for `Line`/`Cross`/`Triangle`.
 - palette repeat-wrap behavior.
 - emit/update/stop lifecycle checks on `Line`, including `stopNote`, `stopAll`, and `findListById` checks.
@@ -288,7 +288,7 @@ Remaining high-signal risks:
 
 ### Missing for “build core from scratch”
 
-- Host target now exists (`packages/lightpath/CMakeLists.txt`) and is CI-validated.
+- Host target now exists (`packages/lightgraph/CMakeLists.txt`) and is CI-validated.
 - Core-specific quickstart now exists (`docs/core-build.md`) but still lacks a platform/version support matrix.
 - Simulator build prerequisites depend on user-managed openFrameworks path/version without explicit pin.
 
@@ -308,7 +308,7 @@ Remaining high-signal risks:
 
 ### Dev tooling suggestions (without overengineering)
 
-- Add `clang-format` config for `packages/lightpath/src` + basic format check in CI.
+- Add `clang-format` config for `packages/lightgraph/src` + basic format check in CI.
 - Add a minimal core host test job (even one executable) once standalone target exists.
 - Add optional static analysis pass (`clang-tidy` or compiler warnings-as-errors for core only).
 
@@ -316,7 +316,7 @@ Remaining high-signal risks:
 
 ### Assumptions made
 
-- `packages/lightpath/src` is canonical core source used by both firmware and simulator.
+- `packages/lightgraph/src` is canonical core source used by both firmware and simulator.
 - Firmware symlink (`firmware/esp/src`) remains the intended integration mechanism.
 - Simulator is intended as the primary host runtime for visual verification of core behavior.
 
@@ -385,11 +385,11 @@ Dependencies: 1.1.
 
 ### Task 2.1
 Goal: add standalone core host target for tests.
-Files/modules: new `packages/lightpath` build files (e.g., CMake or simple host make), minimal harness.
+Files/modules: new `packages/lightgraph` build files (e.g., CMake or simple host make), minimal harness.
 Acceptance criteria: core compiles outside OF/Arduino adapters on CI host.
 Complexity: M.
 Dependencies: 1.1.
-Status: completed in this phase (`packages/lightpath/CMakeLists.txt` + `packages/lightpath/host/include/ofMain.h`).
+Status: completed in this phase (`packages/lightgraph/CMakeLists.txt` + `packages/lightgraph/host/include/ofMain.h`).
 
 ### Task 2.2
 Goal: add regression tests for routing and lifecycle.
@@ -405,7 +405,7 @@ Files/modules: CI workflow.
 Acceptance criteria: ASan/UBSan pass on core test suite; warnings tracked as actionable.
 Complexity: M.
 Dependencies: 2.1, 2.2.
-Status: completed (ASan + UBSan + strict warning lane added; strict lane uses `LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS=ON` with targeted suppression for legacy `ofxEasing` sequencing warnings).
+Status: completed (ASan + UBSan + strict warning lane added; strict lane uses `LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS=ON` with targeted suppression for legacy `ofxEasing` sequencing warnings).
 
 ## Phase 3: architectural refactors (optional/high risk)
 
@@ -444,7 +444,7 @@ Dependencies: 3.1.
 - Added `docs/core-architecture.md` with a concise module map, runtime flow, ownership/lifecycle notes, and adapter boundary contract.
 - Added `docs/third-party-licenses.md` to track confirmed licenses and unresolved provenance follow-ups (`ofxEasing`, palette attribution).
 - Added `scripts/build-core.sh` (`default|asan|ubsan|warnings|all`) for reproducible host core verification from repo root.
-- Extracted core into standalone repo `git@github.com:kasparsj/lightpath.git` and reconnected monorepo `packages/lightpath` as a git submodule.
+- Extracted core into standalone repo `git@github.com:kasparsj/lightgraph.git` and reconnected monorepo `packages/lightgraph` as a git submodule.
 - Updated `docs/build.md` to point to `docs/core-build.md`.
 - Updated `README.md` key docs list to include `docs/core-build.md`, `docs/core-architecture.md`, and `docs/third-party-licenses.md`.
 
@@ -468,13 +468,13 @@ Validation after Phase 1:
 ### Phase 2 build/test expansion (implemented)
 
 - Added standalone host build target:
-- `packages/lightpath/CMakeLists.txt`
+- `packages/lightgraph/CMakeLists.txt`
 - Added host compatibility shim for core-only CMake builds:
-- `packages/lightpath/host/include/ofMain.h`
+- `packages/lightgraph/host/include/ofMain.h`
 - Added baseline smoke tests:
-- `packages/lightpath/tests/core_smoke_test.cpp`
+- `packages/lightgraph/tests/core_smoke_test.cpp`
 - Added regression tests:
-- `packages/lightpath/tests/core_regression_test.cpp`
+- `packages/lightgraph/tests/core_regression_test.cpp`
 - Expanded regression coverage:
 - deterministic blend-mode compositing checks across all documented blend modes (`BLEND_NORMAL` through `BLEND_PIN_LIGHT`) using stacked `BgLight` layers.
 - lifecycle assertions for `stopNote` and `findListById` behavior.
@@ -483,15 +483,15 @@ Validation after Phase 1:
 - Added ASan lane for host core tests:
 - `.github/workflows/ci.yml` (`Core (ASan)`)
 - Added ASan toggle in host build:
-- `LIGHTPATH_CORE_ENABLE_ASAN` in `packages/lightpath/CMakeLists.txt`
+- `LIGHTGRAPH_CORE_ENABLE_ASAN` in `packages/lightgraph/CMakeLists.txt`
 - Added UBSan lane for host core tests:
 - `.github/workflows/ci.yml` (`Core (UBSan)`)
 - Added UBSan toggle in host build:
-- `LIGHTPATH_CORE_ENABLE_UBSAN` in `packages/lightpath/CMakeLists.txt`
+- `LIGHTGRAPH_CORE_ENABLE_UBSAN` in `packages/lightgraph/CMakeLists.txt`
 - Added strict warning lane for host core tests:
 - `.github/workflows/ci.yml` (`Core (Warnings)`)
 - Added strict warning toggle in host build:
-- `LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS` in `packages/lightpath/CMakeLists.txt`
+- `LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS` in `packages/lightgraph/CMakeLists.txt`
 - Warning cleanup and annotation improvements:
 - `RuntimeLight` and `LightList` now have virtual destructors, `RuntimeLight` ctor init order was fixed, object overrides were annotated, and warning-only footguns were cleaned up in `TopologyObject`/`LightList`.
 - Improved teardown cleanup in core:
@@ -499,9 +499,9 @@ Validation after Phase 1:
 - `Model` now deletes owned `Weight` instances on destruction.
 - `Connection` now deletes owned `Port` instances, and `TopologyObject` now destroys connections before intersections to keep port cleanup order safe.
 - Added long-run lifecycle regression coverage:
-- `packages/lightpath/tests/core_regression_test.cpp` now verifies bounded repeated emit/update/stop cycles and post-`stopAll` drain behavior over a full `Line` traversal window, including background-slot (`lightLists[0]`) and `totalLightLists` invariants.
+- `packages/lightgraph/tests/core_regression_test.cpp` now verifies bounded repeated emit/update/stop cycles and post-`stopAll` drain behavior over a full `Line` traversal window, including background-slot (`lightLists[0]`) and `totalLightLists` invariants.
 - Added teardown regression check:
-- `packages/lightpath/tests/core_regression_test.cpp` now asserts the global `Port` pool is empty after scoped object teardown.
+- `packages/lightgraph/tests/core_regression_test.cpp` now asserts the global `Port` pool is empty after scoped object teardown.
 - Fixed list counter underflow during repeated expired background updates:
 - `State::update` now keeps slot `0` allocated/non-visible without decrementing `totalLightLists` on every frame.
 - Updated docs:
@@ -510,21 +510,21 @@ Validation after Phase 1:
 - `docs/build.md`
 
 Validation after Phase 2 expansion:
-- `cmake -S packages/lightpath -B packages/lightpath/build -DLIGHTPATH_CORE_BUILD_TESTS=ON` succeeded.
-- `cmake --build packages/lightpath/build` succeeded.
-- `ctest --test-dir packages/lightpath/build --output-on-failure` succeeded (2/2).
-- `CC=clang CXX=clang++ cmake -S packages/lightpath -B packages/lightpath/build-asan -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_ASAN=ON` succeeded.
-- `ASAN_OPTIONS=detect_leaks=0 ctest --test-dir packages/lightpath/build-asan --output-on-failure` succeeded (2/2).
-- `CC=clang CXX=clang++ cmake -S packages/lightpath -B packages/lightpath/build-ubsan -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_UBSAN=ON` succeeded.
-- `ctest --test-dir packages/lightpath/build-ubsan --output-on-failure` succeeded (2/2).
-- `CC=clang CXX=clang++ cmake -S packages/lightpath -B packages/lightpath/build-warnings -DLIGHTPATH_CORE_BUILD_TESTS=ON -DLIGHTPATH_CORE_ENABLE_STRICT_WARNINGS=ON` succeeded.
-- `ctest --test-dir packages/lightpath/build-warnings --output-on-failure` succeeded (2/2).
+- `cmake -S packages/lightgraph -B packages/lightgraph/build -DLIGHTGRAPH_CORE_BUILD_TESTS=ON` succeeded.
+- `cmake --build packages/lightgraph/build` succeeded.
+- `ctest --test-dir packages/lightgraph/build --output-on-failure` succeeded (2/2).
+- `CC=clang CXX=clang++ cmake -S packages/lightgraph -B packages/lightgraph/build-asan -DLIGHTGRAPH_CORE_BUILD_TESTS=ON -DLIGHTGRAPH_CORE_ENABLE_ASAN=ON` succeeded.
+- `ASAN_OPTIONS=detect_leaks=0 ctest --test-dir packages/lightgraph/build-asan --output-on-failure` succeeded (2/2).
+- `CC=clang CXX=clang++ cmake -S packages/lightgraph -B packages/lightgraph/build-ubsan -DLIGHTGRAPH_CORE_BUILD_TESTS=ON -DLIGHTGRAPH_CORE_ENABLE_UBSAN=ON` succeeded.
+- `ctest --test-dir packages/lightgraph/build-ubsan --output-on-failure` succeeded (2/2).
+- `CC=clang CXX=clang++ cmake -S packages/lightgraph -B packages/lightgraph/build-warnings -DLIGHTGRAPH_CORE_BUILD_TESTS=ON -DLIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS=ON` succeeded.
+- `ctest --test-dir packages/lightgraph/build-warnings --output-on-failure` succeeded (2/2).
 - `pio run -e esp32dev -t compiledb` still succeeds.
 - `apps/simulator make -n` status unchanged without local openFrameworks checkout.
 
 ## Appendix A: Search-driven findings
 
-Keyword scans performed across `packages/lightpath` and `apps/simulator`:
+Keyword scans performed across `packages/lightgraph` and `apps/simulator`:
 
 - Networking terms (`udp|osc|websocket|http|mdns|ssdp|espnow|tcp`): simulator OSC usage and core `ExternalPort` callback hook were found; no core-native socket stack.
 - Parameter/config terms (`param|settings|json|palette|EmitParam|behaviourFlags`): `EmitParams`, palette system, behavior flags, and simulator parser paths confirmed.
@@ -533,8 +533,8 @@ Keyword scans performed across `packages/lightpath` and `apps/simulator`:
 
 ## Appendix B: Known TODO/FIXME markers
 
-- `packages/lightpath/src/State.cpp`: `todo` on max-light overflow strategy and pixel retrieval note.
-- `packages/lightpath/src/LightList.cpp`: `todo` on behavior gate and split trail handling.
-- `packages/lightpath/src/objects/Heptagon919.cpp`: `todo` maxLength for all models.
-- `packages/lightpath/src/objects/Heptagon3024.cpp`: `todo` maxLength for all models.
-- `packages/lightpath/src/objects/HeptagonStar.h`: `todo` implement `getXYZ`.
+- `packages/lightgraph/src/State.cpp`: `todo` on max-light overflow strategy and pixel retrieval note.
+- `packages/lightgraph/src/LightList.cpp`: `todo` on behavior gate and split trail handling.
+- `packages/lightgraph/src/objects/Heptagon919.cpp`: `todo` maxLength for all models.
+- `packages/lightgraph/src/objects/Heptagon3024.cpp`: `todo` maxLength for all models.
+- `packages/lightgraph/src/objects/HeptagonStar.h`: `todo` implement `getXYZ`.

@@ -125,8 +125,8 @@ jobs:
 
       - name: Benchmark guardrail
         env:
-          LIGHTPATH_MIN_BENCHMARK_FPS: "10000"
-        run: ./scripts/check-benchmark.sh build/preset-static-analysis/lightpath_core_benchmark
+          LIGHTGRAPH_MIN_BENCHMARK_FPS: "10000"
+        run: ./scripts/check-benchmark.sh build/preset-static-analysis/lightgraph_core_benchmark
 
       - name: Validate Conan recipe syntax
         run: python3 -m py_compile conanfile.py
@@ -137,7 +137,7 @@ jobs:
           import json
           from pathlib import Path
           data = json.loads(Path("packaging/vcpkg/vcpkg.json").read_text())
-          assert data["name"] == "lightpath"
+          assert data["name"] == "lightgraph"
           PY
 
   coverage:

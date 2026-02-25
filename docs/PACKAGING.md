@@ -1,20 +1,20 @@
 # Packaging Guide
 
-This document describes supported package-consumption paths for Lightpath.
+This document describes supported package-consumption paths for Lightgraph.
 
 ## CMake Package (Primary)
 
 Install and consume as a CMake package:
 
 ```bash
-cmake -S . -B build -DLIGHTPATH_CORE_BUILD_TESTS=OFF
+cmake -S . -B build -DLIGHTGRAPH_CORE_BUILD_TESTS=OFF
 cmake --build build --parallel
 cmake --install build --prefix /path/to/install
 ```
 
 ```cmake
-find_package(lightpath CONFIG REQUIRED)
-target_link_libraries(your_target PRIVATE lightpath::lightpath)
+find_package(lightgraph CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE lightgraph::lightgraph)
 ```
 
 ## Conan (Template Recipe)
@@ -39,13 +39,13 @@ Template files are provided in:
 Use these in an overlay port setup:
 
 ```bash
-vcpkg install lightpath --overlay-ports=/path/to/lightpath/packaging/vcpkg
+vcpkg install lightgraph --overlay-ports=/path/to/lightgraph/packaging/vcpkg
 ```
 
 ## Consumer Example
 
 The package consumer smoke test under `tests/package_smoke/` validates that an
-installed Lightpath package can be discovered with `find_package(lightpath)`,
+installed Lightgraph package can be discovered with `find_package(lightgraph)`,
 linked, and executed.
 
 ## Release Flow

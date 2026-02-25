@@ -1,9 +1,9 @@
-#include <lightpath/lightpath.hpp>
+#include <lightgraph/lightgraph.hpp>
 
 int main() {
-    lightpath::Engine engine;
+    lightgraph::Engine engine;
 
-    lightpath::EmitCommand emit;
+    lightgraph::EmitCommand emit;
     emit.model = 0;
     emit.length = 1;
 

@@ -1,4 +1,4 @@
 Checks: '-*,clang-analyzer-*'
 WarningsAsErrors: '*'
-HeaderFilterRegex: 'include/lightpath/.*|src/api/.*|tests/.*|examples/.*|benchmarks/.*'
+HeaderFilterRegex: 'include/lightgraph/.*|src/api/.*|tests/.*|examples/.*|benchmarks/.*'
 FormatStyle: none

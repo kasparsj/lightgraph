@@ -1,4 +1,4 @@
-PROJECT_NAME           = "Lightpath"
+PROJECT_NAME           = "Lightgraph"
 PROJECT_BRIEF          = "C++17 light-graph engine API reference"
 OUTPUT_DIRECTORY       = build
 CREATE_SUBDIRS         = NO
@@ -6,7 +6,7 @@ OUTPUT_LANGUAGE        = English
 OPTIMIZE_OUTPUT_FOR_C  = NO
 OPTIMIZE_OUTPUT_JAVA   = NO
 
-INPUT                  = include/lightpath docs/API.md docs/API_POLICY.md docs/PACKAGING.md docs/RELEASE.md README.md
+INPUT                  = include/lightgraph docs/API.md docs/API_POLICY.md docs/PACKAGING.md docs/RELEASE.md README.md
 FILE_PATTERNS          = *.hpp *.md
 RECURSIVE              = YES
 EXCLUDE                = src vendor tests examples build build-* cmake

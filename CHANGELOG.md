@@ -5,17 +5,17 @@
 ### API
 
 - Added stable high-level public API:
-  - `include/lightpath/lightpath.hpp`
-  - `include/lightpath/engine.hpp`
-  - `include/lightpath/types.hpp`
-  - `include/lightpath/status.hpp`
-- Removed `include/lightpath/legacy*` compatibility layer.
-- Moved source-integration module headers under `include/lightpath/integration/` and `include/lightpath/integration.hpp`.
-- Moved source-integration aliases into `lightpath::integration::*` namespace.
-- Narrowed `lightpath/lightpath.hpp` to stable installable API headers only (`engine.hpp`, `types.hpp`, `status.hpp`).
+  - `include/lightgraph/lightgraph.hpp`
+  - `include/lightgraph/engine.hpp`
+  - `include/lightgraph/types.hpp`
+  - `include/lightgraph/status.hpp`
+- Removed `include/lightgraph/legacy*` compatibility layer.
+- Moved source-integration module headers under `include/lightgraph/integration/` and `include/lightgraph/integration.hpp`.
+- Moved source-integration aliases into `lightgraph::integration::*` namespace.
+- Narrowed `lightgraph/lightgraph.hpp` to stable installable API headers only (`engine.hpp`, `types.hpp`, `status.hpp`).
 - Added typed status/result error model (`ErrorCode`, `Status`, `Result<T>`).
-- Added explicit source-integration CMake target (`lightpath::integration`) for
-  non-installable `lightpath/integration*.hpp` usage.
+- Added explicit source-integration CMake target (`lightgraph::integration`) for
+  non-installable `lightgraph/integration*.hpp` usage.
 
 ### Refactor
 
@@ -29,7 +29,7 @@
 
 ### Build
 
-- Added install/export/package-config support (`lightpathConfig.cmake`).
+- Added install/export/package-config support (`lightgraphConfig.cmake`).
 - Added CI-friendly `CMakePresets.json` profiles:
   - `default`, `warnings`, `asan`, `ubsan`, `coverage`
 - Added CI coverage job and gcovr artifact generation.

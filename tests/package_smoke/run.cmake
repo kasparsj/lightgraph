@@ -49,9 +49,9 @@ if(NOT build_result EQUAL 0)
 endif()
 
 if(WIN32)
-  set(smoke_exe "${binary_dir}/lightpath_package_smoke.exe")
+  set(smoke_exe "${binary_dir}/lightgraph_package_smoke.exe")
 else()
-  set(smoke_exe "${binary_dir}/lightpath_package_smoke")
+  set(smoke_exe "${binary_dir}/lightgraph_package_smoke")
 endif()
 
 execute_process(

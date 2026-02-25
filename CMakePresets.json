@@ -14,8 +14,8 @@
       "binaryDir": "${sourceDir}/build/preset-default",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "LIGHTPATH_CORE_BUILD_TESTS": "ON",
-        "LIGHTPATH_CORE_BUILD_EXAMPLES": "ON"
+        "LIGHTGRAPH_CORE_BUILD_TESTS": "ON",
+        "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "ON"
       }
     },
     {
@@ -25,7 +25,7 @@
       "inherits": "default",
       "binaryDir": "${sourceDir}/build/preset-warnings",
       "cacheVariables": {
-        "LIGHTPATH_CORE_ENABLE_STRICT_WARNINGS": "ON"
+        "LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS": "ON"
       }
     },
     {
@@ -35,8 +35,8 @@
       "inherits": "default",
       "binaryDir": "${sourceDir}/build/preset-asan",
       "cacheVariables": {
-        "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
-        "LIGHTPATH_CORE_ENABLE_ASAN": "ON"
+        "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "OFF",
+        "LIGHTGRAPH_CORE_ENABLE_ASAN": "ON"
       }
     },
     {
@@ -46,8 +46,8 @@
       "inherits": "default",
       "binaryDir": "${sourceDir}/build/preset-ubsan",
       "cacheVariables": {
-        "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
-        "LIGHTPATH_CORE_ENABLE_UBSAN": "ON"
+        "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "OFF",
+        "LIGHTGRAPH_CORE_ENABLE_UBSAN": "ON"
       }
     },
     {
@@ -58,8 +58,8 @@
       "binaryDir": "${sourceDir}/build/preset-static-analysis",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "LIGHTPATH_CORE_BUILD_EXAMPLES": "ON",
-        "LIGHTPATH_CORE_BUILD_BENCHMARKS": "ON"
+        "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "ON",
+        "LIGHTGRAPH_CORE_BUILD_BENCHMARKS": "ON"
       }
     },
     {
@@ -69,9 +69,9 @@
       "inherits": "default",
       "binaryDir": "${sourceDir}/build/preset-docs",
       "cacheVariables": {
-        "LIGHTPATH_CORE_BUILD_TESTS": "OFF",
-        "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
-        "LIGHTPATH_CORE_BUILD_DOCS": "ON"
+        "LIGHTGRAPH_CORE_BUILD_TESTS": "OFF",
+        "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "OFF",
+        "LIGHTGRAPH_CORE_BUILD_DOCS": "ON"
       }
     },
     {
@@ -82,8 +82,8 @@
       "binaryDir": "${sourceDir}/build/preset-coverage",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "LIGHTPATH_CORE_BUILD_EXAMPLES": "OFF",
-        "LIGHTPATH_CORE_ENABLE_COVERAGE": "ON"
+        "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "OFF",
+        "LIGHTGRAPH_CORE_ENABLE_COVERAGE": "ON"
       }
     }
   ],
@@ -112,7 +112,7 @@
       "name": "docs",
       "configurePreset": "docs",
       "targets": [
-        "lightpath_core_docs"
+        "lightgraph_core_docs"
       ]
     },
     {

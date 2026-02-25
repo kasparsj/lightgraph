@@ -7,8 +7,8 @@
  * @brief Debugging helpers for topology/runtime inspection.
  */
 
-namespace lightpath::integration {
+namespace lightgraph::integration {
 
 using Debugger = ::Debugger;
 
-} // namespace lightpath::integration
+} // namespace lightgraph::integration

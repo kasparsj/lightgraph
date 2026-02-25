@@ -8,7 +8,7 @@
  * @brief Public palette and rendering utilities.
  */
 
-namespace lightpath::integration {
+namespace lightgraph::integration {
 
 using Palette = ::Palette;
 
@@ -27,4 +27,4 @@ inline uint8_t paletteCount() { return ::getPaletteCount(); }
  */
 inline Palette paletteAt(uint8_t index) { return ::getPalette(index); }
 
-} // namespace lightpath::integration
+} // namespace lightgraph::integration

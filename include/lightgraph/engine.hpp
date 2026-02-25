@@ -6,11 +6,11 @@
 #include "status.hpp"
 #include "types.hpp"
 
-namespace lightpath {
+namespace lightgraph {
 
 /**
  * @file engine.hpp
- * @brief High-level runtime facade for the stable Lightpath API.
+ * @brief High-level runtime facade for the stable Lightgraph API.
  */
 
 /**
@@ -85,4 +85,4 @@ class Engine {
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace lightpath
+} // namespace lightgraph

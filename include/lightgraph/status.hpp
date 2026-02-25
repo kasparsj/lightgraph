@@ -3,11 +3,11 @@
 #include <string>
 #include <utility>
 
-namespace lightpath {
+namespace lightgraph {
 
 /**
  * @file status.hpp
- * @brief Error/result types for the stable Lightpath API.
+ * @brief Error/result types for the stable Lightgraph API.
  */
 
 /**
@@ -107,4 +107,4 @@ template <typename T> class Result {
     Status status_;
 };
 
-} // namespace lightpath
+} // namespace lightgraph

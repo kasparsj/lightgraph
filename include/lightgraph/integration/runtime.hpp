@@ -14,7 +14,7 @@
  * @brief Public runtime/state and animation types.
  */
 
-namespace lightpath::integration {
+namespace lightgraph::integration {
 
 using EmitParam = ::EmitParam;
 using EmitParams = ::EmitParams;
@@ -25,4 +25,4 @@ using LightList = ::LightList;
 using BgLight = ::BgLight;
 using RuntimeState = ::State;
 
-} // namespace lightpath::integration
+} // namespace lightgraph::integration

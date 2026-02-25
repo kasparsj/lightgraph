@@ -2,27 +2,27 @@
 
 /**
  * @file version.hpp
- * @brief Versioning and deprecation macros for the stable Lightpath API.
+ * @brief Versioning and deprecation macros for the stable Lightgraph API.
  */
 
-#define LIGHTPATH_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
-#define LIGHTPATH_VERSION_MINOR @PROJECT_VERSION_MINOR@
-#define LIGHTPATH_VERSION_PATCH @PROJECT_VERSION_PATCH@
-#define LIGHTPATH_VERSION_STRING "@PROJECT_VERSION@"
+#define LIGHTGRAPH_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define LIGHTGRAPH_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define LIGHTGRAPH_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define LIGHTGRAPH_VERSION_STRING "@PROJECT_VERSION@"
 
 #if defined(__clang__) || defined(__GNUC__)
-#define LIGHTPATH_DEPRECATED(message) __attribute__((deprecated(message)))
+#define LIGHTGRAPH_DEPRECATED(message) __attribute__((deprecated(message)))
 #elif defined(_MSC_VER)
-#define LIGHTPATH_DEPRECATED(message) __declspec(deprecated(message))
+#define LIGHTGRAPH_DEPRECATED(message) __declspec(deprecated(message))
 #else
-#define LIGHTPATH_DEPRECATED(message)
+#define LIGHTGRAPH_DEPRECATED(message)
 #endif
 
-namespace lightpath {
+namespace lightgraph {
 
-inline constexpr int kVersionMajor = LIGHTPATH_VERSION_MAJOR;
-inline constexpr int kVersionMinor = LIGHTPATH_VERSION_MINOR;
-inline constexpr int kVersionPatch = LIGHTPATH_VERSION_PATCH;
-inline constexpr const char* kVersionString = LIGHTPATH_VERSION_STRING;
+inline constexpr int kVersionMajor = LIGHTGRAPH_VERSION_MAJOR;
+inline constexpr int kVersionMinor = LIGHTGRAPH_VERSION_MINOR;
+inline constexpr int kVersionPatch = LIGHTGRAPH_VERSION_PATCH;
+inline constexpr const char* kVersionString = LIGHTGRAPH_VERSION_STRING;
 
-}  // namespace lightpath
+}  // namespace lightgraph

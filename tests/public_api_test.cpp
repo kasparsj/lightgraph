@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include <lightpath/lightpath.hpp>
+#include <lightgraph/lightgraph.hpp>
 
 namespace {
 
@@ -11,54 +11,54 @@ int fail(const std::string& message) {
     return 1;
 }
 
-bool isNonBlack(const lightpath::Color& color) { return color.r > 0 || color.g > 0 || color.b > 0; }
+bool isNonBlack(const lightgraph::Color& color) { return color.r > 0 || color.g > 0 || color.b > 0; }
 
 } // namespace
 
 int main() {
     std::srand(11);
 
-    if (lightpath::kVersionMajor < 1) {
+    if (lightgraph::kVersionMajor < 1) {
         return fail("Version major must be >= 1");
     }
-    if (std::string(lightpath::kVersionString).empty()) {
+    if (std::string(lightgraph::kVersionString).empty()) {
         return fail("Version string must not be empty");
     }
 
-    lightpath::EngineConfig config;
-    config.object_type = lightpath::ObjectType::Line;
+    lightgraph::EngineConfig config;
+    config.object_type = lightgraph::ObjectType::Line;
     config.pixel_count = 64;
-    lightpath::Engine engine(config);
+    lightgraph::Engine engine(config);
 
     if (engine.pixelCount() != 64) {
         return fail("Engine did not respect configured pixel count");
     }
 
-    lightpath::EmitCommand invalid;
+    lightgraph::EmitCommand invalid;
     invalid.model = 99;
     const auto invalid_result = engine.emit(invalid);
     if (invalid_result.ok() ||
-        invalid_result.status().code() != lightpath::ErrorCode::InvalidModel) {
+        invalid_result.status().code() != lightgraph::ErrorCode::InvalidModel) {
         return fail("Invalid model emit did not return ErrorCode::InvalidModel");
     }
     if (invalid_result.status().message().empty()) {
         return fail("Invalid model emit did not return an explanatory message");
     }
 
-    lightpath::EmitCommand invalid_brightness;
+    lightgraph::EmitCommand invalid_brightness;
     invalid_brightness.model = 0;
     invalid_brightness.min_brightness = 220;
     invalid_brightness.max_brightness = 120;
     const auto invalid_brightness_result = engine.emit(invalid_brightness);
     if (invalid_brightness_result.ok() ||
-        invalid_brightness_result.status().code() != lightpath::ErrorCode::InvalidArgument) {
+        invalid_brightness_result.status().code() != lightgraph::ErrorCode::InvalidArgument) {
         return fail("Invalid brightness bounds did not return ErrorCode::InvalidArgument");
     }
     if (invalid_brightness_result.status().message().empty()) {
         return fail("Invalid brightness emit did not return an explanatory message");
     }
 
-    lightpath::EmitCommand command;
+    lightgraph::EmitCommand command;
     command.model = 0;
     command.speed = 1.0f;
     command.length = 5;
@@ -89,7 +89,7 @@ int main() {
     }
 
     const auto out_of_range = engine.pixel(engine.pixelCount());
-    if (out_of_range.ok() || out_of_range.status().code() != lightpath::ErrorCode::OutOfRange) {
+    if (out_of_range.ok() || out_of_range.status().code() != lightgraph::ErrorCode::OutOfRange) {
         return fail("Out-of-range pixel access did not return ErrorCode::OutOfRange");
     }
 

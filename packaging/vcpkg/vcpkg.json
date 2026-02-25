@@ -1,7 +1,7 @@
 {
-  "name": "lightpath",
+  "name": "lightgraph",
   "version-string": "1.0.0",
   "description": "C++17 light-graph engine for topology, runtime animation, and pixel rendering.",
-  "homepage": "https://github.com/kasparsj/lightpath",
+  "homepage": "https://github.com/kasparsj/lightgraph",
   "license": "AGPL-3.0-only"
 }

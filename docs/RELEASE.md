@@ -1,12 +1,12 @@
 # Release Process
 
 This project uses a source-first release flow anchored on Git tags and
-[GitHub Releases](https://github.com/kasparsj/lightpath/releases).
+[GitHub Releases](https://github.com/kasparsj/lightgraph/releases).
 
 ## 1) Prepare the release branch
 
 1. Update version in:
-   - `CMakeLists.txt` (`project(lightpath VERSION X.Y.Z)`)
+   - `CMakeLists.txt` (`project(lightgraph VERSION X.Y.Z)`)
    - `conanfile.py` (`version = "X.Y.Z"`)
    - `packaging/vcpkg/vcpkg.json` (`version-string`)
 2. Update `CHANGELOG.md` and `MIGRATION.md` (if API changes).
@@ -16,7 +16,7 @@ This project uses a source-first release flow anchored on Git tags and
    - `cmake --preset asan && cmake --build --preset asan && ctest --preset asan`
    - `cmake --preset ubsan && cmake --build --preset ubsan && ctest --preset ubsan`
    - `cmake --preset static-analysis && cmake --build --preset static-analysis`
-   - `./scripts/check-benchmark.sh build/preset-static-analysis/lightpath_core_benchmark`
+   - `./scripts/check-benchmark.sh build/preset-static-analysis/lightgraph_core_benchmark`
    - `cmake --preset coverage && cmake --build --preset coverage && ctest --preset coverage`
    - `./scripts/generate-coverage.sh build/preset-coverage`
 
@@ -25,7 +25,7 @@ This project uses a source-first release flow anchored on Git tags and
 1. Create a signed tag (example: `v1.1.0`):
 
 ```bash
-git tag -s v1.1.0 -m "Lightpath v1.1.0"
+git tag -s v1.1.0 -m "Lightgraph v1.1.0"
 git push origin v1.1.0
 ```
 
@@ -35,7 +35,7 @@ git push origin v1.1.0
 
 ## 3) Distribution channels
 
-- **CMake package**: consume from source/build/install using `find_package(lightpath)`.
+- **CMake package**: consume from source/build/install using `find_package(lightgraph)`.
 - **Conan**: `conanfile.py` in repo root is the canonical recipe source.
 - **vcpkg overlay**: `packaging/vcpkg/` is the canonical port template source.
 

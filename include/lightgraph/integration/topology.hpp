@@ -14,7 +14,7 @@
  * @brief Public topology and routing graph types.
  */
 
-namespace lightpath::integration {
+namespace lightgraph::integration {
 
 using Owner = ::Owner;
 using Port = ::Port;
@@ -27,4 +27,4 @@ using Connection = ::Connection;
 using Object = ::TopologyObject;
 using PixelGap = ::PixelGap;
 
-} // namespace lightpath::integration
+} // namespace lightgraph::integration

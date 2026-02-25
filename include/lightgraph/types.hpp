@@ -3,11 +3,11 @@
 #include <cstdint>
 #include <optional>
 
-namespace lightpath {
+namespace lightgraph {
 
 /**
  * @file types.hpp
- * @brief Public value types and commands for the stable Lightpath API.
+ * @brief Public value types and commands for the stable Lightgraph API.
  */
 
 /**
@@ -77,4 +77,4 @@ struct EmitCommand {
     bool linked = true;
 };
 
-} // namespace lightpath
+} // namespace lightgraph

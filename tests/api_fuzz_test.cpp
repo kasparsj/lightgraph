@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include <lightpath/lightpath.hpp>
+#include <lightgraph/lightgraph.hpp>
 
 namespace {
 
@@ -16,14 +16,14 @@ int fail(const std::string& message) {
 int main() {
     std::srand(1234);
 
-    lightpath::EngineConfig config;
-    config.object_type = lightpath::ObjectType::Line;
+    lightgraph::EngineConfig config;
+    config.object_type = lightgraph::ObjectType::Line;
     config.pixel_count = 180;
 
-    lightpath::Engine engine(config);
+    lightgraph::Engine engine(config);
 
     for (int i = 0; i < 600; ++i) {
-        lightpath::EmitCommand command;
+        lightgraph::EmitCommand command;
         command.model = (std::rand() % 20 == 0) ? 42 : 0;
         command.speed = 0.5f + (std::rand() % 80) / 10.0f;
         command.length = static_cast<uint16_t>(1 + (std::rand() % 24));
@@ -35,7 +35,7 @@ int main() {
         const auto emit_result = engine.emit(command);
         if (command.model == 42) {
             if (emit_result.ok() ||
-                emit_result.status().code() != lightpath::ErrorCode::InvalidModel) {
+                emit_result.status().code() != lightgraph::ErrorCode::InvalidModel) {
                 return fail("Invalid model in fuzz loop did not return ErrorCode::InvalidModel");
             }
         }

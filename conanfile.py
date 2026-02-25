@@ -2,13 +2,13 @@ from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 
 
-class LightpathConan(ConanFile):
-    name = "lightpath"
+class LightgraphConan(ConanFile):
+    name = "lightgraph"
     version = "1.0.0"
     package_type = "library"
 
     license = "AGPL-3.0-only"
-    url = "https://github.com/kasparsj/lightpath"
+    url = "https://github.com/kasparsj/lightgraph"
     description = "C++17 light-graph engine for topology, runtime animation, and pixel rendering."
     topics = ("led", "animation", "graphics", "routing")
 
@@ -34,10 +34,10 @@ class LightpathConan(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
-        tc.variables["LIGHTPATH_CORE_BUILD_TESTS"] = False
-        tc.variables["LIGHTPATH_CORE_BUILD_EXAMPLES"] = False
-        tc.variables["LIGHTPATH_CORE_BUILD_BENCHMARKS"] = False
-        tc.variables["LIGHTPATH_CORE_BUILD_DOCS"] = False
+        tc.variables["LIGHTGRAPH_CORE_BUILD_TESTS"] = False
+        tc.variables["LIGHTGRAPH_CORE_BUILD_EXAMPLES"] = False
+        tc.variables["LIGHTGRAPH_CORE_BUILD_BENCHMARKS"] = False
+        tc.variables["LIGHTGRAPH_CORE_BUILD_DOCS"] = False
         tc.generate()
 
         deps = CMakeDeps(self)
@@ -53,6 +53,6 @@ class LightpathConan(ConanFile):
         cmake.install()
 
     def package_info(self):
-        self.cpp_info.set_property("cmake_file_name", "lightpath")
-        self.cpp_info.set_property("cmake_target_name", "lightpath::lightpath")
-        self.cpp_info.libs = ["lightpath"]
+        self.cpp_info.set_property("cmake_file_name", "lightgraph")
+        self.cpp_info.set_property("cmake_target_name", "lightgraph::lightgraph")
+        self.cpp_info.libs = ["lightgraph"]
