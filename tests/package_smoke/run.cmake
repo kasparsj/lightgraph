@@ -18,6 +18,21 @@ if(NOT DEFINED install_dir)
   message(FATAL_ERROR "install_dir is required")
 endif()
 
+set(run_cwd "${CMAKE_CURRENT_BINARY_DIR}")
+
+macro(resolve_to_absolute path_var)
+  if(NOT IS_ABSOLUTE "${${path_var}}")
+    cmake_path(ABSOLUTE_PATH ${path_var} BASE_DIRECTORY "${run_cwd}" NORMALIZE)
+  else()
+    cmake_path(NORMAL_PATH ${path_var})
+  endif()
+endmacro()
+
+resolve_to_absolute(main_build_dir)
+resolve_to_absolute(source_dir)
+resolve_to_absolute(binary_dir)
+resolve_to_absolute(install_dir)
+
 file(REMOVE_RECURSE "${binary_dir}" "${install_dir}")
 
 execute_process(

@@ -54,15 +54,43 @@ At a high level, Lightgraph does four things:
 
 The engine is host-agnostic, so it can sit behind firmware, desktop tools, simulators, or custom control software.
 
-## Future Vision
+## Quickstart (Stable API)
 
-Lightgraph is intended to evolve in three directions at once:
+```cpp
+#include <lightgraph/lightgraph.hpp>
 
-- As a digital art tool: a medium for composing movement through space-aware light structures.
-- As a hardware lighting engine: a reusable core for products and embedded lighting systems.
-- As programmable light infrastructure: a foundation for building interoperable, topology-aware lighting stacks.
+int main() {
+    lightgraph::EngineConfig config;
+    config.object_type = lightgraph::ObjectType::Line;
+    config.pixel_count = 64;
 
-The long-term goal is to make complex spatial lighting as programmable and portable as software graphics workflows.
+    lightgraph::Engine engine(config);
+
+    lightgraph::EmitCommand emit;
+    emit.model = 0;
+    emit.length = 8;
+    emit.speed = 1.0f;
+    emit.color = 0x33CC99;
+
+    const auto emitted = engine.emit(emit);
+    if (!emitted) {
+        return 1;
+    }
+
+    engine.tick(16);
+
+    const auto p0 = engine.pixel(0);
+    if (!p0) {
+        return 1;
+    }
+
+    const lightgraph::Color color = p0.value();
+    return (color.r || color.g || color.b) ? 0 : 1;
+}
+```
+
+A compiling example is provided in `examples/minimal_usage.cpp`.
+For source-level topology/runtime integration, see `examples/integration_host_loop.cpp`.
 
 ---
 
@@ -137,44 +165,6 @@ cmake --build --preset coverage --parallel
 ctest --preset coverage
 ./scripts/generate-coverage.sh build/preset-coverage
 ```
-
-### Quickstart (Stable API)
-
-```cpp
-#include <lightgraph/lightgraph.hpp>
-
-int main() {
-    lightgraph::EngineConfig config;
-    config.object_type = lightgraph::ObjectType::Line;
-    config.pixel_count = 64;
-
-    lightgraph::Engine engine(config);
-
-    lightgraph::EmitCommand emit;
-    emit.model = 0;
-    emit.length = 8;
-    emit.speed = 1.0f;
-    emit.color = 0x33CC99;
-
-    const auto emitted = engine.emit(emit);
-    if (!emitted) {
-        return 1;
-    }
-
-    engine.tick(16);
-
-    const auto p0 = engine.pixel(0);
-    if (!p0) {
-        return 1;
-    }
-
-    const lightgraph::Color color = p0.value();
-    return (color.r || color.g || color.b) ? 0 : 1;
-}
-```
-
-A compiling example is provided in `examples/minimal_usage.cpp`.
-For source-level topology/runtime integration, see `examples/integration_host_loop.cpp`.
 
 ### CMake Integration
 
