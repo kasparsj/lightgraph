@@ -1,9 +1,74 @@
 # Lightgraph
 
-Lightgraph is a standalone C++17 light-graph engine extracted from [MeshLED](https://github.com/kasparsj/meshled).
-It builds topology, runs animation/runtime state, and produces per-pixel RGB output.
+## What It Is
 
-## API Layout
+Lightgraph is a graph-native lighting engine for installations that are not just straight LED strips.
+
+It treats a lighting piece as a connected structure and lets light move through that structure as if it were a spatial system. You can think in terms of flow, branching, and movement across a sculpture, facade, or 3D object, instead of programming each strip as an isolated line.
+
+It solves a common problem in advanced LED work: once a project has intersections, loops, branches, and non-linear geometry, traditional strip-first tooling becomes hard to manage. Lightgraph gives you a single abstraction for those layouts.
+
+Unlike WLED and most strip-first systems, the primary model here is not a set of channels, but a connected light network. What makes that conceptually interesting is that physical form is no longer separate from animation logic: the shape of the installation directly influences how light behaves.
+
+## Core Concept
+
+The core idea is simple:
+
+- Your LED installation is modeled as a graph (a mesh of connected segments).
+- Intersections are nodes.
+- LED segments between intersections are edges.
+- Light events travel through this graph over time.
+
+This means animation is no longer limited to left-to-right strip playback. Instead, motion can route through arbitrary topology, making the installation itself part of the composition logic.
+
+Conceptually, Lightgraph is interesting because the physical structure is not just where pixels live, it becomes part of how behavior is generated.
+
+## Why It's Different
+
+WLED and most traditional LED strip workflows are optimized for linear channels and fixture maps. They are excellent for many practical systems, but the mental model is still largely strip-based.
+
+Lightgraph is topology-based.
+
+- In strip-first systems, geometry is often something you work around.
+- In Lightgraph, geometry is the primary input.
+- In strip-first systems, complex routing often means custom glue code.
+- In Lightgraph, routing through branches and intersections is built into the model.
+
+So instead of coordinating many strips manually, you program one connected light space.
+
+## Example Use Cases
+
+- LED sculpture: route light through branching metal or acrylic structures where direction and junction behavior matter.
+- 3D installations: drive volumetric pieces where motion should move through depth, not just across a flat map.
+- Architectural lighting: treat corridors, columns, and facade segments as a connected lighting network.
+- Generative light art: build systems where the topology itself influences emergent visual behavior.
+
+## How It Works (High Level)
+
+At a high level, Lightgraph does four things:
+
+1. Defines a connected lighting topology.
+2. Accepts light events (speed, color, length, behavior).
+3. Advances those events through the topology over time.
+4. Produces per-pixel RGB output for your host runtime.
+
+The engine is host-agnostic, so it can sit behind firmware, desktop tools, simulators, or custom control software.
+
+## Future Vision
+
+Lightgraph is intended to evolve in three directions at once:
+
+- As a digital art tool: a medium for composing movement through space-aware light structures.
+- As a hardware lighting engine: a reusable core for products and embedded lighting systems.
+- As programmable light infrastructure: a foundation for building interoperable, topology-aware lighting stacks.
+
+The long-term goal is to make complex spatial lighting as programmable and portable as software graphics workflows.
+
+---
+
+## Technical Reference
+
+### API Layout
 
 Lightgraph provides two header tiers:
 
@@ -26,7 +91,7 @@ The stable install/export package installs only the stable API headers.
 Source-integration headers are build-tree only and are intentionally exposed
 through a separate CMake target: `lightgraph::integration`.
 
-## Build and Test
+### Build and Test
 
 ```bash
 git submodule update --init --recursive
@@ -35,7 +100,7 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
-## CI Presets
+### CI Presets
 
 `CMakePresets.json` includes CI-friendly profiles:
 
@@ -53,7 +118,7 @@ cmake --build --preset default
 ctest --preset default
 ```
 
-## Static Analysis
+### Static Analysis
 
 Lightweight static analysis helpers are included:
 
@@ -64,7 +129,7 @@ cmake -S . -B build/static-analysis -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLIGHTGR
 ./scripts/check-benchmark.sh build/static-analysis/lightgraph_core_benchmark
 ```
 
-## Coverage Reporting
+### Coverage Reporting
 
 ```bash
 cmake --preset coverage
@@ -73,7 +138,7 @@ ctest --preset coverage
 ./scripts/generate-coverage.sh build/preset-coverage
 ```
 
-## Quickstart (Stable API)
+### Quickstart (Stable API)
 
 ```cpp
 #include <lightgraph/lightgraph.hpp>
@@ -111,16 +176,16 @@ int main() {
 A compiling example is provided in `examples/minimal_usage.cpp`.
 For source-level topology/runtime integration, see `examples/integration_host_loop.cpp`.
 
-## CMake Integration
+### CMake Integration
 
-### `add_subdirectory`
+#### `add_subdirectory`
 
 ```cmake
 add_subdirectory(external/lightgraph)
 target_link_libraries(your_target PRIVATE lightgraph::lightgraph)
 ```
 
-### `add_subdirectory` (source integration layer)
+#### `add_subdirectory` (source integration layer)
 
 ```cmake
 add_subdirectory(external/lightgraph)
@@ -130,7 +195,7 @@ target_link_libraries(your_target PRIVATE lightgraph::integration)
 Use `lightgraph::integration` only for source-tree integrations that need
 topology/runtime internals (`lightgraph/integration*.hpp`).
 
-### Install + `find_package`
+#### Install + `find_package`
 
 Install:
 
@@ -147,7 +212,7 @@ find_package(lightgraph CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE lightgraph::lightgraph)
 ```
 
-## Build Options
+### Build Options
 
 - `LIGHTGRAPH_CORE_BUILD_TESTS` (default: `ON`)
 - `LIGHTGRAPH_CORE_BUILD_EXAMPLES` (default: `ON`)
@@ -159,7 +224,7 @@ target_link_libraries(your_target PRIVATE lightgraph::lightgraph)
 - `LIGHTGRAPH_CORE_ENABLE_COVERAGE` (default: `OFF`)
 - `LIGHTGRAPH_CORE_ENABLE_LEGACY_INCLUDE_PATHS` (default: `OFF`)
 
-## Benchmarks
+### Benchmarks
 
 Micro-benchmark target:
 
@@ -169,14 +234,14 @@ cmake --build build-bench --parallel
 ./build-bench/lightgraph_core_benchmark
 ```
 
-## Package Distribution
+### Package Distribution
 
 In addition to CMake install/export:
 
 - Conan recipe: `conanfile.py`
 - vcpkg overlay templates: `packaging/vcpkg/`
 
-## Source Layout
+### Source Layout
 
 - `include/lightgraph/` stable facade + source-integration module headers
 - `src/topology/` graph objects and routing
@@ -186,7 +251,7 @@ In addition to CMake install/export:
 - `src/debug/` debug helpers
 - `src/core/` shared constants/types/platform macros
 
-## Docs
+### Docs
 
 - API reference: `docs/API.md`
 - API compatibility policy: `docs/API_POLICY.md`
@@ -195,7 +260,7 @@ In addition to CMake install/export:
 - Migration notes: `MIGRATION.md`
 - Changelog: `CHANGELOG.md`
 
-### Generated API Reference (GitHub Pages)
+#### Generated API Reference (GitHub Pages)
 
 The repository publishes Doxygen API docs to GitHub Pages through GitHub Actions.
 
