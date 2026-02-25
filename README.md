@@ -23,6 +23,13 @@ This means animation is no longer limited to left-to-right strip playback. Inste
 
 Conceptually, Lightgraph is interesting because the physical structure is not just where pixels live, it becomes part of how behavior is generated.
 
+### Topology Building Blocks
+
+- `Intersection`: a junction where light arrives and a next direction is chosen.
+- `Connection`: a path segment between two intersections, mapped to a run of LEDs.
+- `Bridge`: a convenience way to create a simple path between two pixel endpoints (it creates the endpoints and links them).
+- `Model` (with `Weight`s): a routing profile that defines how likely each outgoing path is at a junction, so you can shape flow behavior instead of hard-coding one route.
+
 ## Why It's Different
 
 WLED and most traditional LED strip workflows are optimized for linear channels and fixture maps. They are excellent for many practical systems, but the mental model is still largely strip-based.
