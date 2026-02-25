@@ -8,7 +8,7 @@ It treats a lighting piece as a connected structure and lets light move through 
 
 It solves a common problem in advanced LED work: once a project has intersections, loops, branches, and non-linear geometry, traditional strip-first tooling becomes hard to manage. Lightgraph gives you a single abstraction for those layouts.
 
-Unlike WLED and most strip-first systems, the primary model here is not a set of channels, but a connected light network. What makes that conceptually interesting is that physical form is no longer separate from animation logic: the shape of the installation directly influences how light behaves.
+Unlike traditional strip-first LED libraries and controllers, the primary model here is not a set of channels, but a connected light network. What makes that conceptually interesting is that physical form is no longer separate from animation logic: the shape of the installation directly influences how light behaves.
 
 ## Core Concept
 
@@ -32,7 +32,7 @@ Conceptually, Lightgraph is interesting because the physical structure is not ju
 
 ## Why It's Different
 
-WLED and most traditional LED strip workflows are optimized for linear channels and fixture maps. They are excellent for many practical systems, but the mental model is still largely strip-based.
+Most traditional LED strip workflows are optimized for linear channels and fixture maps. They are excellent for many practical systems, but the mental model is still largely strip-based.
 
 Lightgraph is topology-based.
 
