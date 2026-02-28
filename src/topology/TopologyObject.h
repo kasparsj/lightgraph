@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -14,10 +15,20 @@ struct PixelGap {
     uint16_t toPixel;
 };
 
+enum class TopologyPortType : uint8_t {
+    Internal = 0,
+    External = 1,
+};
+
 struct TopologyPortSnapshot {
     uint8_t id;
     uint8_t intersectionId;
     uint8_t slotIndex;
+    TopologyPortType type;
+    bool direction;
+    uint8_t group;
+    std::array<uint8_t, 6> deviceMac;
+    uint8_t targetPortId;
 };
 
 struct TopologyWeightConditionalSnapshot {
@@ -56,6 +67,7 @@ struct TopologyConnectionSnapshot {
 };
 
 struct TopologySnapshot {
+    uint8_t schemaVersion = 2;
     uint16_t pixelCount;
     std::vector<TopologyIntersectionSnapshot> intersections;
     std::vector<TopologyConnectionSnapshot> connections;
@@ -86,6 +98,9 @@ class TopologyObject {
     virtual Model* addModel(Model *model);
     virtual Intersection* addIntersection(Intersection *intersection);
     virtual Connection* addConnection(Connection *connection);
+    virtual ExternalPort* addExternalPort(Intersection* intersection, uint8_t slotIndex, bool direction,
+                                          uint8_t group, const uint8_t device[6], uint8_t targetPortId);
+    bool removeExternalPort(Port* port);
     bool removeIntersection(uint8_t groupIndex, size_t index);
     bool removeIntersection(Intersection* intersection);
     bool removeConnection(uint8_t groupIndex, size_t index);
@@ -156,9 +171,11 @@ class TopologyObject {
   protected:
     void releaseOwnership(Connection* connection);
     void releaseOwnership(Intersection* intersection);
+    void releaseOwnership(Port* port);
 
   private:
     std::vector<std::unique_ptr<Intersection>> ownedIntersections_;
     std::vector<std::unique_ptr<Connection>> ownedConnections_;
     std::vector<std::unique_ptr<Model>> ownedModels_;
+    std::vector<std::unique_ptr<Port>> ownedExternalPorts_;
 };

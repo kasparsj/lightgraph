@@ -1,10 +1,39 @@
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "TopologyObject.h"
 #include "Port.h"
+
+namespace {
+
+struct IntersectionSlotKey {
+    uint8_t intersectionId;
+    uint8_t slotIndex;
+
+    bool operator==(const IntersectionSlotKey& other) const {
+        return intersectionId == other.intersectionId && slotIndex == other.slotIndex;
+    }
+};
+
+struct IntersectionSlotKeyHash {
+    size_t operator()(const IntersectionSlotKey& key) const {
+        return (static_cast<size_t>(key.intersectionId) << 8) | key.slotIndex;
+    }
+};
+
+bool isZeroMac(const std::array<uint8_t, 6>& mac) {
+    for (uint8_t octet : mac) {
+        if (octet != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
 
 TopologyObject* TopologyObject::instance = 0;
 
@@ -18,6 +47,8 @@ TopologyObject::~TopologyObject() {
         conn[i].clear();
     }
     ownedConnections_.clear();
+
+    ownedExternalPorts_.clear();
 
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
         inter[i].clear();
@@ -71,6 +102,33 @@ Connection* TopologyObject::addConnection(Connection *connection) {
     return connection;
 }
 
+ExternalPort* TopologyObject::addExternalPort(Intersection* intersection, uint8_t slotIndex, bool direction,
+                                              uint8_t group, const uint8_t device[6], uint8_t targetPortId) {
+    if (intersection == nullptr || slotIndex >= intersection->numPorts || intersection->ports[slotIndex] != nullptr) {
+        return nullptr;
+    }
+    auto created = std::make_unique<ExternalPort>(nullptr, intersection, direction, group, device, targetPortId,
+                                                   static_cast<int16_t>(slotIndex));
+    ExternalPort* raw = created.get();
+    ownedExternalPorts_.push_back(std::move(created));
+    return raw;
+}
+
+bool TopologyObject::removeExternalPort(Port* port) {
+    if (port == nullptr || !port->isExternal()) {
+        return false;
+    }
+    auto it = std::find_if(
+        ownedExternalPorts_.begin(),
+        ownedExternalPorts_.end(),
+        [port](const std::unique_ptr<Port>& candidate) { return candidate.get() == port; });
+    if (it == ownedExternalPorts_.end()) {
+        return false;
+    }
+    ownedExternalPorts_.erase(it);
+    return true;
+}
+
 bool TopologyObject::removeIntersection(uint8_t groupIndex, size_t index) {
     if (groupIndex >= MAX_GROUPS || index >= inter[groupIndex].size()) {
         return false;
@@ -95,6 +153,16 @@ bool TopologyObject::removeIntersection(Intersection* intersection) {
 
     for (Connection* connection : toRemove) {
         removeConnection(connection);
+    }
+
+    std::vector<Port*> externalPortsToRemove;
+    for (const std::unique_ptr<Port>& ownedPort : ownedExternalPorts_) {
+        if (ownedPort && ownedPort->intersection == intersection) {
+            externalPortsToRemove.push_back(ownedPort.get());
+        }
+    }
+    for (Port* port : externalPortsToRemove) {
+        removeExternalPort(port);
     }
 
     bool removedFromView = false;
@@ -148,6 +216,7 @@ bool TopologyObject::removeConnection(Connection* connection) {
 
 TopologySnapshot TopologyObject::exportSnapshot() const {
     TopologySnapshot snapshot{};
+    snapshot.schemaVersion = 2;
     snapshot.pixelCount = pixelCount;
     snapshot.gaps = gaps;
 
@@ -176,11 +245,22 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
             if (port == nullptr) {
                 continue;
             }
-            snapshot.ports.push_back({
+            TopologyPortSnapshot portSnapshot{
                 port->id,
                 intersection->id,
                 slot,
-            });
+                port->isExternal() ? TopologyPortType::External : TopologyPortType::Internal,
+                port->direction,
+                port->group,
+                {},
+                0,
+            };
+            if (port->isExternal()) {
+                const auto* externalPort = static_cast<const ExternalPort*>(port);
+                portSnapshot.deviceMac = externalPort->device;
+                portSnapshot.targetPortId = externalPort->targetId;
+            }
+            snapshot.ports.push_back(portSnapshot);
         }
     }
 
@@ -254,20 +334,38 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
 }
 
 bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool replaceModels) {
-    if (snapshot.pixelCount == 0) {
+    if (snapshot.schemaVersion != 2 || snapshot.pixelCount == 0) {
         return false;
     }
 
     std::unordered_set<uint8_t> intersectionIds;
+    std::unordered_map<uint8_t, uint8_t> intersectionPortCapacity;
     for (const TopologyIntersectionSnapshot& intersection : snapshot.intersections) {
         if (intersection.numPorts == 0 || !intersectionIds.insert(intersection.id).second) {
             return false;
         }
+        intersectionPortCapacity[intersection.id] = intersection.numPorts;
     }
 
     std::unordered_set<uint8_t> snapshotPortIds;
+    std::unordered_set<IntersectionSlotKey, IntersectionSlotKeyHash> occupiedSlots;
     for (const TopologyPortSnapshot& port : snapshot.ports) {
-        if (!intersectionIds.count(port.intersectionId) || !snapshotPortIds.insert(port.id).second) {
+        auto capacityIt = intersectionPortCapacity.find(port.intersectionId);
+        if (capacityIt == intersectionPortCapacity.end() || port.slotIndex >= capacityIt->second ||
+            !snapshotPortIds.insert(port.id).second) {
+            return false;
+        }
+        if (port.type != TopologyPortType::Internal && port.type != TopologyPortType::External) {
+            return false;
+        }
+        if (port.group == 0) {
+            return false;
+        }
+        const IntersectionSlotKey slotKey{port.intersectionId, port.slotIndex};
+        if (!occupiedSlots.insert(slotKey).second) {
+            return false;
+        }
+        if (port.type == TopologyPortType::Internal && (!isZeroMac(port.deviceMac) || port.targetPortId != 0)) {
             return false;
         }
     }
@@ -303,6 +401,7 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
             removeConnection(g, conn[g].size() - 1);
         }
     }
+    ownedExternalPorts_.clear();
     for (uint8_t g = 0; g < MAX_GROUPS; g++) {
         while (!inter[g].empty()) {
             removeIntersection(g, inter[g].size() - 1);
@@ -317,6 +416,7 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
     gaps.clear();
     pixelCount = snapshot.pixelCount;
     realPixelCount = snapshot.pixelCount;
+    Port::setNextId(0);
     for (const PixelGap& gap : snapshot.gaps) {
         addGap(gap.fromPixel, gap.toPixel);
     }
@@ -349,20 +449,116 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
     }
 
     std::unordered_map<uint8_t, Port*> remappedPorts;
+    uint8_t maxPortId = 0;
+    bool hasPortIds = false;
+
+    std::unordered_map<uint8_t, std::vector<const TopologyPortSnapshot*>> portsByIntersection;
     for (const TopologyPortSnapshot& portSnapshot : snapshot.ports) {
-        auto intersectionIt = intersectionsById.find(portSnapshot.intersectionId);
+        portsByIntersection[portSnapshot.intersectionId].push_back(&portSnapshot);
+    }
+
+    for (auto& entry : portsByIntersection) {
+        auto intersectionIt = intersectionsById.find(entry.first);
         if (intersectionIt == intersectionsById.end()) {
             return false;
         }
         Intersection* intersection = intersectionIt->second;
-        if (portSnapshot.slotIndex >= intersection->ports.size()) {
+
+        std::vector<const TopologyPortSnapshot*> internalSnapshots;
+        std::vector<const TopologyPortSnapshot*> externalSnapshots;
+        for (const TopologyPortSnapshot* portSnapshot : entry.second) {
+            if (portSnapshot->type == TopologyPortType::External) {
+                externalSnapshots.push_back(portSnapshot);
+            } else {
+                internalSnapshots.push_back(portSnapshot);
+            }
+        }
+
+        std::sort(
+            internalSnapshots.begin(),
+            internalSnapshots.end(),
+            [](const TopologyPortSnapshot* left, const TopologyPortSnapshot* right) {
+                return left->slotIndex < right->slotIndex;
+            });
+        std::sort(
+            externalSnapshots.begin(),
+            externalSnapshots.end(),
+            [](const TopologyPortSnapshot* left, const TopologyPortSnapshot* right) {
+                return left->slotIndex < right->slotIndex;
+            });
+
+        std::vector<Port*> runtimeInternalPorts;
+        runtimeInternalPorts.reserve(intersection->numPorts);
+        for (Port* port : intersection->ports) {
+            if (port != nullptr && !port->isExternal()) {
+                runtimeInternalPorts.push_back(port);
+            }
+        }
+
+        if (runtimeInternalPorts.size() != internalSnapshots.size()) {
             return false;
         }
-        Port* port = intersection->ports[portSnapshot.slotIndex];
-        if (port == nullptr) {
-            return false;
+
+        intersection->ports.assign(intersection->numPorts, nullptr);
+
+        for (const TopologyPortSnapshot* snapshotPort : internalSnapshots) {
+            auto bestIt = runtimeInternalPorts.end();
+            for (auto it = runtimeInternalPorts.begin(); it != runtimeInternalPorts.end(); ++it) {
+                Port* candidate = *it;
+                if (candidate->direction == snapshotPort->direction &&
+                    candidate->group == snapshotPort->group) {
+                    bestIt = it;
+                    break;
+                }
+            }
+            if (bestIt == runtimeInternalPorts.end()) {
+                if (runtimeInternalPorts.empty()) {
+                    return false;
+                }
+                bestIt = runtimeInternalPorts.begin();
+            }
+
+            Port* selected = *bestIt;
+            runtimeInternalPorts.erase(bestIt);
+            if (!intersection->addPortAt(selected, snapshotPort->slotIndex)) {
+                return false;
+            }
+            selected->id = snapshotPort->id;
+            remappedPorts[snapshotPort->id] = selected;
+            hasPortIds = true;
+            if (snapshotPort->id > maxPortId) {
+                maxPortId = snapshotPort->id;
+            }
         }
-        remappedPorts[portSnapshot.id] = port;
+
+        for (const TopologyPortSnapshot* snapshotPort : externalSnapshots) {
+            uint8_t deviceMac[6] = {0};
+            std::memcpy(deviceMac, snapshotPort->deviceMac.data(), sizeof(deviceMac));
+            ExternalPort* created = addExternalPort(
+                intersection,
+                snapshotPort->slotIndex,
+                snapshotPort->direction,
+                snapshotPort->group,
+                deviceMac,
+                snapshotPort->targetPortId);
+            if (created == nullptr) {
+                return false;
+            }
+            created->id = snapshotPort->id;
+            remappedPorts[snapshotPort->id] = created;
+            hasPortIds = true;
+            if (snapshotPort->id > maxPortId) {
+                maxPortId = snapshotPort->id;
+            }
+        }
+    }
+
+    if (remappedPorts.size() != snapshot.ports.size()) {
+        return false;
+    }
+
+    if (hasPortIds) {
+        Port::setNextId(static_cast<uint8_t>(maxPortId + 1));
     }
 
     for (const TopologyModelSnapshot& modelSnapshot : snapshot.models) {
@@ -421,6 +617,17 @@ void TopologyObject::releaseOwnership(Intersection* intersection) {
 
     if (it != ownedIntersections_.end()) {
         ownedIntersections_.erase(it);
+    }
+}
+
+void TopologyObject::releaseOwnership(Port* port) {
+    auto it = std::find_if(
+        ownedExternalPorts_.begin(),
+        ownedExternalPorts_.end(),
+        [port](const std::unique_ptr<Port>& candidate) { return candidate.get() == port; });
+
+    if (it != ownedExternalPorts_.end()) {
+        ownedExternalPorts_.erase(it);
     }
 }
 

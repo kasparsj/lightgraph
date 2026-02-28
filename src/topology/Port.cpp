@@ -12,14 +12,21 @@ void (*sendLightViaESPNow)(const uint8_t* mac, uint8_t id, RuntimeLight* const l
 // Initialize static members for Port pool
 Port* Port::portPool[Port::MAX_PORTS] = {nullptr};
 uint8_t Port::poolSize = 0;
+uint8_t Port::nextPortId = 0;
 
-Port::Port(Connection* connection, Intersection* intersection, bool direction, uint8_t group) {
-    this->id = getNextId();
+Port::Port(Connection* connection, Intersection* intersection, bool direction, uint8_t group, int16_t slotIndex) {
+    this->id = allocateId();
     this->connection = connection;
     this->intersection = intersection;
     this->direction = direction;
     this->group = group;
-    this->intersection->addPort(this);
+    if (this->intersection != nullptr) {
+        if (slotIndex >= 0) {
+            this->intersection->addPortAt(this, static_cast<uint8_t>(slotIndex));
+        } else {
+            this->intersection->addPort(this);
+        }
+    }
     addToPool(this);
 }
 
@@ -60,13 +67,24 @@ void Port::removeFromPool(Port* port) {
     }
 }
 
-InternalPort::InternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group)
-    : Port(connection, intersection, direction, group) {
+uint8_t Port::allocateId() {
+    return nextPortId++;
 }
 
-ExternalPort::ExternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group, uint8_t device[6])
-    : Port(connection, intersection, direction, group) {
-    memcpy(this->device, device, 6);
+void Port::setNextId(uint8_t id) {
+    nextPortId = id;
+}
+
+InternalPort::InternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group,
+                           int16_t slotIndex)
+    : Port(connection, intersection, direction, group, slotIndex) {
+}
+
+ExternalPort::ExternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group,
+                           const uint8_t device[6], uint8_t targetId, int16_t slotIndex)
+    : Port(connection, intersection, direction, group, slotIndex) {
+    memcpy(this->device.data(), device, 6);
+    this->targetId = targetId;
 }
 
 void Port::handleColorChange(RuntimeLight* const light) const {
@@ -84,6 +102,6 @@ void InternalPort::sendOut(RuntimeLight* const light, bool /*sendList*/) {
 void ExternalPort::sendOut(RuntimeLight* const light, bool sendList) {
     if (sendLightViaESPNow) {
         light->isExpired = true;
-        sendLightViaESPNow(device, targetId, light, sendList);
+        sendLightViaESPNow(device.data(), targetId, light, sendList);
     }
 }

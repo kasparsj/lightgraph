@@ -292,5 +292,54 @@ int main() {
         return fail("importSnapshot did not restore routing weights");
     }
 
+    // Snapshot round-trip should preserve external ports and next port ID allocation.
+    MinimalObject externalSnapshotObject;
+    Intersection* extA = externalSnapshotObject.addIntersection(new Intersection(4, 2, -1, GROUP1));
+    Intersection* extB = externalSnapshotObject.addIntersection(new Intersection(4, 11, -1, GROUP1));
+    externalSnapshotObject.addConnection(new Connection(extA, extB, GROUP1, 8));
+    const uint8_t remoteMac[6] = {0xAA, 0xBB, 0xCC, 0x01, 0x02, 0x03};
+    ExternalPort* outgoing =
+        externalSnapshotObject.addExternalPort(extA, 3, true, GROUP1, remoteMac, 42);
+    if (outgoing == nullptr) {
+        return fail("addExternalPort failed to create test fixture");
+    }
+
+    const TopologySnapshot externalSnapshot = externalSnapshotObject.exportSnapshot();
+    MinimalObject importedExternalObject;
+    if (!importedExternalObject.importSnapshot(externalSnapshot, true)) {
+        return fail("importSnapshot failed for topology containing external ports");
+    }
+
+    Intersection* importedExtA = importedExternalObject.getIntersection(0, GROUP1);
+    if (importedExtA == nullptr) {
+        return fail("Imported topology missing expected intersection");
+    }
+    Port* importedPort = importedExtA->ports[3];
+    if (importedPort == nullptr || !importedPort->isExternal()) {
+        return fail("External port was not restored to expected slot");
+    }
+    const auto* restoredExternal = static_cast<const ExternalPort*>(importedPort);
+    if (restoredExternal->targetId != 42 || restoredExternal->device[0] != 0xAA ||
+        restoredExternal->device[5] != 0x03) {
+        return fail("External port metadata did not round-trip");
+    }
+
+    uint8_t maxPortId = 0;
+    for (const auto& portSnapshot : externalSnapshot.ports) {
+        if (portSnapshot.id > maxPortId) {
+            maxPortId = portSnapshot.id;
+        }
+    }
+
+    const uint8_t remoteMac2[6] = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60};
+    ExternalPort* nextPort =
+        importedExternalObject.addExternalPort(importedExtA, 2, false, GROUP1, remoteMac2, 11);
+    if (nextPort == nullptr) {
+        return fail("Unable to create new external port after import");
+    }
+    if (nextPort->id != static_cast<uint8_t>(maxPortId + 1)) {
+        return fail("Port ID allocator did not continue from imported maximum ID");
+    }
+
     return 0;
 }

@@ -25,6 +25,15 @@ void Intersection::addPort(Port *p) {
   }
 }
 
+bool Intersection::addPortAt(Port* p, uint8_t slotIndex) {
+    if (p == nullptr || slotIndex >= numPorts || ports[slotIndex] != nullptr) {
+        return false;
+    }
+    ports[slotIndex] = p;
+    p->intersection = this;
+    return true;
+}
+
 void Intersection::removePort(const Port* p) {
     for (uint8_t i = 0; i < numPorts; i++) {
         if (ports[i] == p) {
@@ -39,8 +48,14 @@ void Intersection::emit(RuntimeLight* const light) const {
     const Behaviour *behaviour = light->getBehaviour();
     if (numPorts == 2) {
       for (uint8_t i=0; i<2; i++) {
-        if (ports[i] != nullptr &&
-            (behaviour->forceBounce() ? ports[i]->connection->numLeds > 0 : ports[i]->connection->numLeds == 0)) {
+        Port* port = ports[i];
+        if (port == nullptr) {
+            continue;
+        }
+        const bool hasConnection = port->connection != nullptr;
+        const bool allowForBounce = hasConnection ? (port->connection->numLeds > 0) : true;
+        const bool allowForZero = hasConnection ? (port->connection->numLeds == 0) : true;
+        if (behaviour->forceBounce() ? allowForBounce : allowForZero) {
           light->setInPort(ports[i]);
           break;
         }

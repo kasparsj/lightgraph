@@ -31,6 +31,7 @@ class Intersection : public Owner {
     
     uint8_t getType() override { return TYPE_INTERSECTION; };
     void addPort(Port *p);
+    bool addPortAt(Port* p, uint8_t slotIndex);
     void removePort(const Port* p);
     void emit(RuntimeLight* const light) const override;
     void update(RuntimeLight* const light) const override;
