@@ -4,15 +4,9 @@
 
 #include "Arduino.h"
 
-#ifdef LOG_FILE
-#define LP_LOG(...) do { Serial.print(__VA_ARGS__); logMessage(__VA_ARGS__); } while (0)
-#define LP_LOGF(...) do { Serial.printf(__VA_ARGS__); logMessageF(__VA_ARGS__); } while (0)
-#define LP_LOGLN(...) do { Serial.println(__VA_ARGS__); logMessage(__VA_ARGS__); } while (0)
-#else
 #define LP_LOG(...) Serial.print(__VA_ARGS__)
 #define LP_LOGF(...) Serial.printf(__VA_ARGS__)
 #define LP_LOGLN(...) Serial.println(__VA_ARGS__)
-#endif
 
 #define LP_RANDOM(...) random(__VA_ARGS__)
 #define LP_STRING String

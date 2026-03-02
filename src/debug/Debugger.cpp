@@ -1,17 +1,24 @@
 #include "Debugger.h"
 
+#include <array>
+#include <limits>
+
 #include "../core/Platform.h"
 #include "../topology/TopologyObject.h"
 
 Debugger::Debugger(TopologyObject &object) : object(object) {
     interPixels = new bool[object.pixelCount]{false};
     connPixels = new bool[object.pixelCount]{false};
-    Port* ports[255] = {};
+    constexpr size_t kPortIdCount = static_cast<size_t>(std::numeric_limits<uint8_t>::max()) + 1u;
+    std::array<Port*, kPortIdCount> ports{};
     for (uint8_t i=0; i<MAX_GROUPS; i++) {
         for (uint j=0; j<object.inter[i].size(); j++) {
             Intersection* intersection = object.inter[i][j];
-            interPixels[intersection->topPixel] = true;
-            if (intersection->bottomPixel >= 0) {
+            if (intersection->topPixel < object.pixelCount) {
+                interPixels[intersection->topPixel] = true;
+            }
+            if (intersection->bottomPixel >= 0 &&
+                static_cast<uint16_t>(intersection->bottomPixel) < object.pixelCount) {
                 interPixels[intersection->bottomPixel] = true;
             }
             for (uint8_t k=0; k<intersection->numPorts; k++) {
@@ -19,29 +26,46 @@ Debugger::Debugger(TopologyObject &object) : object(object) {
                 if (port == nullptr) {
                     continue;
                 }
-                ports[port->id] = port;
+                const size_t portId = port->id;
+                if (portId < ports.size()) {
+                    ports[portId] = port;
+                }
             }
         }
         for (uint j=0; j<object.conn[i].size(); j++) {
             Connection* connection = object.conn[i][j];
-            connPixels[connection->fromPixel] = true;
-            connPixels[connection->toPixel] = true;
+            if (connection->fromPixel < object.pixelCount) {
+                connPixels[connection->fromPixel] = true;
+            }
+            if (connection->toPixel < object.pixelCount) {
+                connPixels[connection->toPixel] = true;
+            }
         }
     }
     weightPixels = new bool*[object.models.size()];
-    for (uint8_t i=0; i<object.models.size(); i++) {
+    for (size_t i = 0; i < object.models.size(); i++) {
         weightPixels[i] = new bool[object.pixelCount]{false};
         Model* model = object.models[i];
         if (model == nullptr) {
             continue;
         }
+        if (model->id >= object.models.size()) {
+            continue;
+        }
         for (const auto& entry : model->weights) {
-            uint8_t portId = entry.first;
-            Port* port = ports[portId];
-            if (port == nullptr) {
+            const size_t portId = entry.first;
+            if (portId >= ports.size()) {
                 continue;
             }
-            weightPixels[model->id][port->intersection->topPixel] = true;
+            Port* port = ports[portId];
+            if (port == nullptr || port->intersection == nullptr) {
+                continue;
+            }
+            const uint16_t pixel = port->intersection->topPixel;
+            if (pixel >= object.pixelCount) {
+                continue;
+            }
+            weightPixels[model->id][pixel] = true;
         }
     }
 }
@@ -49,7 +73,7 @@ Debugger::Debugger(TopologyObject &object) : object(object) {
 Debugger::~Debugger() {
     delete[] interPixels;
     delete[] connPixels;
-    for (uint8_t i=0; i<object.models.size(); i++) {
+    for (size_t i = 0; i < object.models.size(); i++) {
         delete[] weightPixels[i];
         weightPixels[i] = NULL;
     }
@@ -85,14 +109,23 @@ float Debugger::getNumEmits() {
 }
 
 bool Debugger::isModelWeight(uint8_t id, uint16_t i) {
+  if (id >= object.models.size() || i >= object.pixelCount || weightPixels[id] == nullptr) {
+    return false;
+  }
   return weightPixels[id][i];
 }
 
 bool Debugger::isIntersection(uint16_t i) {
+  if (i >= object.pixelCount) {
+    return false;
+  }
   return interPixels[i];
 }
 
 bool Debugger::isConnection(uint16_t i) {
+  if (i >= object.pixelCount) {
+    return false;
+  }
   return connPixels[i];
 }
 
