@@ -167,6 +167,57 @@ int main() {
         return fail("Initial connection should consume one port on each endpoint");
     }
 
+    // Over-capacity protection: connection creation should fail once endpoint slots are exhausted.
+    {
+        MinimalObject saturatedObject;
+        Intersection* saturatedFrom = saturatedObject.addIntersection(new Intersection(3, 100, -1, GROUP1));
+        Intersection* saturatedTo = saturatedObject.addIntersection(new Intersection(3, 120, -1, GROUP1));
+
+        for (uint8_t i = 0; i < 3; i++) {
+            Connection* created =
+                saturatedObject.addConnection(new Connection(saturatedFrom, saturatedTo, GROUP1, 1));
+            if (created == nullptr) {
+                return fail("Expected to fill all 3 connection slots before saturation");
+            }
+        }
+
+        if (countConnectedPorts(*saturatedFrom) != 3 || countConnectedPorts(*saturatedTo) != 3) {
+            return fail("Saturated intersections should report all 3 ports in use");
+        }
+
+        Connection* overflow =
+            saturatedObject.addConnection(new Connection(saturatedFrom, saturatedTo, GROUP1, 1));
+        if (overflow != nullptr) {
+            return fail("addConnection should reject creation when no intersection slots remain");
+        }
+        if (saturatedObject.conn[0].size() != 3) {
+            return fail("Rejected overflow connection should not mutate connection list");
+        }
+    }
+
+    // Higher-degree intersections should support more than 4 ports.
+    {
+        MinimalObject highDegreeObject;
+        Intersection* hub = highDegreeObject.addIntersection(new Intersection(6, 200, -1, GROUP1));
+
+        std::vector<Intersection*> leaves;
+        for (uint8_t i = 0; i < 6; i++) {
+            leaves.push_back(highDegreeObject.addIntersection(
+                new Intersection(2, static_cast<uint16_t>(220 + i * 10), -1, GROUP1)));
+        }
+
+        for (Intersection* leaf : leaves) {
+            Connection* created = highDegreeObject.addConnection(new Connection(hub, leaf, GROUP1, 1));
+            if (created == nullptr) {
+                return fail("Failed to attach expected edge to 6-port hub intersection");
+            }
+        }
+
+        if (countConnectedPorts(*hub) != 6) {
+            return fail("6-port intersection did not retain all attached connections");
+        }
+    }
+
     if (object.removeConnection(nullptr)) {
         return fail("removeConnection(nullptr) should return false");
     }

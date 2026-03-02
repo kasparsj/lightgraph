@@ -40,7 +40,8 @@ class Port {
     void handleColorChange(RuntimeLight* const light) const;
     
   private:
-    static const uint8_t MAX_PORTS = 200;
+    // IDs are uint8_t; cap the registry to that addressable space.
+    static const uint8_t MAX_PORTS = 255;
     static Port* portPool[MAX_PORTS];
     static uint8_t poolSize;
     static uint8_t nextPortId;

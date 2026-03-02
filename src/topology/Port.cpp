@@ -1,6 +1,7 @@
 #include "Port.h"
 
 #include <cstring>
+#include <limits>
 #include "Connection.h"
 #include "Intersection.h"
 #include "../runtime/Behaviour.h"
@@ -68,6 +69,21 @@ void Port::removeFromPool(Port* port) {
 }
 
 uint8_t Port::allocateId() {
+    for (uint16_t attempts = 0; attempts <= std::numeric_limits<uint8_t>::max(); ++attempts) {
+        const uint8_t candidate = nextPortId++;
+        bool inUse = false;
+        for (uint8_t i = 0; i < poolSize; i++) {
+            if (portPool[i] != nullptr && portPool[i]->id == candidate) {
+                inUse = true;
+                break;
+            }
+        }
+        if (!inUse) {
+            return candidate;
+        }
+    }
+
+    // All IDs are currently occupied; return next rollover value as a last resort.
     return nextPortId++;
 }
 

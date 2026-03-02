@@ -91,6 +91,12 @@ Intersection* TopologyObject::addIntersection(Intersection *intersection) {
 }
 
 Connection* TopologyObject::addConnection(Connection *connection) {
+    if (connection == nullptr || connection->from == nullptr || connection->to == nullptr ||
+        connection->fromPort == nullptr || connection->toPort == nullptr) {
+        delete connection;
+        return nullptr;
+    }
+
     ownedConnections_.emplace_back(connection);
 
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {

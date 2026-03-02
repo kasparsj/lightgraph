@@ -6,13 +6,66 @@
 #include "../runtime/Behaviour.h"
 #include "../runtime/RuntimeLight.h"
 
+namespace {
+
+bool hasAvailablePortSlot(const Intersection* intersection) {
+  if (intersection == nullptr) {
+    return false;
+  }
+  for (uint8_t i = 0; i < intersection->numPorts; i++) {
+    if (intersection->ports[i] == nullptr) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool isPortAttachedToIntersection(const Intersection* intersection, const Port* port) {
+  if (intersection == nullptr || port == nullptr) {
+    return false;
+  }
+  for (uint8_t i = 0; i < intersection->numPorts; i++) {
+    if (intersection->ports[i] == port) {
+      return true;
+    }
+  }
+  return false;
+}
+
+} // namespace
+
 Connection::Connection(Intersection *from, Intersection *to, uint8_t group, int16_t forceNumLeds) : Owner(group) {
   this->from = from;
   this->to = to;
-  
+
+  fromPort = nullptr;
+  toPort = nullptr;
+  pixelDir = false;
+  fromPixel = 0;
+  toPixel = 0;
+
+  if (from == nullptr || to == nullptr) {
+    return;
+  }
+  if (!hasAvailablePortSlot(from) || !hasAvailablePortSlot(to)) {
+    return;
+  }
+
   fromPort = new InternalPort(this, from, false, group);
   toPort = new InternalPort(this, to, true, group);
-    
+
+  if (!isPortAttachedToIntersection(from, fromPort) || !isPortAttachedToIntersection(to, toPort)) {
+    if (fromPort != nullptr) {
+      delete fromPort;
+      fromPort = nullptr;
+    }
+    if (toPort != nullptr) {
+      delete toPort;
+      toPort = nullptr;
+    }
+    return;
+  }
+
   pixelDir = to->topPixel > from->topPixel;
   fromPixel = from->topPixel + (pixelDir ? 1 : -1);
   toPixel = to->topPixel - (pixelDir ? 1 : -1);
