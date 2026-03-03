@@ -67,7 +67,7 @@ struct TopologyConnectionSnapshot {
 };
 
 struct TopologySnapshot {
-    uint8_t schemaVersion = 2;
+    uint8_t schemaVersion = 3;
     uint16_t pixelCount;
     std::vector<TopologyIntersectionSnapshot> intersections;
     std::vector<TopologyConnectionSnapshot> connections;

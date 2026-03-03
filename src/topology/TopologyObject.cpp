@@ -33,6 +33,12 @@ bool isZeroMac(const std::array<uint8_t, 6>& mac) {
     return true;
 }
 
+bool matchesExternalEndpoint(const ExternalPort* port, const uint8_t device[6], uint8_t targetPortId,
+                            bool direction, uint8_t group) {
+    return port != nullptr && port->targetId == targetPortId && port->direction == direction && port->group == group &&
+           std::memcmp(port->device.data(), device, 6) == 0;
+}
+
 } // namespace
 
 TopologyObject* TopologyObject::instance = 0;
@@ -112,6 +118,12 @@ ExternalPort* TopologyObject::addExternalPort(Intersection* intersection, uint8_
                                               uint8_t group, const uint8_t device[6], uint8_t targetPortId) {
     if (intersection == nullptr || slotIndex >= intersection->numPorts || intersection->ports[slotIndex] != nullptr) {
         return nullptr;
+    }
+    for (const auto& ownedPort : ownedExternalPorts_) {
+        const auto* existing = static_cast<const ExternalPort*>(ownedPort.get());
+        if (matchesExternalEndpoint(existing, device, targetPortId, direction, group)) {
+            return nullptr;
+        }
     }
     auto created = std::make_unique<ExternalPort>(nullptr, intersection, direction, group, device, targetPortId,
                                                    static_cast<int16_t>(slotIndex));
@@ -222,7 +234,7 @@ bool TopologyObject::removeConnection(Connection* connection) {
 
 TopologySnapshot TopologyObject::exportSnapshot() const {
     TopologySnapshot snapshot{};
-    snapshot.schemaVersion = 2;
+    snapshot.schemaVersion = 3;
     snapshot.pixelCount = pixelCount;
     snapshot.gaps = gaps;
 
@@ -340,7 +352,7 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
 }
 
 bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool replaceModels) {
-    if (snapshot.schemaVersion != 2 || snapshot.pixelCount == 0) {
+    if (snapshot.schemaVersion != 3 || snapshot.pixelCount == 0) {
         return false;
     }
 

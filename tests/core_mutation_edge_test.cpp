@@ -358,6 +358,16 @@ int main() {
     if (outgoing == nullptr) {
         return fail("addExternalPort failed to create test fixture");
     }
+    ExternalPort* duplicateExact =
+        externalSnapshotObject.addExternalPort(extB, 2, true, GROUP1, remoteMac, 42);
+    if (duplicateExact != nullptr) {
+        return fail("addExternalPort should reject exact duplicate external mappings");
+    }
+    ExternalPort* oppositeDirection =
+        externalSnapshotObject.addExternalPort(extB, 3, false, GROUP1, remoteMac, 42);
+    if (oppositeDirection == nullptr) {
+        return fail("addExternalPort should allow same endpoint mapping for opposite port roles");
+    }
 
     const TopologySnapshot externalSnapshot = externalSnapshotObject.exportSnapshot();
     MinimalObject importedExternalObject;
