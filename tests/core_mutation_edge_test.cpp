@@ -170,12 +170,14 @@ int main() {
     // Over-capacity protection: connection creation should fail once endpoint slots are exhausted.
     {
         MinimalObject saturatedObject;
-        Intersection* saturatedFrom = saturatedObject.addIntersection(new Intersection(3, 100, -1, GROUP1));
-        Intersection* saturatedTo = saturatedObject.addIntersection(new Intersection(3, 120, -1, GROUP1));
+        Intersection* saturatedFrom =
+            saturatedObject.addIntersection(new Intersection(3, 100, -1, GROUP1));
+        Intersection* saturatedTo =
+            saturatedObject.addIntersection(new Intersection(3, 120, -1, GROUP1));
 
         for (uint8_t i = 0; i < 3; i++) {
-            Connection* created =
-                saturatedObject.addConnection(new Connection(saturatedFrom, saturatedTo, GROUP1, 1));
+            Connection* created = saturatedObject.addConnection(
+                new Connection(saturatedFrom, saturatedTo, GROUP1, 1));
             if (created == nullptr) {
                 return fail("Expected to fill all 3 connection slots before saturation");
             }
@@ -207,7 +209,8 @@ int main() {
         }
 
         for (Intersection* leaf : leaves) {
-            Connection* created = highDegreeObject.addConnection(new Connection(hub, leaf, GROUP1, 1));
+            Connection* created =
+                highDegreeObject.addConnection(new Connection(hub, leaf, GROUP1, 1));
             if (created == nullptr) {
                 return fail("Failed to attach expected edge to 6-port hub intersection");
             }
@@ -346,7 +349,8 @@ int main() {
     // Snapshot round-trip should preserve external ports and next port ID allocation.
     MinimalObject externalSnapshotObject;
     Intersection* extA = externalSnapshotObject.addIntersection(new Intersection(4, 2, -1, GROUP1));
-    Intersection* extB = externalSnapshotObject.addIntersection(new Intersection(4, 11, -1, GROUP1));
+    Intersection* extB =
+        externalSnapshotObject.addIntersection(new Intersection(4, 11, -1, GROUP1));
     externalSnapshotObject.addConnection(new Connection(extA, extB, GROUP1, 8));
     const uint8_t remoteMac[6] = {0xAA, 0xBB, 0xCC, 0x01, 0x02, 0x03};
     ExternalPort* outgoing =
