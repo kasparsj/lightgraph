@@ -4,6 +4,7 @@
 #include "../core/Platform.h"
 #include "../runtime/Behaviour.h"
 #include "../runtime/Light.h"
+#include "../runtime/LightList.h"
 
 uint8_t Intersection::nextId = 0;
 
@@ -88,7 +89,11 @@ void Intersection::update(RuntimeLight* const light) const {
         light->position -= 1.f;
         light->owner = NULL;
         if (port != NULL) {
-            port->sendOut(light);
+            bool sendList = false;
+            if (port->isExternal() && light->list != nullptr) {
+                sendList = (light->list->order == LIST_ORDER_SEQUENTIAL && light->idx == 0);
+            }
+            port->sendOut(light, sendList);
         }
   }
 }
@@ -117,13 +122,15 @@ uint16_t Intersection::sumW(const Model* const model, const Port* const incoming
 Port* Intersection::randomPort(const Port* const incoming, const Behaviour* const behaviour) const {
   std::vector<Port*> candidates;
   candidates.reserve(numPorts);
+  const bool allowBounce = (behaviour != nullptr) ? behaviour->allowBounce() : false;
+  const bool forceBounce = (behaviour != nullptr) ? behaviour->forceBounce() : false;
   for (uint8_t i = 0; i < numPorts; i++) {
       Port* port = ports[i];
       if (port == nullptr) {
           continue;
       }
-      const bool reject = (!behaviour->allowBounce() && behaviour->forceBounce()) ? (port != incoming)
-                                                                                   : (port == incoming);
+      const bool reject = (!allowBounce && forceBounce) ? (port != incoming)
+                                                         : (port == incoming);
       if (!reject) {
           candidates.push_back(port);
       }

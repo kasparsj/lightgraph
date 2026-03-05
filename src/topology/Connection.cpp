@@ -131,6 +131,13 @@ void Connection::emit(RuntimeLight* const light) const {
 }
 
 void Connection::update(RuntimeLight* const light) const {
+    if (light == nullptr || light->outPort == nullptr) {
+        if (light != nullptr) {
+            light->isExpired = true;
+            light->owner = NULL;
+        }
+        return;
+    }
     light->resetPixels();
     if (shouldExpire(light)) {
         light->isExpired = true;

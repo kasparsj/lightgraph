@@ -203,17 +203,18 @@ void LightList::doEmit() {
         LP_LOGF("LightList::doEmit failed: emitter NULL");
         return;
     }
-    if (numEmitted < numLights) {
-        const uint16_t batchSize = numLights - numEmitted;
-        const uint16_t j = numEmitted;
-        for (uint16_t i=0; i<batchSize; i++) {
-            RuntimeLight* const light = (*this)[i+j];
-            if (light->position < 0) {
-                break;
-            }
+    while (numEmitted < numLights) {
+        RuntimeLight* const light = (*this)[numEmitted];
+        if (light == NULL) {
+            // Expired/removed lights can leave holes; skip them and keep advancing.
             numEmitted++;
-            emitter->emit(light);
+            continue;
         }
+        if (light->position < 0) {
+            break;
+        }
+        numEmitted++;
+        emitter->emit(light);
     }
 }
 

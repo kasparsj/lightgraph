@@ -5,6 +5,7 @@
 #include "Connection.h"
 #include "Intersection.h"
 #include "../runtime/Behaviour.h"
+#include "../runtime/LightList.h"
 #include "../runtime/RuntimeLight.h"
 
 // Initialize function pointer to null
@@ -104,20 +105,47 @@ ExternalPort::ExternalPort(Connection* connection, Intersection* intersection, b
 }
 
 void Port::handleColorChange(RuntimeLight* const light) const {
+    if (light == nullptr) {
+        return;
+    }
     const Behaviour* behaviour = light->getBehaviour();
+    if (behaviour == nullptr) {
+        return;
+    }
     if (behaviour->colorChangeGroups & group) {
         light->setColor(behaviour->getColor(light, group));
     }
 }
 
 void InternalPort::sendOut(RuntimeLight* const light, bool /*sendList*/) {
+    if (light == nullptr) {
+        return;
+    }
+    if (light->outPort == nullptr) {
+        // Remote-injected lights arrive without routing context.
+        // Treat this internal port as the ingress direction for this connection pass.
+        const int8_t intersectionId = (intersection != nullptr) ? static_cast<int8_t>(intersection->id) : -1;
+        light->setOutPort(this, intersectionId);
+    }
     handleColorChange(light);
     connection->add(light);
 }
 
 void ExternalPort::sendOut(RuntimeLight* const light, bool sendList) {
     if (sendLightViaESPNow) {
-        light->isExpired = true;
+        if (sendList && light->list != nullptr) {
+            LightList* list = light->list;
+            for (uint16_t i = 0; i < list->numLights; i++) {
+                RuntimeLight* listLight = (*list)[i];
+                if (listLight != nullptr) {
+                    listLight->isExpired = true;
+                }
+            }
+            // Stop local list emission immediately after forwarding the full batch.
+            list->numEmitted = list->numLights;
+        } else {
+            light->isExpired = true;
+        }
         sendLightViaESPNow(device.data(), targetId, light, sendList);
     }
 }
