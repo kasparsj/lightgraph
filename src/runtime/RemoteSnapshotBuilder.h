@@ -100,6 +100,13 @@ inline uint16_t scaleLengthForDensity(uint16_t sourceLength, uint8_t senderPixel
   return static_cast<uint16_t>(rounded);
 }
 
+inline float scaleSpeedForDensity(float sourceSpeed, uint8_t senderPixelDensity, uint8_t receiverPixelDensity) {
+  const float sender = static_cast<float>(sanitizePixelDensity(senderPixelDensity));
+  const float receiver = static_cast<float>(sanitizePixelDensity(receiverPixelDensity));
+  const float ratio = receiver / sender;
+  return sourceSpeed * ratio;
+}
+
 inline uint16_t mapLightIndexByDensity(uint16_t sourceIdx, uint16_t sourceCount, uint16_t targetCount) {
   if (targetCount <= 1 || sourceCount <= 1) {
     return 0;
@@ -189,6 +196,8 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
     offsetLength = 32767;
   }
   const int16_t scaledPositionOffset = -static_cast<int16_t>(offsetLength);
+  const float scaledSpeed = scaleSpeedForDensity(
+      descriptor.speed, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
 
   LightList* list = new LightList();
   list->order = LIST_ORDER_SEQUENTIAL;
@@ -203,7 +212,7 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
   list->maxBri = descriptor.maxBri;
   list->blendMode =
       (descriptor.blendMode <= BLEND_PIN_LIGHT) ? static_cast<BlendMode>(descriptor.blendMode) : BLEND_NORMAL;
-  list->setSpeed(descriptor.speed, descriptor.easeIndex);
+  list->setSpeed(scaledSpeed, descriptor.easeIndex);
   list->setFade(descriptor.fadeSpeed, descriptor.fadeThresh, descriptor.fadeEaseIndex);
   list->lifeMillis = descriptor.lifeMillis;
   applyLightListBehaviour(list, descriptor.hasBehaviour, descriptor.behaviourFlags, descriptor.colorChangeGroups);

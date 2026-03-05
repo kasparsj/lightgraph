@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -6,6 +7,7 @@
 
 #include "../src/runtime/BgLight.h"
 #include "../src/runtime/Light.h"
+#include "../src/runtime/RemoteSnapshotBuilder.h"
 #include "../src/topology/Connection.h"
 #include "../src/core/Types.h"
 #include "../src/core/Limits.h"
@@ -206,6 +208,33 @@ int main() {
         if (wrapped.R != 1 || wrapped.G != 2 || wrapped.B != 3) {
             return fail("Palette::wrapColors repeat mode returned unexpected color");
         }
+    }
+
+    // Remote template speed should scale with sender->receiver pixel density ratio.
+    {
+        remote_snapshot::TemplateSnapshotDescriptor descriptor = {};
+        descriptor.numLights = 4;
+        descriptor.length = 6;
+        descriptor.speed = 2.0f;
+        descriptor.lifeMillis = 1200;
+        descriptor.duration = 2400;
+        descriptor.senderPixelDensity = 144;
+        descriptor.receiverPixelDensity = 60;
+
+        const std::vector<int64_t> colors = {0x22AA44};
+        const std::vector<float> positions = {0.0f};
+
+        LightList* list = remote_snapshot::buildTemplateSnapshot(descriptor, colors, positions);
+        if (list == nullptr) {
+            return fail("Remote template snapshot should materialize for valid descriptor");
+        }
+
+        const float expectedSpeed = 2.0f * (60.0f / 144.0f);
+        if (std::fabs(list->speed - expectedSpeed) > 0.0001f) {
+            delete list;
+            return fail("Remote template speed should be scaled by receiver/sender pixel density");
+        }
+        delete list;
     }
 
     // Lifecycle smoke: emit should render at least one pixel and stopAll should clear active lists.
