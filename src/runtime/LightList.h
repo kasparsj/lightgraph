@@ -197,6 +197,7 @@ class LightList {
     virtual void setOffset(float newPosition);
     
     RuntimeLight* addLightFromMsg(const LightMessage* lightMsg);
+    static void releaseLightFromMsg(RuntimeLight* light);
     void clearExternalBatchForwardState() {
       externalBatchForwarded = false;
       externalBatchTargetId = 0;
