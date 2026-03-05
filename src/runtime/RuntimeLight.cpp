@@ -137,11 +137,18 @@ bool RuntimeLight::shouldExpire() const {
 }
 
 RuntimeLight* RuntimeLight::getPrev() const {
-    return idx > 0 ? (*list)[idx - 1] : NULL;
+    if (list == NULL || list->lights == NULL || list->numLights == 0 || idx == 0 || idx > list->numLights) {
+      return NULL;
+    }
+    return (*list)[idx - 1];
 }
 
 RuntimeLight* RuntimeLight::getNext() const {
-    return ((idx+1) < list->numLights) ? (*list)[idx+1] : NULL;
+    if (list == NULL || list->lights == NULL || list->numLights == 0) {
+      return NULL;
+    }
+    const uint16_t nextIdx = idx + 1;
+    return (nextIdx < list->numLights) ? (*list)[nextIdx] : NULL;
 }
 
 float RuntimeLight::getSpeed() const {
