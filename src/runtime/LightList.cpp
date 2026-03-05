@@ -3,6 +3,7 @@
 #include "../core/Platform.h"
 #include "../topology/Model.h"
 #include "../Globals.h"
+#include <new>
 #include <stdio.h>
 #include <vector>
 
@@ -58,12 +59,15 @@ RuntimeLight* LightList::createLight(uint16_t i, uint8_t brightness) {
 }
 
 RuntimeLight* LightList::addLightFromMsg(const LightMessage* lightMsg) {
-    RuntimeLight* light;
+    if (lightMsg == NULL) {
+        return NULL;
+    }
+    RuntimeLight* light = NULL;
     if (behaviour != NULL) {
-        light = new Light(this, lightMsg->speed, lightMsg->life, lightMsg->lightIdx, lightMsg->brightness);
+        light = new (std::nothrow) Light(this, lightMsg->speed, lightMsg->life, lightMsg->lightIdx, lightMsg->brightness);
     }
     else {
-        light = new RuntimeLight(this, lightMsg->lightIdx, lightMsg->brightness);
+        light = new (std::nothrow) RuntimeLight(this, lightMsg->lightIdx, lightMsg->brightness);
     }
     return light;
 }
