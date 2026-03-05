@@ -1,11 +1,11 @@
 #pragma once
 
-#include "objects/HeptagonStar.h"
-#include "objects/Heptagon919.h"
-#include "objects/Heptagon3024.h"
-#include "objects/Line.h"
-#include "objects/Cross.h"
-#include "objects/Triangle.h"
+#include "../../../src/objects/HeptagonStar.h"
+#include "../../../src/objects/Heptagon919.h"
+#include "../../../src/objects/Heptagon3024.h"
+#include "../../../src/objects/Line.h"
+#include "../../../src/objects/Cross.h"
+#include "../../../src/objects/Triangle.h"
 #include "topology.hpp"
 
 /**

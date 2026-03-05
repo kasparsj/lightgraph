@@ -1,7 +1,7 @@
 #pragma once
 
-#include "debug/TopologyPixels.h"
-#include "debug/Debugger.h"
+#include "../../../src/debug/TopologyPixels.h"
+#include "../../../src/debug/Debugger.h"
 
 /**
  * @file debug.hpp

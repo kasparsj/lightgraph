@@ -3,6 +3,7 @@
 #include "integration/debug.hpp"
 #include "integration/factory.hpp"
 #include "integration/objects.hpp"
+#include "integration/palette_names.hpp"
 #include "integration/rendering.hpp"
 #include "integration/runtime.hpp"
 #include "integration/topology.hpp"

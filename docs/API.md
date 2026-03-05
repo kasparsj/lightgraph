@@ -171,6 +171,33 @@ Namespace aliases/constants:
 
 - `lightgraph::integration::Debugger`
 
+### `lightgraph/integration/platform.hpp`
+
+- imports platform logging and utility macros (`LP_LOG*`, `LP_RANDOM`, `LP_STRING`)
+
+### `lightgraph/integration/palette_names.hpp`
+
+- `lightgraph::integration::kPredefinedPaletteNames`
+- `lightgraph::integration::predefinedPaletteNameCount()`
+- `lightgraph::integration::predefinedPaletteNameAt(index)`
+
+### `lightgraph/integration/observability.hpp`
+
+- `lightgraph::integration::AllocationFailureSite`
+- `lightgraph::integration::AllocationFailureObserver`
+- `lightgraph::integration::setAllocationFailureObserver(...)`
+- `lightgraph::integration::reportAllocationFailure(...)`
+
+### `lightgraph/integration/remote_snapshot.hpp`
+
+- namespace alias `lightgraph::integration::remote_snapshot` for remote snapshot descriptors/builders
+
+### `lightgraph/integration/codecs.hpp`
+
+- topology snapshot codecs (`parseTopologySnapshotFromJson`, `serializeTopologySnapshotToJson`)
+- layer snapshot codecs via `lightgraph::integration::layer_json::*`
+- note: codec APIs currently depend on Arduino JSON types
+
 ## 5) Invariants
 
 - Stable engine API never returns raw owning pointers.
