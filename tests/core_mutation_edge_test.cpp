@@ -436,6 +436,68 @@ int main() {
         return fail("Port ID allocator did not continue from imported maximum ID");
     }
 
+    // Sequential lists should trigger batch forwarding as soon as the lead light reaches
+    // the outgoing intersection pixel.
+    {
+        resetExternalSendHook(true);
+        ::sendLightViaESPNow = sendLightViaESPNowTestHook;
+
+        MinimalObject preForwardObject;
+        Intersection* preForwardIntersection =
+            preForwardObject.addIntersection(new Intersection(4, 25, -1, GROUP1));
+        if (preForwardIntersection == nullptr) {
+            return fail("Failed to create pre-forward intersection fixture");
+        }
+        const uint8_t preForwardMac[6] = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26};
+        ExternalPort preForwardPort(nullptr, preForwardIntersection, true, GROUP1, preForwardMac,
+                                    8);
+
+        LightList sequentialList;
+        sequentialList.order = LIST_ORDER_SEQUENTIAL;
+        sequentialList.setup(2, 255);
+        sequentialList.lifeMillis = INFINITE_DURATION;
+
+        RuntimeLight* firstLight = sequentialList[0];
+        RuntimeLight* secondLight = sequentialList[1];
+        if (firstLight == nullptr || secondLight == nullptr) {
+            return fail("Pre-forward fixture did not create expected lights");
+        }
+
+        firstLight->owner = preForwardIntersection;
+        firstLight->position = 0.25f;
+        firstLight->setOutPort(&preForwardPort, static_cast<int8_t>(preForwardIntersection->id));
+
+        preForwardIntersection->update(firstLight);
+        if (firstLight->pixel1 != static_cast<int16_t>(preForwardIntersection->topPixel)) {
+            return fail("Lead light should still render on outgoing intersection pixel");
+        }
+        if (firstLight->isExpired || secondLight->isExpired) {
+            return fail("Pre-forward batch trigger should not expire local sequential lights");
+        }
+        if (gExternalSendRecords.size() != 1 || !gExternalSendRecords[0].sendList) {
+            return fail("Expected one early sequential batch send at outgoing intersection pixel");
+        }
+        if (!sequentialList.hasExternalBatchForwardedTo(preForwardPort.device.data(),
+                                                        preForwardPort.targetId)) {
+            return fail("Sequential list should record early external batch-forward state");
+        }
+
+        preForwardIntersection->update(firstLight);
+        if (gExternalSendRecords.size() != 1) {
+            return fail("Early sequential batch trigger should dedupe repeated intersection renders");
+        }
+
+        firstLight->owner = preForwardIntersection;
+        firstLight->position = 1.0f;
+        preForwardIntersection->update(firstLight);
+        if (gExternalSendRecords.size() != 1) {
+            return fail("Port send-out after pre-forward should not emit duplicate batch sends");
+        }
+        if (!firstLight->isExpired || secondLight->isExpired) {
+            return fail("Lights should still expire one-by-one when they reach the external port");
+        }
+    }
+
     // Sequential external forwarding should batch-send once and expire lights one-by-one.
     {
         resetExternalSendHook(true);

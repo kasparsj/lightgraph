@@ -8,6 +8,26 @@
 
 uint8_t Intersection::nextId = 0;
 
+namespace {
+
+void tryForwardSequentialBatchAtExternalPort(RuntimeLight* const light, Port* const port) {
+    if (light == nullptr || port == nullptr || !port->isExternal() || light->list == nullptr ||
+        light->list->order != LIST_ORDER_SEQUENTIAL || sendLightViaESPNow == nullptr) {
+        return;
+    }
+
+    ExternalPort* externalPort = static_cast<ExternalPort*>(port);
+    if (light->list->hasExternalBatchForwardedTo(externalPort->device.data(), externalPort->targetId)) {
+        return;
+    }
+
+    if (sendLightViaESPNow(externalPort->device.data(), externalPort->targetId, light, true)) {
+        light->list->markExternalBatchForwarded(externalPort->device.data(), externalPort->targetId);
+    }
+}
+
+}  // namespace
+
 Intersection::Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPixel, uint8_t group) : Owner(group) {
   this->id = nextId++;
   this->numPorts = numPorts;
@@ -75,16 +95,24 @@ void Intersection::update(RuntimeLight* const light) const {
             }
             return;
         }
-        if (light->position >= 0.f && light->position < 1.f) { // render
-            light->pixel1 = topPixel;
-            return;
+        Port* port = light->outPort;
+        if (port == NULL) {
+            port = getPrevOutPort(light);
         }
-        // sendOut
-        Port* port = getPrevOutPort(light);
         if (port == NULL) {
             port = choosePort(light->getModel(), light);
         }
-        light->setOutPort(port, id);
+        if (port != light->outPort) {
+            light->setOutPort(port, id);
+        }
+        if (light->position >= 0.f && light->position < 1.f) { // render
+            light->pixel1 = topPixel;
+            // Start remote sequential forwarding as soon as the leading light reaches
+            // the outgoing intersection pixel, so local and remote tails overlap.
+            tryForwardSequentialBatchAtExternalPort(light, port);
+            return;
+        }
+        // sendOut
         light->setInPort(NULL);
         light->position -= 1.f;
         light->owner = NULL;
