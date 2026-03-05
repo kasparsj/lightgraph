@@ -69,4 +69,4 @@ class ExternalPort : public Port {
 };
 
 // Function pointer for optional ESP-NOW functionality
-extern void (*sendLightViaESPNow)(const uint8_t* mac, uint8_t id, RuntimeLight* const light, bool sendList);
+extern bool (*sendLightViaESPNow)(const uint8_t* mac, uint8_t id, RuntimeLight* const light, bool sendList);

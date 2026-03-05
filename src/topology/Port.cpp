@@ -9,7 +9,7 @@
 #include "../runtime/RuntimeLight.h"
 
 // Initialize function pointer to null
-void (*sendLightViaESPNow)(const uint8_t* mac, uint8_t id, RuntimeLight* const light, bool sendList) = nullptr;
+bool (*sendLightViaESPNow)(const uint8_t* mac, uint8_t id, RuntimeLight* const light, bool sendList) = nullptr;
 
 // Initialize static members for Port pool
 Port* Port::portPool[Port::MAX_PORTS] = {nullptr};
@@ -132,20 +132,44 @@ void InternalPort::sendOut(RuntimeLight* const light, bool /*sendList*/) {
 }
 
 void ExternalPort::sendOut(RuntimeLight* const light, bool sendList) {
-    if (sendLightViaESPNow) {
-        if (sendList && light->list != nullptr) {
-            LightList* list = light->list;
-            for (uint16_t i = 0; i < list->numLights; i++) {
-                RuntimeLight* listLight = (*list)[i];
-                if (listLight != nullptr) {
-                    listLight->isExpired = true;
-                }
-            }
-            // Stop local list emission immediately after forwarding the full batch.
-            list->numEmitted = list->numLights;
+    if (light == nullptr) {
+        return;
+    }
+
+    LightList* const list = light->list;
+    const bool canBatch = sendList && list != nullptr && list->order == LIST_ORDER_SEQUENTIAL;
+    bool sendAsBatch = false;
+    bool shouldSend = true;
+    if (canBatch) {
+        if (list->hasExternalBatchForwardedTo(device.data(), targetId)) {
+            shouldSend = false;
         } else {
-            light->isExpired = true;
+            sendAsBatch = true;
         }
-        sendLightViaESPNow(device.data(), targetId, light, sendList);
+    }
+
+    bool sendSucceeded = true;
+    if (shouldSend) {
+        sendSucceeded = sendLightViaESPNow != nullptr &&
+                        sendLightViaESPNow(device.data(), targetId, light, sendAsBatch);
+        if (sendSucceeded && sendAsBatch) {
+            list->markExternalBatchForwarded(device.data(), targetId);
+        }
+    }
+
+    if (sendSucceeded) {
+        // Remove each light only when it actually reaches the external port.
+        light->isExpired = true;
+        return;
+    }
+
+    // Failed sends stay local and re-enter normal routing on the next frame.
+    light->isExpired = false;
+    if (intersection != nullptr) {
+        light->owner = intersection;
+        light->setOutPort(nullptr, static_cast<int8_t>(intersection->id));
+    } else {
+        light->owner = nullptr;
+        light->setOutPort(nullptr);
     }
 }

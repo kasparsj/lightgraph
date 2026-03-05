@@ -5,6 +5,7 @@
 #include "../../vendor/ofxEasing/ofxEasing.h"
 #include "Behaviour.h"
 #include "RuntimeLight.h"
+#include <cstring>
 #include <stdexcept>
 #include <vector>
 #include "../rendering/Palette.h"
@@ -63,6 +64,9 @@ class LightList {
     bool editable = false;
     BlendMode blendMode = BLEND_NORMAL;
     uint32_t duration = 1000;
+    bool externalBatchForwarded = false;
+    uint8_t externalBatchDevice[6] = {0};
+    uint8_t externalBatchTargetId = 0;
 
     LightList() {
       this->id = nextId++;
@@ -193,6 +197,24 @@ class LightList {
     virtual void setOffset(float newPosition);
     
     RuntimeLight* addLightFromMsg(const LightMessage* lightMsg);
+    void clearExternalBatchForwardState() {
+      externalBatchForwarded = false;
+      externalBatchTargetId = 0;
+      std::memset(externalBatchDevice, 0, sizeof(externalBatchDevice));
+    }
+    void markExternalBatchForwarded(const uint8_t device[6], uint8_t targetId) {
+      if (device == nullptr) {
+        clearExternalBatchForwardState();
+        return;
+      }
+      std::memcpy(externalBatchDevice, device, sizeof(externalBatchDevice));
+      externalBatchTargetId = targetId;
+      externalBatchForwarded = true;
+    }
+    bool hasExternalBatchForwardedTo(const uint8_t device[6], uint8_t targetId) const {
+      return externalBatchForwarded && device != nullptr && externalBatchTargetId == targetId &&
+             std::memcmp(externalBatchDevice, device, sizeof(externalBatchDevice)) == 0;
+    }
 
   private:
 

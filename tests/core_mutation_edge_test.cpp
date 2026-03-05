@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -5,6 +6,7 @@
 #include <vector>
 
 #include "../src/runtime/EmitParams.h"
+#include "../src/runtime/LightList.h"
 #include "../src/topology/Connection.h"
 #include "../src/topology/Intersection.h"
 #include "../src/topology/TopologyObject.h"
@@ -15,6 +17,34 @@ namespace {
 int fail(const std::string& message) {
     std::cerr << "FAIL: " << message << std::endl;
     return 1;
+}
+
+struct ExternalSendRecord {
+    std::array<uint8_t, 6> mac = {0};
+    uint8_t targetPortId = 0;
+    bool sendList = false;
+};
+
+std::vector<ExternalSendRecord> gExternalSendRecords;
+bool gExternalSendShouldSucceed = true;
+
+bool sendLightViaESPNowTestHook(const uint8_t* mac, uint8_t targetPortId,
+                                RuntimeLight* const /*light*/, bool sendList) {
+    ExternalSendRecord record;
+    if (mac != nullptr) {
+        for (size_t i = 0; i < record.mac.size(); i++) {
+            record.mac[i] = mac[i];
+        }
+    }
+    record.targetPortId = targetPortId;
+    record.sendList = sendList;
+    gExternalSendRecords.push_back(record);
+    return gExternalSendShouldSucceed;
+}
+
+void resetExternalSendHook(bool shouldSucceed) {
+    gExternalSendRecords.clear();
+    gExternalSendShouldSucceed = shouldSucceed;
 }
 
 uint8_t countConnectedPorts(const Intersection& intersection) {
@@ -405,6 +435,132 @@ int main() {
     if (nextPort->id != static_cast<uint8_t>(maxPortId + 1)) {
         return fail("Port ID allocator did not continue from imported maximum ID");
     }
+
+    // Sequential external forwarding should batch-send once and expire lights one-by-one.
+    {
+        resetExternalSendHook(true);
+        ::sendLightViaESPNow = sendLightViaESPNowTestHook;
+
+        MinimalObject forwardingObject;
+        Intersection* forwardingIntersection =
+            forwardingObject.addIntersection(new Intersection(4, 30, -1, GROUP1));
+        if (forwardingIntersection == nullptr) {
+            return fail("Failed to create forwarding intersection fixture");
+        }
+        const uint8_t forwardingMac[6] = {0x31, 0x32, 0x33, 0x34, 0x35, 0x36};
+        ExternalPort forwardingPort(nullptr, forwardingIntersection, true, GROUP1, forwardingMac, 9);
+
+        LightList sequentialList;
+        sequentialList.order = LIST_ORDER_SEQUENTIAL;
+        sequentialList.setup(2, 255);
+
+        RuntimeLight* firstLight = sequentialList[0];
+        RuntimeLight* secondLight = sequentialList[1];
+        if (firstLight == nullptr || secondLight == nullptr) {
+            return fail("Sequential forwarding fixture did not create expected lights");
+        }
+
+        forwardingPort.sendOut(firstLight, true);
+        if (!firstLight->isExpired || secondLight->isExpired) {
+            return fail("External forwarding should only expire the light that reached the port");
+        }
+        if (gExternalSendRecords.size() != 1 || !gExternalSendRecords[0].sendList) {
+            return fail("First sequential forwarding event should issue exactly one batch send");
+        }
+
+        sequentialList.update();
+        RuntimeLight* relinkedSecondLight = sequentialList[1];
+        if (relinkedSecondLight == nullptr || relinkedSecondLight->idx != 0) {
+            return fail("Expected surviving light to reindex to idx=0 after first light expiry");
+        }
+
+        forwardingPort.sendOut(relinkedSecondLight, true);
+        if (!relinkedSecondLight->isExpired) {
+            return fail("Second light should expire when it reaches external forwarding port");
+        }
+        if (gExternalSendRecords.size() != 1) {
+            return fail("Sequential forwarding should not emit duplicate batch sends after reindexing");
+        }
+    }
+
+    // Non-sequential forwarding should remain per-light without batch state side effects.
+    {
+        resetExternalSendHook(true);
+        ::sendLightViaESPNow = sendLightViaESPNowTestHook;
+
+        MinimalObject nonSequentialObject;
+        Intersection* nonSequentialIntersection =
+            nonSequentialObject.addIntersection(new Intersection(4, 35, -1, GROUP1));
+        if (nonSequentialIntersection == nullptr) {
+            return fail("Failed to create non-sequential forwarding intersection fixture");
+        }
+        const uint8_t nonSequentialMac[6] = {0x51, 0x52, 0x53, 0x54, 0x55, 0x56};
+        ExternalPort nonSequentialPort(nullptr, nonSequentialIntersection, true, GROUP1,
+                                       nonSequentialMac, 10);
+
+        LightList nonSequentialList;
+        nonSequentialList.order = LIST_ORDER_RANDOM;
+        nonSequentialList.setup(2, 255);
+
+        RuntimeLight* firstLight = nonSequentialList[0];
+        RuntimeLight* secondLight = nonSequentialList[1];
+        if (firstLight == nullptr || secondLight == nullptr) {
+            return fail("Non-sequential forwarding fixture did not create expected lights");
+        }
+
+        nonSequentialPort.sendOut(firstLight, true);
+        nonSequentialPort.sendOut(secondLight, true);
+        if (!firstLight->isExpired || !secondLight->isExpired) {
+            return fail("Non-sequential forwarding should expire each light as it reaches external port");
+        }
+        if (gExternalSendRecords.size() != 2) {
+            return fail("Non-sequential forwarding should send each light independently");
+        }
+        if (gExternalSendRecords[0].sendList || gExternalSendRecords[1].sendList) {
+            return fail("Non-sequential forwarding should not send list batches");
+        }
+    }
+
+    // Failed external forwarding should keep light local and reroute on next frame.
+    {
+        resetExternalSendHook(false);
+        ::sendLightViaESPNow = sendLightViaESPNowTestHook;
+
+        MinimalObject failureObject;
+        Intersection* failureIntersection =
+            failureObject.addIntersection(new Intersection(4, 40, -1, GROUP1));
+        if (failureIntersection == nullptr) {
+            return fail("Failed to create failure routing intersection fixture");
+        }
+        const uint8_t failureMac[6] = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
+        ExternalPort failurePort(nullptr, failureIntersection, true, GROUP1, failureMac, 11);
+
+        LightList failedList;
+        failedList.order = LIST_ORDER_SEQUENTIAL;
+        failedList.setup(1, 255);
+        RuntimeLight* light = failedList[0];
+        if (light == nullptr) {
+            return fail("Failed forwarding fixture did not create expected light");
+        }
+        light->setOutPort(&failurePort, static_cast<int8_t>(failureIntersection->id));
+        light->owner = nullptr;
+
+        failurePort.sendOut(light, false);
+        if (gExternalSendRecords.size() != 1) {
+            return fail("Failed forwarding path should still attempt one transport send");
+        }
+        if (light->isExpired) {
+            return fail("Failed external forwarding should not expire local light");
+        }
+        if (light->owner != failureIntersection) {
+            return fail("Failed external forwarding should reattach light to local intersection owner");
+        }
+        if (light->outPort != nullptr) {
+            return fail("Failed external forwarding should clear out-port for rerouting");
+        }
+    }
+
+    ::sendLightViaESPNow = nullptr;
 
     return 0;
 }

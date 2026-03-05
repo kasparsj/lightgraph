@@ -119,6 +119,7 @@ void LightList::setupFrom(const EmitParams &params) {
     
     duration = params.getDuration();
     palette = params.palette;
+    clearExternalBatchForwardState();
     reset();
 }
 
@@ -252,6 +253,7 @@ void LightList::setOffset(float newPosition) {
 }
 
 void LightList::reset() {
+    clearExternalBatchForwardState();
     numEmitted = 0;
     numSplits = 0;
     setup(numLights, maxBri);
