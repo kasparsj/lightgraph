@@ -2,10 +2,12 @@
 
 #include "../core/Types.h"
 #include "../core/Limits.h"
+#include "../Globals.h"
 #include "../../vendor/ofxEasing/ofxEasing.h"
 #include "Behaviour.h"
 #include "RuntimeLight.h"
 #include <cstring>
+#include <new>
 #include <stdexcept>
 #include <vector>
 #include "../rendering/Palette.h"
@@ -103,7 +105,13 @@ class LightList {
       
       // Deep copy behaviour if it exists
       if (other.behaviour != NULL) {
-        behaviour = new Behaviour(other.behaviour->flags, other.behaviour->colorChangeGroups);
+        behaviour = new (std::nothrow) Behaviour(other.behaviour->flags, other.behaviour->colorChangeGroups);
+        if (behaviour == nullptr) {
+          lightgraphReportAllocationFailure(
+              LightgraphAllocationFailureSite::StateBehaviourAllocation,
+              other.behaviour->flags,
+              other.behaviour->colorChangeGroups);
+        }
       } else {
         behaviour = NULL;
       }

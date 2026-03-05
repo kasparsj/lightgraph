@@ -9,6 +9,7 @@
 #include "../src/runtime/LightList.h"
 #include "../src/runtime/State.h"
 #include "../src/objects/Line.h"
+#include "../src/Globals.h"
 
 namespace {
 
@@ -34,6 +35,18 @@ class EmptyObject : public TopologyObject {
 int fail(const std::string& message) {
     std::cerr << "FAIL: " << message << std::endl;
     return 1;
+}
+
+int gAllocationCallbackCount = 0;
+LightgraphAllocationFailureSite gObservedSite = LightgraphAllocationFailureSite::Unknown;
+uint16_t gObservedDetail0 = 0;
+uint16_t gObservedDetail1 = 0;
+
+void allocationFailureObserver(LightgraphAllocationFailureSite site, uint16_t detail0, uint16_t detail1) {
+    gAllocationCallbackCount++;
+    gObservedSite = site;
+    gObservedDetail0 = detail0;
+    gObservedDetail1 = detail1;
 }
 
 }  // namespace
@@ -78,6 +91,17 @@ int main() {
     if (emptyState.emit(emptyParams) != -1) {
         return fail("State::emit should fail when object has no emit candidates");
     }
+
+    // Allocation failure observer plumbing should invoke callback and tolerate unset state.
+    lightgraphSetAllocationFailureObserver(allocationFailureObserver);
+    lightgraphReportAllocationFailure(LightgraphAllocationFailureSite::LightListLightAllocation, 7, 42);
+    if (gAllocationCallbackCount != 1 || gObservedSite != LightgraphAllocationFailureSite::LightListLightAllocation ||
+        gObservedDetail0 != 7 || gObservedDetail1 != 42) {
+        return fail("allocation failure observer callback did not receive expected payload");
+    }
+
+    lightgraphSetAllocationFailureObserver(nullptr);
+    lightgraphReportAllocationFailure(LightgraphAllocationFailureSite::Unknown, 0, 0);
 
     return 0;
 }

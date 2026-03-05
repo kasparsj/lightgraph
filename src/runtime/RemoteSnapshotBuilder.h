@@ -4,12 +4,14 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <new>
 #include <vector>
 
 #include "Behaviour.h"
 #include "EmitParams.h"
 #include "Light.h"
 #include "LightList.h"
+#include "../Globals.h"
 
 class Model;
 
@@ -143,7 +145,14 @@ inline void applyLightListBehaviour(LightList* lightList, bool hasBehaviour, uin
     return;
   }
   if (lightList->behaviour == nullptr) {
-    lightList->behaviour = new Behaviour(flags, colorChangeGroups);
+    lightList->behaviour = new (std::nothrow) Behaviour(flags, colorChangeGroups);
+    if (lightList->behaviour == nullptr) {
+      lightgraphReportAllocationFailure(
+          LightgraphAllocationFailureSite::RemoteBehaviourAllocation,
+          flags,
+          colorChangeGroups);
+      return;
+    }
   } else {
     lightList->behaviour->flags = flags;
     lightList->behaviour->colorChangeGroups = colorChangeGroups;
@@ -151,7 +160,14 @@ inline void applyLightListBehaviour(LightList* lightList, bool hasBehaviour, uin
 }
 
 inline LightList* buildSingleLightSnapshot(const SingleSnapshotDescriptor& descriptor) {
-  LightList* list = new LightList();
+  LightList* list = new (std::nothrow) LightList();
+  if (list == nullptr) {
+    lightgraphReportAllocationFailure(
+        LightgraphAllocationFailureSite::RemoteListAllocation,
+        1,
+        0);
+    return nullptr;
+  }
   list->order = LIST_ORDER_RANDOM;
   list->linked = false;
   list->speed = descriptor.speed;
@@ -163,9 +179,21 @@ inline LightList* buildSingleLightSnapshot(const SingleSnapshotDescriptor& descr
   list->model = descriptor.model;
   applyLightListBehaviour(list, descriptor.hasBehaviour, descriptor.behaviourFlags, descriptor.colorChangeGroups);
   list->init(1);
+  if (list->numLights == 0 || list->lights == nullptr) {
+    delete list;
+    return nullptr;
+  }
   list->numEmitted = 1;
 
-  Light* light = new Light(list, descriptor.speed, descriptor.lifeMillis, 0, descriptor.brightness);
+  Light* light = new (std::nothrow) Light(list, descriptor.speed, descriptor.lifeMillis, 0, descriptor.brightness);
+  if (light == nullptr) {
+    lightgraphReportAllocationFailure(
+        LightgraphAllocationFailureSite::RemoteLightAllocation,
+        0,
+        1);
+    delete list;
+    return nullptr;
+  }
   light->setColor(ColorRGB(descriptor.colorR, descriptor.colorG, descriptor.colorB));
   (*list)[0] = light;
   return list;
@@ -199,7 +227,14 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
   const float scaledSpeed = scaleSpeedForDensity(
       descriptor.speed, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
 
-  LightList* list = new LightList();
+  LightList* list = new (std::nothrow) LightList();
+  if (list == nullptr) {
+    lightgraphReportAllocationFailure(
+        LightgraphAllocationFailureSite::RemoteListAllocation,
+        scaledNumLights,
+        scaledLength);
+    return nullptr;
+  }
   list->order = LIST_ORDER_SEQUENTIAL;
   list->head = (descriptor.head <= LIST_HEAD_BACK) ? static_cast<ListHead>(descriptor.head) : LIST_HEAD_FRONT;
   list->linked = descriptor.linked;
@@ -219,6 +254,10 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
   list->model = descriptor.model;
 
   list->init(scaledNumLights);
+  if (list->numLights != scaledNumLights || list->lights == nullptr) {
+    delete list;
+    return nullptr;
+  }
   const uint16_t numTrail =
       (scaledLength > list->numLights) ? static_cast<uint16_t>(scaledLength - list->numLights) : 0;
   list->setLeadTrail(numTrail);
@@ -227,8 +266,16 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
     const uint16_t lightIdx = list->linked ? i : 0;
     const float bri = static_cast<float>(list->maxBri) * list->getBriMult(i);
     const uint8_t clampedBri = static_cast<uint8_t>(std::max(0.0f, std::min(255.0f, bri)));
-    RuntimeLight* created = static_cast<RuntimeLight*>(
-        new Light(list, list->speed, list->lifeMillis, lightIdx, clampedBri));
+    Light* createdLight = new (std::nothrow) Light(list, list->speed, list->lifeMillis, lightIdx, clampedBri);
+    if (createdLight == nullptr) {
+      lightgraphReportAllocationFailure(
+          LightgraphAllocationFailureSite::RemoteLightAllocation,
+          i,
+          list->numLights);
+      delete list;
+      return nullptr;
+    }
+    RuntimeLight* created = createdLight;
     (*list)[i] = created;
 
     float position = (list->speed != 0.0f) ? static_cast<float>(i) * -1.0f
@@ -285,7 +332,14 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
   }
   const int16_t scaledPositionOffset = -static_cast<int16_t>(offsetLength);
 
-  LightList* list = new LightList();
+  LightList* list = new (std::nothrow) LightList();
+  if (list == nullptr) {
+    lightgraphReportAllocationFailure(
+        LightgraphAllocationFailureSite::RemoteListAllocation,
+        scaledNumLights,
+        scaledLength);
+    return nullptr;
+  }
   list->order = LIST_ORDER_SEQUENTIAL;
   list->linked = true;
   list->speed = descriptor.speed;
@@ -297,6 +351,10 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
   list->model = descriptor.model;
   applyLightListBehaviour(list, descriptor.hasBehaviour, descriptor.behaviourFlags, descriptor.colorChangeGroups);
   list->init(scaledNumLights);
+  if (list->numLights != scaledNumLights || list->lights == nullptr) {
+    delete list;
+    return nullptr;
+  }
   list->numEmitted = scaledNumLights;
 
   for (size_t i = 0; i < entries.size(); i++) {
@@ -322,7 +380,15 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
       lightLifeMillis = addLifeDelayClamped(
           list->lifeMillis, static_cast<uint32_t>(delayFrames * EmitParams::frameMs()));
     }
-    Light* light = new Light(list, descriptor.speed, lightLifeMillis, scaledLightIdx, entry.brightness);
+    Light* light = new (std::nothrow) Light(list, descriptor.speed, lightLifeMillis, scaledLightIdx, entry.brightness);
+    if (light == nullptr) {
+      lightgraphReportAllocationFailure(
+          LightgraphAllocationFailureSite::RemoteLightAllocation,
+          scaledLightIdx,
+          list->numLights);
+      delete list;
+      return nullptr;
+    }
     light->setColor(ColorRGB(entry.colorR, entry.colorG, entry.colorB));
     light->position = static_cast<float>(scaledPositionOffset) - static_cast<float>(scaledLightIdx);
 

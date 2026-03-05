@@ -89,6 +89,10 @@ void LightList::init(uint16_t numLights) {
     lights = new (std::nothrow) RuntimeLight*[numLights]();
     if (numLights > 0 && lights == NULL) {
         LP_LOGF("LightList::init failed: OOM for %u lights\n", numLights);
+        lightgraphReportAllocationFailure(
+            LightgraphAllocationFailureSite::LightListArrayAllocation,
+            numLights,
+            0);
         this->numLights = 0;
         allocatedLights = 0;
     }
@@ -137,6 +141,10 @@ RuntimeLight* LightList::createLight(uint16_t i, uint8_t brightness) {
     }
     if (light == NULL) {
         LP_LOGF("LightList::createLight failed: OOM at index %u\n", i);
+        lightgraphReportAllocationFailure(
+            LightgraphAllocationFailureSite::LightListLightAllocation,
+            i,
+            numLights);
         return NULL;
     }
     (*this)[i] = light;

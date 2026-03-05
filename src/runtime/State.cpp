@@ -12,6 +12,7 @@
 #include "EmitParams.h"
 #include "LightList.h"
 #include "../rendering/Palettes.h"
+#include "../Globals.h"
 
 #ifdef HD_OSC_REPLY
 #include <ArduinoOSC.h>
@@ -118,6 +119,10 @@ int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
     Behaviour* newBehaviour = new (std::nothrow) Behaviour(params);
     if (newBehaviour == NULL) {
         LP_LOGF("emit failed: OOM creating behaviour for slot %d\n", i);
+        lightgraphReportAllocationFailure(
+            LightgraphAllocationFailureSite::StateBehaviourAllocation,
+            static_cast<uint16_t>(i),
+            0);
         return -1;
     }
     if (oldLen > 0 && newBehaviour->smoothChanges()) {
@@ -133,6 +138,10 @@ int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
         lightList = new (std::nothrow) LightList();
         if (lightList == NULL) {
             LP_LOGF("emit failed: OOM creating list for slot %d\n", i);
+            lightgraphReportAllocationFailure(
+                LightgraphAllocationFailureSite::StateListAllocation,
+                static_cast<uint16_t>(i),
+                static_cast<uint16_t>(newLen));
             delete newBehaviour;
             return -1;
         }
@@ -151,6 +160,10 @@ int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
     } catch (const std::bad_alloc&) {
         setupOk = false;
         LP_LOGF("emit failed: OOM while setting up list slot %d\n", i);
+        lightgraphReportAllocationFailure(
+            LightgraphAllocationFailureSite::StateSetupException,
+            static_cast<uint16_t>(i),
+            static_cast<uint16_t>(newLen));
     } catch (...) {
         setupOk = false;
         LP_LOGF("emit failed: exception while setting up list slot %d\n", i);
@@ -470,7 +483,15 @@ void State::setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lig
 }
 
 void State::setupBg(uint8_t i) {
-    BgLight* bgLight = new BgLight();
+    BgLight* bgLight = new (std::nothrow) BgLight();
+    if (bgLight == nullptr) {
+        LP_LOGLN("setupBg failed: OOM creating background layer");
+        lightgraphReportAllocationFailure(
+            LightgraphAllocationFailureSite::SetupBgAllocation,
+            static_cast<uint16_t>(i),
+            0);
+        return;
+    }
     lightLists[i] = bgLight;
 
     // Configure the BgLight
