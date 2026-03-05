@@ -1,6 +1,8 @@
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <limits>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -45,6 +47,15 @@ TopologyObject* TopologyObject::instance = 0;
 
 TopologyObject::TopologyObject(uint16_t pixelCount) : pixelCount(pixelCount), realPixelCount(pixelCount) {
     instance = this;
+}
+
+uint8_t TopologyObject::groupIndexForMask(uint8_t groupMask) {
+    for (uint8_t i = 0; i < MAX_GROUPS; i++) {
+        if (groupMask & groupMaskForIndex(i)) {
+            return i;
+        }
+    }
+    return MAX_GROUPS;
 }
 
 TopologyObject::~TopologyObject() {
@@ -230,6 +241,270 @@ bool TopologyObject::removeConnection(Connection* connection) {
         }
     }
     return false;
+}
+
+Intersection* TopologyObject::findIntersectionById(uint8_t intersectionId) const {
+    for (uint8_t group = 0; group < MAX_GROUPS; group++) {
+        for (Intersection* intersection : inter[group]) {
+            if (intersection != nullptr && intersection->id == intersectionId) {
+                return intersection;
+            }
+        }
+    }
+    return nullptr;
+}
+
+Intersection* TopologyObject::findIntersectionByIdAndGroup(uint8_t intersectionId, uint8_t requestedGroup) const {
+    const uint8_t maxGroupMask = static_cast<uint8_t>((1u << MAX_GROUPS) - 1u);
+
+    if (requestedGroup < MAX_GROUPS) {
+        for (Intersection* intersection : inter[requestedGroup]) {
+            if (intersection != nullptr && intersection->id == intersectionId) {
+                return intersection;
+            }
+        }
+    }
+
+    if (requestedGroup > 0 && requestedGroup <= maxGroupMask && (requestedGroup & (requestedGroup - 1)) == 0) {
+        for (uint8_t g = 0; g < MAX_GROUPS; g++) {
+            if (!(requestedGroup & groupMaskForIndex(g))) {
+                continue;
+            }
+            for (Intersection* intersection : inter[g]) {
+                if (intersection != nullptr && intersection->id == intersectionId) {
+                    return intersection;
+                }
+            }
+        }
+    }
+
+    for (uint8_t g = 0; g < MAX_GROUPS; g++) {
+        for (Intersection* intersection : inter[g]) {
+            if (intersection != nullptr && intersection->id == intersectionId && intersection->group == requestedGroup) {
+                return intersection;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+Intersection* TopologyObject::findIntersectionContainingInternalPortId(uint8_t internalPortId) const {
+    for (uint8_t group = 0; group < MAX_GROUPS; group++) {
+        for (Intersection* intersection : inter[group]) {
+            if (intersection == nullptr) {
+                continue;
+            }
+            for (uint8_t slotIndex = 0; slotIndex < intersection->numPorts; slotIndex++) {
+                Port* port = intersection->ports[slotIndex];
+                if (port != nullptr && !port->isExternal() && port->id == internalPortId) {
+                    return intersection;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+ExternalPort* TopologyObject::findExternalPortByExactParams(const uint8_t deviceMac[6], uint8_t targetPortId,
+                                                            bool direction, uint8_t group) const {
+    for (uint8_t groupIndex = 0; groupIndex < MAX_GROUPS; groupIndex++) {
+        for (Intersection* intersection : inter[groupIndex]) {
+            if (intersection == nullptr) {
+                continue;
+            }
+            for (uint8_t slotIndex = 0; slotIndex < intersection->numPorts; slotIndex++) {
+                Port* port = intersection->ports[slotIndex];
+                if (port == nullptr || !port->isExternal()) {
+                    continue;
+                }
+
+                auto* externalPort = static_cast<ExternalPort*>(port);
+                if (externalPort->targetId == targetPortId &&
+                    externalPort->direction == direction &&
+                    externalPort->group == group &&
+                    std::memcmp(externalPort->device.data(), deviceMac, 6) == 0) {
+                    return externalPort;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool TopologyObject::hasAvailablePort(const Intersection* intersection) const {
+    if (intersection == nullptr) {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < intersection->numPorts; i++) {
+        if (intersection->ports[i] == nullptr) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int16_t TopologyObject::findFirstFreePortSlotIndex(const Intersection* intersection) const {
+    if (intersection == nullptr) {
+        return -1;
+    }
+
+    for (uint8_t slotIndex = 0; slotIndex < intersection->numPorts; slotIndex++) {
+        if (intersection->ports[slotIndex] == nullptr) {
+            return static_cast<int16_t>(slotIndex);
+        }
+    }
+    return -1;
+}
+
+bool TopologyObject::ensureIntersectionHasFreePortSlot(Intersection* intersection, uint8_t maxPorts) {
+    if (intersection == nullptr) {
+        return false;
+    }
+    if (hasAvailablePort(intersection)) {
+        return true;
+    }
+    if (intersection->numPorts >= maxPorts) {
+        return false;
+    }
+
+    const uint8_t nextPortCount = static_cast<uint8_t>(intersection->numPorts + 1);
+    std::vector<Port*> resizedPorts(nextPortCount, nullptr);
+    for (uint8_t slotIndex = 0; slotIndex < intersection->numPorts; slotIndex++) {
+        resizedPorts[slotIndex] = intersection->ports[slotIndex];
+    }
+    intersection->ports = std::move(resizedPorts);
+    intersection->numPorts = nextPortCount;
+    return true;
+}
+
+bool TopologyObject::areIntersectionsConnected(const Intersection* inter1, const Intersection* inter2) const {
+    for (uint8_t g = 0; g < MAX_GROUPS; g++) {
+        for (Connection* connection : conn[g]) {
+            if (connection == nullptr) {
+                continue;
+            }
+            if ((connection->from == inter1 && connection->to == inter2) ||
+                (connection->from == inter2 && connection->to == inter1)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool TopologyObject::hasIntersectionBetween(const Intersection* inter1, const Intersection* inter2) const {
+    if (inter1 == nullptr || inter2 == nullptr) {
+        return false;
+    }
+
+    uint16_t startPixel = inter1->topPixel;
+    uint16_t endPixel = inter2->topPixel;
+    if (startPixel > endPixel) {
+        const uint16_t temp = startPixel;
+        startPixel = endPixel;
+        endPixel = temp;
+    }
+
+    for (uint8_t g = 0; g < MAX_GROUPS; g++) {
+        if (!(inter1->group & TopologyObject::groupMaskForIndex(g)) &&
+            !(inter2->group & TopologyObject::groupMaskForIndex(g))) {
+            continue;
+        }
+
+        for (Intersection* testInter : inter[g]) {
+            if (testInter == nullptr || testInter == inter1 || testInter == inter2) {
+                continue;
+            }
+
+            if (testInter->topPixel > startPixel && testInter->topPixel < endPixel) {
+                bool isBlocking = true;
+                if (inter1->bottomPixel != -1 && inter2->bottomPixel != -1 && testInter->bottomPixel != -1) {
+                    uint16_t startBottom = inter1->bottomPixel;
+                    uint16_t endBottom = inter2->bottomPixel;
+                    if (startBottom > endBottom) {
+                        const uint16_t temp = startBottom;
+                        startBottom = endBottom;
+                        endBottom = temp;
+                    }
+
+                    if (testInter->bottomPixel <= startBottom || testInter->bottomPixel >= endBottom) {
+                        isBlocking = false;
+                    }
+                }
+
+                if (isBlocking) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+void TopologyObject::recalculateConnections(bool preserveVirtualConnections) {
+    std::vector<std::pair<uint8_t, size_t>> connectionsToRemove;
+
+    for (uint8_t g = 0; g < MAX_GROUPS; g++) {
+        auto& connections = conn[g];
+        for (size_t i = 0; i < connections.size(); i++) {
+            Connection* connection = connections[i];
+            if (connection == nullptr || connection->from == nullptr || connection->to == nullptr) {
+                continue;
+            }
+
+            if (preserveVirtualConnections && connection->numLeds == 0) {
+                continue;
+            }
+
+            if (hasIntersectionBetween(connection->from, connection->to)) {
+                connectionsToRemove.push_back({g, i});
+            }
+        }
+    }
+
+    for (auto it = connectionsToRemove.rbegin(); it != connectionsToRemove.rend(); ++it) {
+        removeConnection(it->first, it->second);
+    }
+
+    for (uint8_t g1 = 0; g1 < MAX_GROUPS; g1++) {
+        for (size_t i1 = 0; i1 < inter[g1].size(); i1++) {
+            Intersection* inter1 = inter[g1][i1];
+            if (inter1 == nullptr) {
+                continue;
+            }
+
+            for (uint8_t g2 = g1; g2 < MAX_GROUPS; g2++) {
+                const size_t startI2 = (g2 == g1) ? i1 + 1 : 0;
+                for (size_t i2 = startI2; i2 < inter[g2].size(); i2++) {
+                    Intersection* inter2 = inter[g2][i2];
+                    if (inter2 == nullptr) {
+                        continue;
+                    }
+
+                    if (inter1->group != inter2->group) {
+                        continue;
+                    }
+                    if (areIntersectionsConnected(inter1, inter2)) {
+                        continue;
+                    }
+                    if (hasIntersectionBetween(inter1, inter2)) {
+                        continue;
+                    }
+                    if (!hasAvailablePort(inter1) || !hasAvailablePort(inter2)) {
+                        continue;
+                    }
+
+                    const uint16_t numLeds =
+                        static_cast<uint16_t>(std::abs(static_cast<int>(inter2->topPixel) - static_cast<int>(inter1->topPixel)) - 1);
+                    addConnection(new Connection(inter1, inter2, inter1->group, numLeds));
+                }
+            }
+        }
+    }
 }
 
 TopologySnapshot TopologyObject::exportSnapshot() const {

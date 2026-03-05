@@ -93,6 +93,7 @@ class TopologyObject {
     static constexpr uint8_t groupMaskForIndex(uint8_t index) {
         return static_cast<uint8_t>(1u << index);
     }
+    static uint8_t groupIndexForMask(uint8_t groupMask);
 
     void addGap(uint16_t fromPixel, uint16_t toPixel);
     virtual Model* addModel(Model *model);
@@ -105,6 +106,17 @@ class TopologyObject {
     bool removeIntersection(Intersection* intersection);
     bool removeConnection(uint8_t groupIndex, size_t index);
     bool removeConnection(Connection* connection);
+    Intersection* findIntersectionById(uint8_t intersectionId) const;
+    Intersection* findIntersectionByIdAndGroup(uint8_t intersectionId, uint8_t requestedGroup) const;
+    Intersection* findIntersectionContainingInternalPortId(uint8_t internalPortId) const;
+    ExternalPort* findExternalPortByExactParams(const uint8_t deviceMac[6], uint8_t targetPortId,
+                                                bool direction, uint8_t group) const;
+    bool hasAvailablePort(const Intersection* intersection) const;
+    int16_t findFirstFreePortSlotIndex(const Intersection* intersection) const;
+    bool ensureIntersectionHasFreePortSlot(Intersection* intersection, uint8_t maxPorts = 9);
+    bool areIntersectionsConnected(const Intersection* inter1, const Intersection* inter2) const;
+    bool hasIntersectionBetween(const Intersection* inter1, const Intersection* inter2) const;
+    void recalculateConnections(bool preserveVirtualConnections = true);
     TopologySnapshot exportSnapshot() const;
     bool importSnapshot(const TopologySnapshot& snapshot, bool replaceModels = true);
     virtual Connection* addBridge(uint16_t fromPixel, uint16_t toPixel, uint8_t group, uint8_t numPorts = 2);
