@@ -261,6 +261,7 @@ int main() {
         descriptor.speed = 2.0f;
         descriptor.lifeMillis = 1200;
         descriptor.duration = 2400;
+        descriptor.head = LIST_HEAD_FRONT;
         descriptor.interpolationMode = 2;
         descriptor.senderPixelDensity = 144;
         descriptor.receiverPixelDensity = 60;
@@ -283,6 +284,18 @@ int main() {
         if (list->numLights != expectedNumLights) {
             delete list;
             return fail("Remote template snapshot should materialize the scaled logical light count");
+        }
+        const uint16_t expectedLength = remote_snapshot::scaleLengthForDensity(
+            descriptor.length, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
+        const uint16_t expectedEdgeLights =
+            (expectedLength > expectedNumLights) ? static_cast<uint16_t>(expectedLength - expectedNumLights) : 0;
+        const uint16_t expectedLead = (descriptor.head == LIST_HEAD_FRONT && expectedEdgeLights > 0) ? 1 : 0;
+        const uint16_t expectedTrail = (expectedEdgeLights > expectedLead)
+            ? static_cast<uint16_t>(expectedEdgeLights - expectedLead)
+            : 0;
+        if (list->lead != expectedLead || list->trail != expectedTrail) {
+            delete list;
+            return fail("Remote template snapshot should reconstruct lead/trail from logical length");
         }
         for (uint16_t i = 0; i < list->numLights; i++) {
             if ((*list)[i] == nullptr) {

@@ -114,6 +114,36 @@ inline uint16_t scaleLengthForDensity(uint16_t sourceLength,
   return static_cast<uint16_t>(rounded);
 }
 
+inline uint16_t resolveSequentialBodyLightCount(uint16_t numLights,
+                                                uint16_t length,
+                                                uint16_t lead,
+                                                uint16_t trail) {
+  const uint16_t resolvedLength = (length > 0) ? length : numLights;
+  const uint32_t edgeLights = static_cast<uint32_t>(lead) + static_cast<uint32_t>(trail);
+  uint16_t bodyLights = resolvedLength;
+  if (resolvedLength > 0) {
+    bodyLights = (edgeLights < resolvedLength)
+        ? static_cast<uint16_t>(resolvedLength - edgeLights)
+        : static_cast<uint16_t>(1);
+  }
+
+  if (numLights > 0 && bodyLights > numLights) {
+    bodyLights = numLights;
+  }
+  if (bodyLights == 0) {
+    bodyLights = (numLights > 0) ? numLights : static_cast<uint16_t>(1);
+  }
+
+  return bodyLights;
+}
+
+inline uint16_t resolveSequentialBodyLightCount(const LightList* list) {
+  if (list == nullptr) {
+    return 0;
+  }
+  return resolveSequentialBodyLightCount(list->numLights, list->length, list->lead, list->trail);
+}
+
 inline float scaleSpeedForDensity(float sourceSpeed,
                                   uint8_t senderPixelDensity,
                                   uint8_t receiverPixelDensity) {
