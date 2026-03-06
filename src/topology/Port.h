@@ -51,11 +51,12 @@ class ExternalPort : public Port {
   public:
     std::array<uint8_t, 6> device{};
     uint8_t targetId = 0;
+    bool hasTargetId = true;
     int16_t targetIntersectionId = -1;
     
     ExternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group,
                  const uint8_t device[6], uint8_t targetId, int16_t slotIndex = -1,
-                 int16_t targetIntersectionId = -1);
+                 int16_t targetIntersectionId = -1, bool hasTargetId = true);
     virtual void sendOut(RuntimeLight* const light, bool sendList = false) override;
     virtual bool isExternal() const override { return true; }
     virtual Type portType() const override { return Type::External; }

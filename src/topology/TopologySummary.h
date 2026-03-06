@@ -15,6 +15,7 @@ struct TopologySummaryPort {
     std::array<uint8_t, 6> device = {0, 0, 0, 0, 0, 0};
     uint8_t targetId = 0;
     int16_t targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET;
+    bool hasTargetId = false;
 };
 
 struct TopologySummaryIntersection {
@@ -101,6 +102,7 @@ inline TopologySummary buildTopologySummary(const TopologyObject& object) {
                         portEntry.device = externalPort->device;
                         portEntry.targetId = externalPort->targetId;
                         portEntry.targetIntersectionId = externalPort->targetIntersectionId;
+                        portEntry.hasTargetId = externalPort->hasTargetId;
                     }
                 }
                 entry.ports.push_back(portEntry);

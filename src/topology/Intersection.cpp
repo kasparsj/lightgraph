@@ -25,12 +25,20 @@ void tryForwardSequentialBatchAtExternalPort(RuntimeLight* const light, Port* co
     }
 
     ExternalPort* externalPort = static_cast<ExternalPort*>(port);
-    if (light->list->hasExternalBatchForwardedTo(externalPort->device.data(), externalPort->targetId)) {
+    if (light->list->hasExternalBatchForwardedTo(
+            externalPort->device.data(),
+            externalPort->targetId,
+            externalPort->targetIntersectionId,
+            externalPort->hasTargetId)) {
         return;
     }
 
     if (sendHook(externalPort->device.data(), externalPort->targetId, light, true)) {
-        light->list->markExternalBatchForwarded(externalPort->device.data(), externalPort->targetId);
+        light->list->markExternalBatchForwarded(
+            externalPort->device.data(),
+            externalPort->targetId,
+            externalPort->targetIntersectionId,
+            externalPort->hasTargetId);
     }
 }
 

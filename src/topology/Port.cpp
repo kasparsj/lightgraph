@@ -65,10 +65,11 @@ InternalPort::InternalPort(Connection* connection, Intersection* intersection, b
 
 ExternalPort::ExternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group,
                            const uint8_t device[6], uint8_t targetId, int16_t slotIndex,
-                           int16_t targetIntersectionId)
+                           int16_t targetIntersectionId, bool hasTargetId)
     : Port(connection, intersection, direction, group, slotIndex) {
     memcpy(this->device.data(), device, 6);
     this->targetId = targetId;
+    this->hasTargetId = hasTargetId;
     this->targetIntersectionId = targetIntersectionId;
 }
 
@@ -110,7 +111,7 @@ void ExternalPort::sendOut(RuntimeLight* const light, bool sendList) {
     bool sendAsBatch = false;
     bool shouldSend = true;
     if (shouldBatchSequentially) {
-        if (list->hasExternalBatchForwardedTo(device.data(), targetId)) {
+        if (list->hasExternalBatchForwardedTo(device.data(), targetId, targetIntersectionId, hasTargetId)) {
             shouldSend = false;
         } else {
             sendAsBatch = true;
@@ -126,7 +127,7 @@ void ExternalPort::sendOut(RuntimeLight* const light, bool sendList) {
         sendSucceeded = sendHook != nullptr &&
                         sendHook(device.data(), targetId, light, sendAsBatch);
         if (sendSucceeded && sendAsBatch) {
-            list->markExternalBatchForwarded(device.data(), targetId);
+            list->markExternalBatchForwarded(device.data(), targetId, targetIntersectionId, hasTargetId);
         }
     }
 

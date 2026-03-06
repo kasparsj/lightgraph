@@ -35,10 +35,19 @@ bool isZeroMac(const std::array<uint8_t, 6>& mac) {
     return true;
 }
 
-bool matchesExternalEndpoint(const ExternalPort* port, const uint8_t device[6], uint8_t targetPortId,
-                            bool direction, uint8_t group) {
-    return port != nullptr && port->targetId == targetPortId && port->direction == direction && port->group == group &&
-           std::memcmp(port->device.data(), device, 6) == 0;
+bool matchesExternalEndpoint(const ExternalPort* port, const uint8_t device[6], bool hasTargetPortId,
+                            uint8_t targetPortId, int16_t targetIntersectionId, bool direction,
+                            uint8_t group) {
+    if (port == nullptr || port->direction != direction || port->group != group ||
+        std::memcmp(port->device.data(), device, 6) != 0) {
+        return false;
+    }
+
+    if (hasTargetPortId) {
+        return port->hasTargetId && port->targetId == targetPortId;
+    }
+
+    return !port->hasTargetId && port->targetIntersectionId == targetIntersectionId;
 }
 
 class SnapshotImportObject final : public TopologyObject {
@@ -237,6 +246,7 @@ Connection* TopologyObject::addConnection(Connection *connection) {
 ExternalPort* TopologyObject::addExternalPort(Intersection* intersection, uint8_t slotIndex, bool direction,
                                               uint8_t group, const uint8_t device[6], uint8_t targetPortId,
                                               int16_t targetIntersectionId,
+                                              bool hasTargetPortId,
                                               bool allowDuplicateEndpoint) {
     if (intersection == nullptr || slotIndex >= intersection->numPorts || intersection->ports[slotIndex] != nullptr) {
         return nullptr;
@@ -244,13 +254,15 @@ ExternalPort* TopologyObject::addExternalPort(Intersection* intersection, uint8_
     if (!allowDuplicateEndpoint) {
         for (const auto& ownedPort : ownedExternalPorts_) {
             const auto* existing = static_cast<const ExternalPort*>(ownedPort.get());
-            if (matchesExternalEndpoint(existing, device, targetPortId, direction, group)) {
+            if (matchesExternalEndpoint(existing, device, hasTargetPortId, targetPortId, targetIntersectionId,
+                                        direction, group)) {
                 return nullptr;
             }
         }
     }
     auto created = std::make_unique<ExternalPort>(nullptr, intersection, direction, group, device, targetPortId,
-                                                  static_cast<int16_t>(slotIndex), targetIntersectionId);
+                                                  static_cast<int16_t>(slotIndex), targetIntersectionId,
+                                                  hasTargetPortId);
     ExternalPort* raw = created.get();
     if (!registerPort(raw)) {
         return nullptr;
@@ -518,7 +530,8 @@ Intersection* TopologyObject::findIntersectionContainingInternalPortId(uint16_t 
     return port->intersection;
 }
 
-ExternalPort* TopologyObject::findExternalPortByExactParams(const uint8_t deviceMac[6], uint8_t targetPortId,
+ExternalPort* TopologyObject::findExternalPortByExactParams(const uint8_t deviceMac[6], bool hasTargetPortId,
+                                                            uint8_t targetPortId, int16_t targetIntersectionId,
                                                             bool direction, uint8_t group) const {
     for (uint8_t groupIndex = 0; groupIndex < MAX_GROUPS; groupIndex++) {
         for (Intersection* intersection : inter[groupIndex]) {
@@ -532,10 +545,8 @@ ExternalPort* TopologyObject::findExternalPortByExactParams(const uint8_t device
                 }
 
                 auto* externalPort = static_cast<ExternalPort*>(port);
-                if (externalPort->targetId == targetPortId &&
-                    externalPort->direction == direction &&
-                    externalPort->group == group &&
-                    std::memcmp(externalPort->device.data(), deviceMac, 6) == 0) {
+                if (matchesExternalEndpoint(externalPort, deviceMac, hasTargetPortId, targetPortId,
+                                            targetIntersectionId, direction, group)) {
                     return externalPort;
                 }
             }
@@ -773,6 +784,7 @@ bool TopologyObject::exportSnapshot(TopologySnapshot& snapshot) const {
                 portSnapshot.deviceMac = externalPort->device;
                 portSnapshot.targetPortId = externalPort->targetId;
                 portSnapshot.targetIntersectionId = externalPort->targetIntersectionId;
+                portSnapshot.hasTargetPortId = externalPort->hasTargetId;
             }
             snapshot.ports.push_back(portSnapshot);
             exportedPortIds.insert(port->id);
@@ -892,8 +904,13 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
             return false;
         }
         if (port.type == TopologyPortType::Internal &&
-            (!isZeroMac(port.deviceMac) || port.targetPortId != 0 ||
+            (!isZeroMac(port.deviceMac) || port.targetPortId != 0 || port.hasTargetPortId ||
              port.targetIntersectionId != TOPOLOGY_TARGET_INTERSECTION_UNSET)) {
+            return false;
+        }
+        if (port.type == TopologyPortType::External &&
+            !port.hasTargetPortId &&
+            port.targetIntersectionId == TOPOLOGY_TARGET_INTERSECTION_UNSET) {
             return false;
         }
     }
@@ -1069,7 +1086,8 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
                 deviceMac,
                 snapshotPort->targetPortId,
                 static_cast<int16_t>(snapshotPort->slotIndex),
-                snapshotPort->targetIntersectionId);
+                snapshotPort->targetIntersectionId,
+                snapshotPort->hasTargetPortId);
             ExternalPort* raw = created.get();
             if (raw == nullptr || !candidate.registerPort(raw, snapshotPort->id)) {
                 return false;

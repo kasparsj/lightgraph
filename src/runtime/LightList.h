@@ -57,8 +57,10 @@ class LightList {
     uint8_t emitOffset = 0;
     bool compensateHiddenIngressContinuity = false;
     bool externalBatchForwarded = false;
+    bool externalBatchHasTargetId = false;
     uint8_t externalBatchDevice[6] = {0};
     uint8_t externalBatchTargetId = 0;
+    int16_t externalBatchTargetIntersectionId = -1;
 
     LightList() {
       this->id = nextId++;
@@ -194,20 +196,31 @@ class LightList {
                                  uint16_t idx = 0, uint8_t maxBri = 255);
     void clearExternalBatchForwardState() {
       externalBatchForwarded = false;
+      externalBatchHasTargetId = false;
       externalBatchTargetId = 0;
+      externalBatchTargetIntersectionId = -1;
       std::memset(externalBatchDevice, 0, sizeof(externalBatchDevice));
     }
-    void markExternalBatchForwarded(const uint8_t device[6], uint8_t targetId) {
+    void markExternalBatchForwarded(const uint8_t device[6], uint8_t targetId,
+                                    int16_t targetIntersectionId = -1,
+                                    bool hasTargetId = true) {
       if (device == nullptr) {
         clearExternalBatchForwardState();
         return;
       }
       std::memcpy(externalBatchDevice, device, sizeof(externalBatchDevice));
+      externalBatchHasTargetId = hasTargetId;
       externalBatchTargetId = targetId;
+      externalBatchTargetIntersectionId = targetIntersectionId;
       externalBatchForwarded = true;
     }
-    bool hasExternalBatchForwardedTo(const uint8_t device[6], uint8_t targetId) const {
-      return externalBatchForwarded && device != nullptr && externalBatchTargetId == targetId &&
+    bool hasExternalBatchForwardedTo(const uint8_t device[6], uint8_t targetId,
+                                     int16_t targetIntersectionId = -1,
+                                     bool hasTargetId = true) const {
+      return externalBatchForwarded && device != nullptr &&
+             externalBatchHasTargetId == hasTargetId &&
+             externalBatchTargetId == targetId &&
+             externalBatchTargetIntersectionId == targetIntersectionId &&
              std::memcmp(externalBatchDevice, device, sizeof(externalBatchDevice)) == 0;
     }
     void bindRuntimeContext(LightgraphRuntimeContext& context) {

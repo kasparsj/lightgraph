@@ -218,6 +218,7 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
     std::array<uint8_t, 6> deviceMac = {0, 0, 0, 0, 0, 0};
     long targetPortId = 0;
     long targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET;
+    bool hasTargetPortId = false;
     if (portType == TopologyPortType::External) {
       String portRole = String(portJson["portRole"] | "");
       portRole.toLowerCase();
@@ -247,10 +248,15 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
           }
         }
       }
-      if (!parseTopologyBoundedLong(portJson["targetPortId"], 0, 255, targetPortId) &&
-          !options.allowLenientExternalPorts) {
-        error = "Invalid external port targetPortId";
-        return false;
+      if (!portJson["targetPortId"].isNull()) {
+        if (!parseTopologyBoundedLong(portJson["targetPortId"], 0, 255, targetPortId)) {
+          if (!options.allowLenientExternalPorts) {
+            error = "Invalid external port targetPortId";
+            return false;
+          }
+        } else {
+          hasTargetPortId = true;
+        }
       }
       if (!portJson["targetIntersectionId"].isNull() &&
           !parseTopologyBoundedLong(portJson["targetIntersectionId"], 0, 255, targetIntersectionId) &&
@@ -259,12 +265,25 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
         return false;
       }
 
+      const bool hasTargetIntersectionId = targetIntersectionId != TOPOLOGY_TARGET_INTERSECTION_UNSET;
+      if (!options.allowLenientExternalPorts && !hasTargetPortId && !hasTargetIntersectionId) {
+        error = "External port requires targetPortId or targetIntersectionId";
+        return false;
+      }
+
       if (!options.allowLenientExternalPorts) {
         for (const TopologyPortSnapshot& existingPort : snapshot.ports) {
           if (existingPort.type != TopologyPortType::External ||
-              existingPort.targetPortId != static_cast<uint8_t>(targetPortId) ||
               existingPort.direction != direction ||
               existingPort.group != static_cast<uint8_t>(group)) {
+            continue;
+          }
+          if (hasTargetPortId) {
+            if (!existingPort.hasTargetPortId || existingPort.targetPortId != static_cast<uint8_t>(targetPortId)) {
+              continue;
+            }
+          } else if (existingPort.hasTargetPortId ||
+                     existingPort.targetIntersectionId != static_cast<int16_t>(targetIntersectionId)) {
             continue;
           }
 
@@ -304,6 +323,7 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
         deviceMac,
         static_cast<uint8_t>(targetPortId),
         static_cast<int16_t>(targetIntersectionId),
+        hasTargetPortId,
     });
   }
 
@@ -522,8 +542,11 @@ inline String serializeTopologySnapshotToJson(const TopologySnapshot& snapshot) 
                port.deviceMac[5]);
       payload += ",\"deviceMac\":\"";
       payload += macBuffer;
-      payload += "\",\"targetPortId\":";
-      payload += String(port.targetPortId);
+      payload += "\"";
+      if (port.hasTargetPortId) {
+        payload += ",\"targetPortId\":";
+        payload += String(port.targetPortId);
+      }
       if (port.targetIntersectionId != TOPOLOGY_TARGET_INTERSECTION_UNSET) {
         payload += ",\"targetIntersectionId\":";
         payload += String(port.targetIntersectionId);

@@ -34,6 +34,7 @@ struct TopologyPortSnapshot {
     std::array<uint8_t, 6> deviceMac;
     uint8_t targetPortId;
     int16_t targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET;
+    bool hasTargetPortId = false;
 };
 
 struct TopologyWeightConditionalSnapshot {
@@ -117,6 +118,7 @@ class TopologyObject {
     virtual ExternalPort* addExternalPort(Intersection* intersection, uint8_t slotIndex, bool direction,
                                           uint8_t group, const uint8_t device[6], uint8_t targetPortId,
                                           int16_t targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET,
+                                          bool hasTargetPortId = true,
                                           bool allowDuplicateEndpoint = false);
     bool removeExternalPort(Port* port);
     bool removeIntersection(uint8_t groupIndex, size_t index);
@@ -127,7 +129,8 @@ class TopologyObject {
     Intersection* findIntersectionById(uint8_t intersectionId) const;
     Intersection* findIntersectionByIdAndGroup(uint8_t intersectionId, uint8_t requestedGroup) const;
     Intersection* findIntersectionContainingInternalPortId(uint16_t internalPortId) const;
-    ExternalPort* findExternalPortByExactParams(const uint8_t deviceMac[6], uint8_t targetPortId,
+    ExternalPort* findExternalPortByExactParams(const uint8_t deviceMac[6], bool hasTargetPortId,
+                                                uint8_t targetPortId, int16_t targetIntersectionId,
                                                 bool direction, uint8_t group) const;
     Port* findPortById(uint16_t portId) const;
     bool hasAvailablePort(const Intersection* intersection) const;
