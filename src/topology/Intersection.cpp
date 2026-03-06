@@ -126,6 +126,12 @@ void Intersection::update(RuntimeLight* const light) const {
                     0,
                     FULL_BRIGHTNESS));
                 light->setRenderedPixels(topPixel, adjacentPixel, secondaryWeight);
+            } else if (port != nullptr && port->isExternal()) {
+                const uint8_t primaryWeight = static_cast<uint8_t>(std::clamp<int32_t>(
+                    static_cast<int32_t>(round((1.0f - light->position) * FULL_BRIGHTNESS)),
+                    0,
+                    FULL_BRIGHTNESS));
+                light->setRenderedPixelWeighted(topPixel, primaryWeight);
             } else {
                 light->setRenderedPixel(topPixel);
             }

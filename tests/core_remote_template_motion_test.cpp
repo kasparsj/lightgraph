@@ -142,6 +142,10 @@ class TestRemoteIngressEmitter : public Owner {
             light->setOutPort(targetPort_, intersectionId);
         }
 
+        if (targetPort_->intersection != nullptr) {
+            targetPort_->intersection->add(light);
+            return;
+        }
         targetPort_->connection->add(light);
     }
 
@@ -353,6 +357,8 @@ int main() {
     const uint16_t senderStripEnd = sender->inter2->topPixel;
     const uint16_t remoteStripStart = remote->conn02->toPixel;
     const uint16_t remoteStripEnd = remote->conn02->fromPixel;
+    const uint16_t senderExitPixel = sender->inter2->topPixel;
+    const uint16_t remoteIngressPixel = remote->inter2->topPixel;
 
     LitSpan previousSenderStrip = {};
     LitSpan transferSenderBaseline = {};
@@ -369,6 +375,8 @@ int main() {
 
         const LitSpan senderStrip = collectLitPixels(sender->state, senderStripStart, senderStripEnd);
         const LitSpan remoteStrip = collectLitPixels(remote->state, remoteStripStart, remoteStripEnd);
+        const bool senderExitLit = isNonBlack(sender->state.getPixel(senderExitPixel));
+        const bool remoteIngressLit = isNonBlack(remote->state.getPixel(remoteIngressPixel));
 
         if (!isContiguous(senderStrip)) {
             ::sendLightViaESPNow = nullptr;
@@ -413,15 +421,25 @@ int main() {
                 gTemplateTransportContext = nullptr;
                 return fail("Template forwarding should preserve logical length at equal pixel density");
             }
-            if (remoteStrip.empty()) {
+            if (!remoteIngressLit) {
                 ::sendLightViaESPNow = nullptr;
                 gTemplateTransportContext = nullptr;
-                return fail("Remote strip should light immediately once the template handoff starts");
+                return fail("Remote ingress intersection should light immediately once the template handoff starts");
+            }
+            if (!remoteStrip.empty()) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Remote strip body should begin one frame after the ingress intersection lights");
             }
             if (senderStrip.empty()) {
                 ::sendLightViaESPNow = nullptr;
                 gTemplateTransportContext = nullptr;
                 return fail("Sender strip should still show the original tail when the remote strip starts");
+            }
+            if (!senderExitLit) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Sender exit intersection should stay lit when the remote handoff starts");
             }
 
             transferSenderBaseline = senderStrip;
@@ -437,6 +455,16 @@ int main() {
                 ::sendLightViaESPNow = nullptr;
                 gTemplateTransportContext = nullptr;
                 return fail("Remote strip should keep growing once template forwarding starts");
+            }
+            if (!senderExitLit) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Sender exit intersection should stay continuously lit during handoff");
+            }
+            if (!remoteIngressLit) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Remote ingress intersection should stay continuously lit during handoff");
             }
 
             const size_t step = checkedTransferFrames + 1;

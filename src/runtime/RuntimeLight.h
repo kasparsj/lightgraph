@@ -25,6 +25,7 @@ class RuntimeLight
     int8_t outPortsInt[OUT_PORTS_MEMORY] = {-1};
     int16_t pixel1 = -1;
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
+    uint8_t pixel1Weight = FULL_BRIGHTNESS;
     int16_t pixel2 = -1;
     uint8_t pixel2Weight = 0;
 #endif
@@ -68,6 +69,7 @@ class RuntimeLight
     uint16_t getListId() const;
     void setRenderedPixel(uint16_t pixel);
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
+    void setRenderedPixelWeighted(uint16_t pixel, uint8_t weight);
     void setRenderedPixels(uint16_t primaryPixel, uint16_t secondaryPixel, uint8_t secondaryWeight);
     bool hasSecondaryPixel() const;
     uint8_t getPrimaryPixelWeight() const;

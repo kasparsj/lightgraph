@@ -233,6 +233,9 @@ void LightList::setupFrom(const EmitParams &params) {
 void LightList::initEmit(uint8_t posOffset) {
     for (uint16_t i=0; i<numLights; i++) {
         RuntimeLight *light = (*this)[i];
+        if (light == nullptr) {
+            continue;
+        }
         initPosition(i, light);
         light->position += posOffset;
         initBri(i, light);

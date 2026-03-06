@@ -10,6 +10,7 @@ uint16_t RuntimeLight::pixels[CONNECTION_MAX_LEDS] = {0};
 void RuntimeLight::resetPixels() {
   pixel1 = -1;
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
+  pixel1Weight = FULL_BRIGHTNESS;
   pixel2 = -1;
   pixel2Weight = 0;
 #endif
@@ -18,17 +19,27 @@ void RuntimeLight::resetPixels() {
 void RuntimeLight::setRenderedPixel(uint16_t pixel) {
   pixel1 = static_cast<int16_t>(pixel);
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
+  pixel1Weight = FULL_BRIGHTNESS;
   pixel2 = -1;
   pixel2Weight = 0;
 #endif
 }
 
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
+void RuntimeLight::setRenderedPixelWeighted(uint16_t pixel, uint8_t weight) {
+  pixel1 = static_cast<int16_t>(pixel);
+  pixel1Weight = weight;
+  pixel2 = -1;
+  pixel2Weight = 0;
+}
+
 void RuntimeLight::setRenderedPixels(uint16_t primaryPixel,
                                      uint16_t secondaryPixel,
                                      uint8_t secondaryWeight) {
   pixel1 = static_cast<int16_t>(primaryPixel);
+  pixel1Weight = static_cast<uint8_t>(FULL_BRIGHTNESS - secondaryWeight);
   if (secondaryWeight == 0 || primaryPixel == secondaryPixel) {
+    pixel1Weight = FULL_BRIGHTNESS;
     pixel2 = -1;
     pixel2Weight = 0;
     return;
@@ -43,8 +54,7 @@ bool RuntimeLight::hasSecondaryPixel() const {
 }
 
 uint8_t RuntimeLight::getPrimaryPixelWeight() const {
-  return hasSecondaryPixel() ? static_cast<uint8_t>(FULL_BRIGHTNESS - pixel2Weight)
-                             : FULL_BRIGHTNESS;
+  return pixel1Weight;
 }
 #endif
 
