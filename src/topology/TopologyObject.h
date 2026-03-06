@@ -20,6 +20,8 @@ enum class TopologyPortType : uint8_t {
     External = 1,
 };
 
+constexpr int16_t TOPOLOGY_TARGET_INTERSECTION_UNSET = -1;
+
 struct TopologyPortSnapshot {
     uint8_t id;
     uint8_t intersectionId;
@@ -29,6 +31,7 @@ struct TopologyPortSnapshot {
     uint8_t group;
     std::array<uint8_t, 6> deviceMac;
     uint8_t targetPortId;
+    int16_t targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET;
 };
 
 struct TopologyWeightConditionalSnapshot {
@@ -100,7 +103,9 @@ class TopologyObject {
     virtual Intersection* addIntersection(Intersection *intersection);
     virtual Connection* addConnection(Connection *connection);
     virtual ExternalPort* addExternalPort(Intersection* intersection, uint8_t slotIndex, bool direction,
-                                          uint8_t group, const uint8_t device[6], uint8_t targetPortId);
+                                          uint8_t group, const uint8_t device[6], uint8_t targetPortId,
+                                          int16_t targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET,
+                                          bool allowDuplicateEndpoint = false);
     bool removeExternalPort(Port* port);
     bool removeIntersection(uint8_t groupIndex, size_t index);
     bool removeIntersection(Intersection* intersection);

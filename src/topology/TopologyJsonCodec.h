@@ -91,7 +91,12 @@ inline size_t normalizeTopologySnapshotDuplicatePortIds(TopologySnapshot& snapsh
   return normalizedCount;
 }
 
-inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot& snapshot, String& error) {
+struct TopologySnapshotParseOptions {
+  bool allowLenientExternalPorts = false;
+};
+
+inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot& snapshot, String& error,
+                                          const TopologySnapshotParseOptions& options = {}) {
   long schemaVersion = 0;
   if (!parseTopologyBoundedLong(root["schemaVersion"], 0, 255, schemaVersion)) {
     error = "Missing schemaVersion";
@@ -194,51 +199,68 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
 
     std::array<uint8_t, 6> deviceMac = {0, 0, 0, 0, 0, 0};
     long targetPortId = 0;
+    long targetIntersectionId = TOPOLOGY_TARGET_INTERSECTION_UNSET;
     if (portType == TopologyPortType::External) {
       String portRole = String(portJson["portRole"] | "");
       portRole.toLowerCase();
       if (portRole == "inbound" || portRole == "outbound") {
+        direction = true;
+      } else if (options.allowLenientExternalPorts) {
         direction = true;
       } else {
         error = "Invalid external port portRole";
         return false;
       }
 
-      if (!portJson.containsKey("deviceMac")) {
+      if (!portJson.containsKey("deviceMac") && !options.allowLenientExternalPorts) {
         error = "External port missing deviceMac";
         return false;
       }
-      uint8_t parsedMac[6] = {0};
-      if (!parseTopologyMacAddress(String(portJson["deviceMac"].as<const char*>()), parsedMac)) {
-        error = "Invalid external port deviceMac";
-        return false;
+      if (portJson.containsKey("deviceMac")) {
+        uint8_t parsedMac[6] = {0};
+        if (!parseTopologyMacAddress(String(portJson["deviceMac"].as<const char*>()), parsedMac)) {
+          if (!options.allowLenientExternalPorts) {
+            error = "Invalid external port deviceMac";
+            return false;
+          }
+        } else {
+          for (uint8_t i = 0; i < 6; i++) {
+            deviceMac[i] = parsedMac[i];
+          }
+        }
       }
-      for (uint8_t i = 0; i < 6; i++) {
-        deviceMac[i] = parsedMac[i];
-      }
-      if (!parseTopologyBoundedLong(portJson["targetPortId"], 0, 255, targetPortId)) {
+      if (!parseTopologyBoundedLong(portJson["targetPortId"], 0, 255, targetPortId) &&
+          !options.allowLenientExternalPorts) {
         error = "Invalid external port targetPortId";
         return false;
       }
+      if (!portJson["targetIntersectionId"].isNull() &&
+          !parseTopologyBoundedLong(portJson["targetIntersectionId"], 0, 255, targetIntersectionId) &&
+          !options.allowLenientExternalPorts) {
+        error = "Invalid external port targetIntersectionId";
+        return false;
+      }
 
-      for (const TopologyPortSnapshot& existingPort : snapshot.ports) {
-        if (existingPort.type != TopologyPortType::External ||
-            existingPort.targetPortId != static_cast<uint8_t>(targetPortId) ||
-            existingPort.direction != direction ||
-            existingPort.group != static_cast<uint8_t>(group)) {
-          continue;
-        }
-
-        bool sameDeviceMac = true;
-        for (uint8_t i = 0; i < 6; i++) {
-          if (existingPort.deviceMac[i] != deviceMac[i]) {
-            sameDeviceMac = false;
-            break;
+      if (!options.allowLenientExternalPorts) {
+        for (const TopologyPortSnapshot& existingPort : snapshot.ports) {
+          if (existingPort.type != TopologyPortType::External ||
+              existingPort.targetPortId != static_cast<uint8_t>(targetPortId) ||
+              existingPort.direction != direction ||
+              existingPort.group != static_cast<uint8_t>(group)) {
+            continue;
           }
-        }
-        if (sameDeviceMac) {
-          error = "Duplicate external port mapping";
-          return false;
+
+          bool sameDeviceMac = true;
+          for (uint8_t i = 0; i < 6; i++) {
+            if (existingPort.deviceMac[i] != deviceMac[i]) {
+              sameDeviceMac = false;
+              break;
+            }
+          }
+          if (sameDeviceMac) {
+            error = "Duplicate external port mapping";
+            return false;
+          }
         }
       }
     } else {
@@ -263,6 +285,7 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
         static_cast<uint8_t>(group),
         deviceMac,
         static_cast<uint8_t>(targetPortId),
+        static_cast<int16_t>(targetIntersectionId),
     });
   }
 
@@ -479,6 +502,10 @@ inline String serializeTopologySnapshotToJson(const TopologySnapshot& snapshot) 
       payload += macBuffer;
       payload += "\",\"targetPortId\":";
       payload += String(port.targetPortId);
+      if (port.targetIntersectionId != TOPOLOGY_TARGET_INTERSECTION_UNSET) {
+        payload += ",\"targetIntersectionId\":";
+        payload += String(port.targetIntersectionId);
+      }
     }
     payload += "}";
   }

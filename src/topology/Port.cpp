@@ -98,10 +98,12 @@ InternalPort::InternalPort(Connection* connection, Intersection* intersection, b
 }
 
 ExternalPort::ExternalPort(Connection* connection, Intersection* intersection, bool direction, uint8_t group,
-                           const uint8_t device[6], uint8_t targetId, int16_t slotIndex)
+                           const uint8_t device[6], uint8_t targetId, int16_t slotIndex,
+                           int16_t targetIntersectionId)
     : Port(connection, intersection, direction, group, slotIndex) {
     memcpy(this->device.data(), device, 6);
     this->targetId = targetId;
+    this->targetIntersectionId = targetIntersectionId;
 }
 
 void Port::handleColorChange(RuntimeLight* const light) const {
