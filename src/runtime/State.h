@@ -28,6 +28,12 @@ class State {
     std::vector<uint16_t> pixelValuesG;
     std::vector<uint16_t> pixelValuesB;
     std::vector<uint8_t> pixelDiv;
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    std::vector<uint16_t> listPixelValuesR;
+    std::vector<uint16_t> listPixelValuesG;
+    std::vector<uint16_t> listPixelValuesB;
+    std::vector<uint16_t> listTouchedPixels;
+#endif
     bool autoEnabled = false;
     uint8_t currentPalette = 0;
     bool showIntersections = false;
@@ -72,5 +78,14 @@ class State {
     void setPixelsWeighted(uint16_t pixel, const ColorRGB& color, const LightList* const lightList, uint8_t weight);
     void setPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
     void setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
+    void setFramePixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
+    void setFramePixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    void beginListRender(const LightList* lightList);
+    void endListRender(const LightList* lightList);
+    void setListPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
+    void setListPixel(uint16_t pixel, ColorRGB &color);
+    const LightList* renderingList = nullptr;
+#endif
 
 };

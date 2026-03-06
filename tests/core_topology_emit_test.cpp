@@ -154,6 +154,33 @@ class NoMirrorObject : public TopologyObject {
     uint16_t mirroredPixels_[2] = {0};
 };
 
+class StaticOwner : public Owner {
+  public:
+    StaticOwner() : Owner(GROUP1) {}
+
+    uint8_t getType() override { return TYPE_CONNECTION; }
+
+    void emit(RuntimeLight* const light) const override {
+        if (light != nullptr) {
+            light->owner = this;
+        }
+    }
+
+    void update(RuntimeLight* const /*light*/) const override {}
+};
+
+class SolidRuntimeList : public LightList {
+  public:
+    explicit SolidRuntimeList(ColorRGB color) : color_(color) {}
+
+    ColorRGB getColor(int16_t /*pixel*/ = -1) const override {
+        return color_;
+    }
+
+  private:
+    ColorRGB color_;
+};
+
 class GradientRuntimeList : public LightList {
   public:
     ColorRGB getColor(int16_t pixel = -1) const override {
@@ -613,6 +640,45 @@ int main() {
         if (!isApproxColor(state.getPixel(0), 100, 0, 0, 1) ||
             !isApproxColor(state.getPixel(1), 0, 0, 100, 1)) {
             return fail("Split RuntimeLight rendering should sample color from each target pixel");
+        }
+    }
+
+    // Fractional contributions from the same list should accumulate before the list is blended
+    // into the framebuffer, otherwise split lights visibly pump brightness when they overlap.
+    {
+        NoMirrorObject object(3);
+        State state(object);
+        state.lightLists[0]->visible = false;
+
+        StaticOwner owner;
+        SolidRuntimeList* list = new SolidRuntimeList(ColorRGB(0, 204, 0));
+        list->model = object.getModel(0);
+        list->setup(2, 255);
+        list->speed = 0.0f;
+        list->lifeMillis = INFINITE_DURATION;
+        state.lightLists[1] = list;
+        state.activateList(&owner, list);
+
+        list->numEmitted = list->numLights;
+        for (uint16_t i = 0; i < list->numLights; ++i) {
+            RuntimeLight* light = list->lights[i];
+            if (light == nullptr) {
+                return fail("Same-list fractional accumulation fixture is incomplete");
+            }
+            light->owner = &owner;
+        }
+
+        list->lights[0]->setRenderedPixels(0, 1, 64);
+        list->lights[1]->setRenderedPixels(1, 2, 64);
+
+        gMillis = 0;
+        lightgraphResetFrameTiming();
+        state.update();
+
+        if (!isApproxColor(state.getPixel(0), 0, 153, 0, 1) ||
+            !isApproxColor(state.getPixel(1), 0, 204, 0, 1) ||
+            !isApproxColor(state.getPixel(2), 0, 51, 0, 1)) {
+            return fail("Same-list fractional contributions should accumulate before BLEND_NORMAL compositing");
         }
     }
 #endif

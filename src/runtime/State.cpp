@@ -40,7 +40,17 @@ State::State(TopologyObject& obj)
       pixelValuesR(obj.pixelCount, 0),
       pixelValuesG(obj.pixelCount, 0),
       pixelValuesB(obj.pixelCount, 0),
-      pixelDiv(obj.pixelCount, 0) {
+      pixelDiv(obj.pixelCount, 0)
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+      ,
+      listPixelValuesR(obj.pixelCount, 0),
+      listPixelValuesG(obj.pixelCount, 0),
+      listPixelValuesB(obj.pixelCount, 0)
+#endif
+{
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    listTouchedPixels.reserve(obj.pixelCount);
+#endif
     setupBg(0);
 }
 
@@ -254,6 +264,11 @@ void State::updatePass(bool renderStep) {
           clearListSlot(i);
         }
         else if (lightList->visible) {
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+      if (renderStep) {
+        beginListRender(lightList);
+      }
+#endif
       // Check if the lightList is a BgLight
       if (lightList->editable && lightList->numLights == 0) {
         if (renderStep) {
@@ -275,6 +290,11 @@ void State::updatePass(bool renderStep) {
             }
         }
       }
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+      if (renderStep) {
+        endListRender(lightList);
+      }
+#endif
     }
   }
 }
@@ -357,20 +377,105 @@ void State::setPixelsWeighted(uint16_t pixel,
 }
 
 void State::setPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
-    setPixel(pixel, color, lightList);
-    if (lightList->behaviour != NULL && (lightList->behaviour->mirrorFlip() || lightList->behaviour->mirrorRotate())) {
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    if (renderingList != nullptr) {
+        setListPixels(pixel, color, lightList);
+        return;
+    }
+#endif
+    setFramePixels(pixel, color, lightList);
+}
+
+void State::setFramePixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+    setFramePixel(pixel, color, lightList);
+    if (lightList != NULL && lightList->behaviour != NULL &&
+        (lightList->behaviour->mirrorFlip() || lightList->behaviour->mirrorRotate())) {
         uint16_t* mirrorPixels = object.getMirroredPixels(pixel, lightList->behaviour->mirrorFlip() ? lightList->emitter : 0, lightList->behaviour->mirrorRotate());
         if (mirrorPixels != NULL) {
             // first value is length
             uint16_t numPixels = mirrorPixels[0];
             for (uint16_t k=1; k<numPixels+1; k++) {
-                setPixel(mirrorPixels[k], color, lightList);
+                setFramePixel(mirrorPixels[k], color, lightList);
             }
         }
     }
 }
 
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+void State::beginListRender(const LightList* lightList) {
+    renderingList = lightList;
+}
+
+void State::endListRender(const LightList* lightList) {
+    renderingList = nullptr;
+    for (uint16_t pixel : listTouchedPixels) {
+        const uint16_t red = listPixelValuesR[pixel];
+        const uint16_t green = listPixelValuesG[pixel];
+        const uint16_t blue = listPixelValuesB[pixel];
+        if (red != 0 || green != 0 || blue != 0) {
+            ColorRGB color(
+                static_cast<uint8_t>(std::min<uint16_t>(red, FULL_BRIGHTNESS)),
+                static_cast<uint8_t>(std::min<uint16_t>(green, FULL_BRIGHTNESS)),
+                static_cast<uint8_t>(std::min<uint16_t>(blue, FULL_BRIGHTNESS)));
+            setFramePixel(pixel, color, lightList);
+        }
+        listPixelValuesR[pixel] = 0;
+        listPixelValuesG[pixel] = 0;
+        listPixelValuesB[pixel] = 0;
+    }
+    listTouchedPixels.clear();
+}
+
+void State::setListPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+    setListPixel(pixel, color);
+    if (lightList != NULL && lightList->behaviour != NULL &&
+        (lightList->behaviour->mirrorFlip() || lightList->behaviour->mirrorRotate())) {
+        uint16_t* mirrorPixels = object.getMirroredPixels(pixel, lightList->behaviour->mirrorFlip() ? lightList->emitter : 0, lightList->behaviour->mirrorRotate());
+        if (mirrorPixels != NULL) {
+            // first value is length
+            uint16_t numPixels = mirrorPixels[0];
+            for (uint16_t k=1; k<numPixels+1; k++) {
+                setListPixel(mirrorPixels[k], color);
+            }
+        }
+    }
+}
+
+void State::setListPixel(uint16_t pixel, ColorRGB &color) {
+    if (pixel >= listPixelValuesR.size()) {
+        return;
+    }
+    if (color.R == 0 && color.G == 0 && color.B == 0) {
+        return;
+    }
+
+    if (listPixelValuesR[pixel] == 0 && listPixelValuesG[pixel] == 0 && listPixelValuesB[pixel] == 0) {
+        listTouchedPixels.push_back(pixel);
+    }
+
+    listPixelValuesR[pixel] = std::min<uint16_t>(
+        FULL_BRIGHTNESS,
+        static_cast<uint16_t>(listPixelValuesR[pixel] + color.R));
+    listPixelValuesG[pixel] = std::min<uint16_t>(
+        FULL_BRIGHTNESS,
+        static_cast<uint16_t>(listPixelValuesG[pixel] + color.G));
+    listPixelValuesB[pixel] = std::min<uint16_t>(
+        FULL_BRIGHTNESS,
+        static_cast<uint16_t>(listPixelValuesB[pixel] + color.B));
+}
+#endif
+
 void State::setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    if (renderingList != nullptr) {
+        setListPixel(pixel, color);
+        return;
+    }
+#endif
+    setFramePixel(pixel, color, lightList);
+}
+
+void State::setFramePixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
     if (pixel >= pixelValuesR.size()) {
         return;
     }
