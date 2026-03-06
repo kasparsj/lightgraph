@@ -291,7 +291,13 @@ inline bool buildDenseSnapshot(LightList* list, const Spec& spec, const Policy& 
     return false;
   }
 
-  const uint16_t trail = (list->length > list->numLights) ? static_cast<uint16_t>(list->length - list->numLights) : 0;
+  uint16_t trail = spec.trail;
+  if (trail == 0 && list->length > list->numLights) {
+    trail = static_cast<uint16_t>(list->length - list->numLights);
+  }
+  if (trail >= list->numLights && list->numLights > 0) {
+    trail = static_cast<uint16_t>(list->numLights - 1);
+  }
   list->setLeadTrail(trail);
 
   for (uint16_t i = 0; i < list->numLights; i++) {
@@ -331,6 +337,15 @@ inline bool buildSparseSnapshot(LightList* list, const Spec& spec, const Policy&
   if (list->numLights != targetLights || list->lights == nullptr) {
     return false;
   }
+
+  uint16_t trail = spec.trail;
+  if (trail == 0 && list->length > list->numLights) {
+    trail = static_cast<uint16_t>(list->length - list->numLights);
+  }
+  if (trail >= list->numLights && list->numLights > 0) {
+    trail = static_cast<uint16_t>(list->numLights - 1);
+  }
+  list->setLeadTrail(trail);
   list->numEmitted = targetLights;
 
   for (size_t i = 0; i < spec.sparseEntries.size(); i++) {

@@ -171,22 +171,24 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
     return nullptr;
   }
 
-  const uint16_t senderNumLights = descriptor.numLights;
-  const uint16_t senderLength = (descriptor.length > 0) ? descriptor.length : senderNumLights;
-  uint16_t scaledNumLights = scaleLengthForDensity(
-      senderNumLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
+  const uint16_t senderBodyLights = descriptor.numLights;
+  const uint16_t senderLength = (descriptor.length > 0) ? descriptor.length : senderBodyLights;
+  uint16_t scaledBodyLights = scaleLengthForDensity(
+      senderBodyLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
   uint16_t scaledLength = scaleLengthForDensity(
       senderLength, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
-  if (scaledNumLights == 0) {
-    scaledNumLights = 1;
+  if (scaledBodyLights == 0) {
+    scaledBodyLights = 1;
   }
-  if (scaledLength < scaledNumLights) {
-    scaledLength = scaledNumLights;
+  if (scaledLength < scaledBodyLights) {
+    scaledLength = scaledBodyLights;
   }
+  const uint16_t scaledEdgeLights =
+      (scaledLength > scaledBodyLights) ? static_cast<uint16_t>(scaledLength - scaledBodyLights) : 0;
   const RemoteSnapshotHeapBudget heapBudget =
-      assessRemoteSnapshotHeapBudget(scaledNumLights, colors.size());
+      assessRemoteSnapshotHeapBudget(scaledLength, colors.size());
   if (!hasRemoteSnapshotTotalHeapBudget(
-          heapBudget, scaledNumLights, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
+          heapBudget, scaledLength, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
     return nullptr;
   }
 
@@ -206,8 +208,9 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
 
   lightlist_build::Spec spec;
   spec.population = lightlist_build::PopulationKind::DenseSnapshot;
-  spec.numLights = scaledNumLights;
+  spec.numLights = scaledLength;
   spec.length = scaledLength;
+  spec.trail = scaledEdgeLights;
   spec.positionOffset = scaledPositionOffset;
   spec.lifeMillis = descriptor.lifeMillis;
   spec.durationMillis = descriptor.duration;
@@ -253,26 +256,28 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
     return nullptr;
   }
 
-  const uint16_t senderNumLights = descriptor.numLights;
-  uint16_t senderLength = senderNumLights;
+  const uint16_t senderBodyLights = descriptor.numLights;
+  uint16_t senderLength = senderBodyLights;
   const int32_t senderOffsetAbs = std::abs(static_cast<int32_t>(descriptor.positionOffset));
   if (senderOffsetAbs > 0 && senderOffsetAbs <= std::numeric_limits<uint16_t>::max()) {
-    senderLength = static_cast<uint16_t>(std::max<int32_t>(senderNumLights, senderOffsetAbs));
+    senderLength = static_cast<uint16_t>(std::max<int32_t>(senderBodyLights, senderOffsetAbs));
   }
 
-  uint16_t scaledNumLights = scaleLengthForDensity(
-      senderNumLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
+  uint16_t scaledBodyLights = scaleLengthForDensity(
+      senderBodyLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
   uint16_t scaledLength = scaleLengthForDensity(
       senderLength, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
-  if (scaledNumLights == 0) {
-    scaledNumLights = 1;
+  if (scaledBodyLights == 0) {
+    scaledBodyLights = 1;
   }
-  if (scaledLength < scaledNumLights) {
-    scaledLength = scaledNumLights;
+  if (scaledLength < scaledBodyLights) {
+    scaledLength = scaledBodyLights;
   }
-  const RemoteSnapshotHeapBudget heapBudget = assessRemoteSnapshotHeapBudget(scaledNumLights, 0);
+  const uint16_t scaledEdgeLights =
+      (scaledLength > scaledBodyLights) ? static_cast<uint16_t>(scaledLength - scaledBodyLights) : 0;
+  const RemoteSnapshotHeapBudget heapBudget = assessRemoteSnapshotHeapBudget(scaledLength, 0);
   if (!hasRemoteSnapshotTotalHeapBudget(
-          heapBudget, scaledNumLights, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
+          heapBudget, scaledLength, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
     return nullptr;
   }
 
@@ -284,8 +289,9 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
 
   lightlist_build::Spec spec;
   spec.population = lightlist_build::PopulationKind::SparseSnapshot;
-  spec.numLights = scaledNumLights;
+  spec.numLights = scaledLength;
   spec.length = scaledLength;
+  spec.trail = scaledEdgeLights;
   spec.positionOffset = scaledPositionOffset;
   spec.lifeMillis = descriptor.lifeMillis;
   spec.style.order = LIST_ORDER_SEQUENTIAL;
@@ -297,12 +303,12 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
 
   for (size_t i = 0; i < entries.size(); i++) {
     const SequentialEntry& entry = entries[i];
-    if (entry.lightIdx >= senderNumLights) {
+    if (entry.lightIdx >= senderLength) {
       continue;
     }
 
     lightlist_build::SparseEntry sparseEntry;
-    sparseEntry.lightIdx = mapLightIndexByDensity(entry.lightIdx, senderNumLights, scaledNumLights);
+    sparseEntry.lightIdx = mapLightIndexByDensity(entry.lightIdx, senderLength, scaledLength);
     sparseEntry.brightness = entry.brightness;
     sparseEntry.color = ColorRGB(entry.colorR, entry.colorG, entry.colorB);
     spec.sparseEntries.push_back(sparseEntry);

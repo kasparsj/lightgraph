@@ -279,16 +279,22 @@ int main() {
             delete list;
             return fail("Remote template speed should be scaled by receiver/sender pixel density");
         }
-        const uint16_t expectedNumLights = remote_snapshot::scaleLengthForDensity(
+        const uint16_t expectedBodyLights = remote_snapshot::scaleLengthForDensity(
             descriptor.numLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
-        if (list->numLights != expectedNumLights) {
-            delete list;
-            return fail("Remote template snapshot should materialize the scaled logical light count");
-        }
         const uint16_t expectedLength = remote_snapshot::scaleLengthForDensity(
             descriptor.length, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
+        if (list->numLights != expectedLength) {
+            delete list;
+            return fail("Remote template snapshot should materialize the full scaled logical length");
+        }
+        const uint16_t reconstructedBodyLights =
+            static_cast<uint16_t>(list->numLights - list->lead - list->trail);
+        if (reconstructedBodyLights != expectedBodyLights) {
+            delete list;
+            return fail("Remote template snapshot should preserve scaled body-light count via lead/trail reconstruction");
+        }
         const uint16_t expectedEdgeLights =
-            (expectedLength > expectedNumLights) ? static_cast<uint16_t>(expectedLength - expectedNumLights) : 0;
+            (expectedLength > expectedBodyLights) ? static_cast<uint16_t>(expectedLength - expectedBodyLights) : 0;
         const uint16_t expectedLead = (descriptor.head == LIST_HEAD_FRONT && expectedEdgeLights > 0) ? 1 : 0;
         const uint16_t expectedTrail = (expectedEdgeLights > expectedLead)
             ? static_cast<uint16_t>(expectedEdgeLights - expectedLead)
@@ -309,11 +315,11 @@ int main() {
     // Remote sparse snapshots should scale indices and keep the brightest duplicate entry.
     {
         remote_snapshot::SequentialSnapshotDescriptor descriptor = {};
-        descriptor.numLights = 5;
+        descriptor.numLights = 3;
         descriptor.positionOffset = -5;
         descriptor.speed = 1.5f;
         descriptor.lifeMillis = 900;
-        descriptor.senderPixelDensity = 120;
+        descriptor.senderPixelDensity = 60;
         descriptor.receiverPixelDensity = 60;
 
         std::vector<remote_snapshot::SequentialEntry> entries;
@@ -326,14 +332,21 @@ int main() {
             return fail("Remote sparse snapshot should materialize for valid descriptor");
         }
 
-        const uint16_t expectedNumLights = remote_snapshot::scaleLengthForDensity(
-            descriptor.numLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
-        if (list->numLights != expectedNumLights) {
+        const uint16_t expectedLength = remote_snapshot::scaleLengthForDensity(
+            static_cast<uint16_t>(std::abs(descriptor.positionOffset)),
+            descriptor.senderPixelDensity,
+            descriptor.receiverPixelDensity);
+        if (list->length != expectedLength || list->numLights != expectedLength) {
             delete list;
-            return fail("Remote sparse snapshot should materialize the scaled logical light count");
+            return fail("Remote sparse snapshot should materialize the full logical length");
         }
 
-        const uint16_t lastIdx = expectedNumLights - 1;
+        if (list->lead != 1 || list->trail != 1) {
+            delete list;
+            return fail("Remote sparse snapshot should reconstruct lead/trail from length minus body lights");
+        }
+
+        const uint16_t lastIdx = expectedLength - 1;
         RuntimeLight* brightest = (*list)[lastIdx];
         if (brightest == nullptr) {
             delete list;

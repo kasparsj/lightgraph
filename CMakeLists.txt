@@ -381,6 +381,16 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   add_test(NAME lightgraph_core_mutation_edges COMMAND lightgraph_core_mutation_edges)
 
   add_executable(
+    lightgraph_core_remote_template_motion
+    tests/core_remote_template_motion_test.cpp
+  )
+  target_link_libraries(lightgraph_core_remote_template_motion PRIVATE lightgraph)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_remote_template_motion PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_remote_template_motion COMMAND lightgraph_core_remote_template_motion)
+
+  add_executable(
     lightgraph_core_topology_emit
     tests/core_topology_emit_test.cpp
   )
