@@ -125,6 +125,8 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
     long numPorts = 0;
     long topPixel = 0;
     long group = 0;
+    bool allowEndOfLife = true;
+    bool allowEmit = true;
     if (!parseTopologyBoundedLong(intersectionJson["id"], 0, 255, id) ||
         !parseTopologyBoundedLong(intersectionJson["numPorts"], 2, 9, numPorts) ||
         !parseTopologyBoundedLong(intersectionJson["topPixel"], 0, 65535, topPixel) ||
@@ -139,12 +141,28 @@ inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot
         return false;
       }
     }
+    if (intersectionJson.containsKey("allowEndOfLife")) {
+      if (!intersectionJson["allowEndOfLife"].is<bool>()) {
+        error = "Invalid intersection allowEndOfLife";
+        return false;
+      }
+      allowEndOfLife = intersectionJson["allowEndOfLife"].as<bool>();
+    }
+    if (intersectionJson.containsKey("allowEmit")) {
+      if (!intersectionJson["allowEmit"].is<bool>()) {
+        error = "Invalid intersection allowEmit";
+        return false;
+      }
+      allowEmit = intersectionJson["allowEmit"].as<bool>();
+    }
     snapshot.intersections.push_back({
         static_cast<uint8_t>(id),
         static_cast<uint8_t>(numPorts),
         static_cast<uint16_t>(topPixel),
         static_cast<int16_t>(bottomPixel),
         static_cast<uint8_t>(group),
+        allowEndOfLife,
+        allowEmit,
     });
   }
 
@@ -403,6 +421,10 @@ inline String serializeTopologySnapshotToJson(const TopologySnapshot& snapshot) 
     payload += String(intersection.bottomPixel);
     payload += ",\"group\":";
     payload += String(intersection.group);
+    payload += ",\"allowEndOfLife\":";
+    payload += intersection.allowEndOfLife ? "true" : "false";
+    payload += ",\"allowEmit\":";
+    payload += intersection.allowEmit ? "true" : "false";
     payload += "}";
   }
   payload += "]";

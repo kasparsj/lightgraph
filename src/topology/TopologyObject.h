@@ -60,6 +60,8 @@ struct TopologyIntersectionSnapshot {
     uint16_t topPixel;
     int16_t bottomPixel;
     uint8_t group;
+    bool allowEndOfLife = true;
+    bool allowEmit = true;
 };
 
 struct TopologyConnectionSnapshot {
@@ -129,11 +131,26 @@ class TopologyObject {
       return i >= 0 && static_cast<size_t>(i) < models.size() ? models[i] : nullptr;
     }
     Intersection* getIntersection(uint8_t i, uint8_t groups);
+    Intersection* getEmittableIntersection(uint8_t i, uint8_t groups);
     uint8_t countIntersections(uint8_t groups) {
         uint8_t count = 0;
         for (uint8_t i=0; i<MAX_GROUPS; i++) {
             if (groups == 0 || (groups & groupMaskForIndex(i))) {
                 count += inter[i].size();
+            }
+        }
+        return count;
+    }
+    uint8_t countEmittableIntersections(uint8_t groups) const {
+        uint8_t count = 0;
+        for (uint8_t i = 0; i < MAX_GROUPS; i++) {
+            if (groups != 0 && (groups & groupMaskForIndex(i)) == 0) {
+                continue;
+            }
+            for (const Intersection* intersection : inter[i]) {
+                if (intersection != nullptr && intersection->allowEmit) {
+                    count++;
+                }
             }
         }
         return count;

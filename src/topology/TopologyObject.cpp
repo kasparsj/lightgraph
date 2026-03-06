@@ -535,6 +535,8 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
             intersection->topPixel,
             intersection->bottomPixel,
             intersection->group,
+            intersection->allowEndOfLife,
+            intersection->allowEmit,
         });
 
         for (uint8_t slot = 0; slot < intersection->numPorts; slot++) {
@@ -734,7 +736,9 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
             intersectionSnapshot.numPorts,
             intersectionSnapshot.topPixel,
             intersectionSnapshot.bottomPixel,
-            intersectionSnapshot.group));
+            intersectionSnapshot.group,
+            intersectionSnapshot.allowEndOfLife,
+            intersectionSnapshot.allowEmit));
         created->id = intersectionSnapshot.id;
         intersectionsById[intersectionSnapshot.id] = created;
         if (intersectionSnapshot.id > maxIntersectionId) {
@@ -965,6 +969,24 @@ Intersection* TopologyObject::getIntersection(uint8_t i, uint8_t groups) {
                 return inter[j][i];
             }
             i -= inter[j].size();
+        }
+    }
+    return nullptr;
+}
+
+Intersection* TopologyObject::getEmittableIntersection(uint8_t i, uint8_t groups) {
+    for (uint8_t groupIndex = 0; groupIndex < MAX_GROUPS; groupIndex++) {
+        if (groups != 0 && (groups & groupMaskForIndex(groupIndex)) == 0) {
+            continue;
+        }
+        for (Intersection* intersection : inter[groupIndex]) {
+            if (intersection == nullptr || !intersection->allowEmit) {
+                continue;
+            }
+            if (i == 0) {
+                return intersection;
+            }
+            i--;
         }
     }
     return nullptr;

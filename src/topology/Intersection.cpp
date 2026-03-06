@@ -28,11 +28,15 @@ void tryForwardSequentialBatchAtExternalPort(RuntimeLight* const light, Port* co
 
 }  // namespace
 
-Intersection::Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPixel, uint8_t group) : Owner(group) {
+Intersection::Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPixel, uint8_t group,
+                           bool allowEndOfLife, bool allowEmit)
+    : Owner(group) {
   this->id = nextId++;
   this->numPorts = numPorts;
   this->topPixel = topPixel;
   this->bottomPixel = bottomPixel;
+  this->allowEndOfLife = allowEndOfLife;
+  this->allowEmit = allowEmit;
   ports.assign(numPorts, nullptr);
 }
 
@@ -89,11 +93,13 @@ void Intersection::update(RuntimeLight* const light) const {
     if (!light->isExpired) {
         light->resetPixels();
         if (light->shouldExpire()) {
-            if (light->getSpeed() == 0 || light->position >= 1.f) { // expire
+            if (light->getSpeed() == 0 || (allowEndOfLife && light->position >= 1.f)) { // expire
                 light->isExpired = true;
                 light->owner = NULL;
             }
-            return;
+            if (light->isExpired) {
+                return;
+            }
         }
         Port* port = light->outPort;
         if (port == NULL) {

@@ -135,7 +135,7 @@ Result<int8_t> Engine::emit(const EmitCommand& command) {
                 return Result<int8_t>::error(ErrorCode::NoEmitterAvailable,
                                              "no matching connections are available for emit");
             }
-        } else if (impl_->object->countIntersections(emit_groups) == 0) {
+        } else if (impl_->object->countEmittableIntersections(emit_groups) == 0) {
             return Result<int8_t>::error(ErrorCode::NoEmitterAvailable,
                                          "no matching intersections are available for emit");
         }

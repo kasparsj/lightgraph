@@ -190,13 +190,13 @@ Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params)
     }
     else {
         uint8_t emitGroups = params.getEmitGroups(model->emitGroups);
-        uint8_t interCount = object.countIntersections(emitGroups);
+        uint8_t interCount = object.countEmittableIntersections(emitGroups);
         if (interCount == 0) {
             LG_LOGF("emit failed, no intersections for groups %d\n", emitGroups);
             return NULL;
         }
         from = from >= 0 ? from : LG_RANDOM(interCount);
-        return object.getIntersection(from % interCount, emitGroups);
+        return object.getEmittableIntersection(from % interCount, emitGroups);
     }
 }
 

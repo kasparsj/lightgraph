@@ -19,11 +19,13 @@ class Intersection : public Owner {
     std::vector<Port*> ports; // typically 2, 3, or 4 ports
     uint16_t topPixel;
     int16_t bottomPixel;
+    bool allowEndOfLife = true;
+    bool allowEmit = true;
 
-    Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPixel, uint8_t group);
-    Intersection(uint16_t topPixel, int16_t bottomPixel, uint8_t group) : Intersection(4, topPixel, bottomPixel, group) {
-    }
-    Intersection(uint16_t topPixel, uint8_t group) : Intersection(2, topPixel, -1, group) {
+    Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPixel, uint8_t group,
+                 bool allowEndOfLife = true, bool allowEmit = true);
+    Intersection(uint16_t topPixel, uint8_t group)
+        : Intersection(2, topPixel, -1, group) {
 
     }
   
