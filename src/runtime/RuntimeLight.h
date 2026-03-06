@@ -4,6 +4,7 @@
 #include "../core/Types.h"
 #include "../core/Limits.h"
 #include "../../vendor/ofxEasing/ofxEasing.h"
+#include <cstddef>
 
 class LightList;
 class Model;
@@ -65,7 +66,7 @@ class RuntimeLight
     virtual uint8_t getBrightness() const;
     virtual ColorRGB getPixelColorAt(int16_t pixel) const;
     virtual ColorRGB getPixelColor() const;
-    uint16_t* getPixels();
+    uint16_t writePixels(uint16_t* buffer, size_t capacity) const;
     uint16_t getListId() const;
     LightgraphRuntimeContext& runtimeContext();
     const LightgraphRuntimeContext& runtimeContext() const;
@@ -82,9 +83,7 @@ class RuntimeLight
 #endif
 
   private:
-    void setPixel1();
-    void setSegmentPixels();
-    void setLinkPixels();
-
-    static uint16_t pixels[CONNECTION_MAX_LEDS];
+    uint16_t setPixel1(uint16_t* buffer, size_t capacity) const;
+    uint16_t setSegmentPixels(uint16_t* buffer, size_t capacity) const;
+    uint16_t setLinkPixels(uint16_t* buffer, size_t capacity) const;
 };

@@ -29,6 +29,7 @@ class State {
     std::vector<uint16_t> pixelValuesG;
     std::vector<uint16_t> pixelValuesB;
     std::vector<uint8_t> pixelDiv;
+    std::vector<uint16_t> renderPixelScratch;
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
     std::vector<uint16_t> listPixelValuesR;
     std::vector<uint16_t> listPixelValuesG;
@@ -50,7 +51,7 @@ class State {
     int8_t emit(EmitParams &params);
     void emit(LightList& lightList);
     int8_t getOrCreateList(EmitParams &params);
-    int8_t setupListFrom(uint8_t i, EmitParams &params);
+    LightList* setupListFrom(uint8_t i, EmitParams &params);
     Owner* getEmitter(Model* model, Behaviour* behaviour, EmitParams& params);
     void update();
     void updateLight(RuntimeLight* light);

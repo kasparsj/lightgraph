@@ -24,8 +24,9 @@ To add a new object topology:
 4. Add routing behavior with one or more `Model` instances and set per-path `Weight`s via `model->put(...)`.
 5. Optionally override helpers like `getModelParams(...)`, `getParams(...)`, and mirror behavior methods.
 6. Expose the object through integration and/or stable API surfaces:
-   - integration: update `include/lightgraph/integration/objects.hpp` and `include/lightgraph/integration/factory.hpp`
-   - stable engine: update `include/lightgraph/types.hpp` (`ObjectType`) and `src/api/Engine.cpp` (object factory switch)
+   - shared registry: update `include/lightgraph/internal/object_factory.hpp`
+   - integration aliases: update `include/lightgraph/integration/objects.hpp`
+   - stable engine enum: update `include/lightgraph/types.hpp` (`ObjectType`)
 
 Minimal scaffold:
 

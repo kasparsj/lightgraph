@@ -141,27 +141,22 @@ inline LightList* buildSingleLightSnapshot(const SingleSnapshotDescriptor& descr
     return nullptr;
   }
 
-  lightlist_build::Spec spec;
-  spec.population = lightlist_build::PopulationKind::SingleLight;
-  spec.length = 1;
-  spec.numLights = 1;
-  spec.lifeMillis = descriptor.lifeMillis;
-  spec.style.order = LIST_ORDER_RANDOM;
-  spec.style.linked = false;
-  spec.style.speed = descriptor.speed;
-  spec.style.model = descriptor.model;
-  spec.style.behaviourFlags = descriptor.behaviourFlags;
-  spec.style.colorChangeGroups = descriptor.colorChangeGroups;
-  spec.singleBrightness = descriptor.brightness;
-  spec.singleColor = ColorRGB(descriptor.colorR, descriptor.colorG, descriptor.colorB);
+  lightlist_build::StyleSpec style;
+  style.order = LIST_ORDER_RANDOM;
+  style.linked = false;
+  style.speed = descriptor.speed;
+  style.model = descriptor.model;
+  style.behaviourFlags = descriptor.behaviourFlags;
+  style.colorChangeGroups = descriptor.colorChangeGroups;
 
-  lightlist_build::Policy policy;
-  policy.allocateBehaviour = descriptor.hasBehaviour;
-  policy.behaviourFailureSite = LightgraphAllocationFailureSite::RemoteBehaviourAllocation;
-  policy.listFailureSite = LightgraphAllocationFailureSite::RemoteListAllocation;
-  policy.lightFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-  policy.exceptionFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-  return lightlist_build::buildLightList(spec, policy);
+  const lightlist_build::Spec spec = lightlist_build::makeSingleLightSpec(
+      style,
+      descriptor.lifeMillis,
+      descriptor.brightness,
+      ColorRGB(descriptor.colorR, descriptor.colorG, descriptor.colorB));
+  return lightlist_build::buildLightList(
+      spec,
+      lightlist_build::makeRemoteListPolicy(descriptor.hasBehaviour));
 }
 
 inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descriptor,
@@ -206,48 +201,42 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
   palette.setWrapMode(descriptor.wrapMode);
   palette.setSegmentation((descriptor.segmentation >= 0.0f) ? descriptor.segmentation : 0.0f);
 
-  lightlist_build::Spec spec;
-  spec.population = lightlist_build::PopulationKind::DenseSnapshot;
-  spec.numLights = scaledLength;
-  spec.length = scaledLength;
-  spec.trail = scaledEdgeLights;
-  spec.positionOffset = scaledPositionOffset;
-  spec.lifeMillis = descriptor.lifeMillis;
-  spec.durationMillis = descriptor.duration;
-  spec.style.order = LIST_ORDER_SEQUENTIAL;
-  spec.style.head = (descriptor.head <= LIST_HEAD_BACK) ? static_cast<ListHead>(descriptor.head) : LIST_HEAD_FRONT;
-  spec.style.linked = descriptor.linked;
-  spec.style.speed = scaledSpeed;
-  spec.style.easeIndex = descriptor.easeIndex;
-  spec.style.fadeSpeed = descriptor.fadeSpeed;
-  spec.style.fadeThresh = descriptor.fadeThresh;
-  spec.style.fadeEaseIndex = descriptor.fadeEaseIndex;
-  spec.style.minBri = descriptor.minBri;
-  spec.style.maxBri = descriptor.maxBri;
-  spec.style.blendMode =
-      (descriptor.blendMode <= BLEND_PIN_LIGHT) ? static_cast<BlendMode>(descriptor.blendMode) : BLEND_NORMAL;
-  spec.style.behaviourFlags = descriptor.behaviourFlags;
-  spec.style.colorChangeGroups = descriptor.colorChangeGroups;
-  spec.style.model = descriptor.model;
-  spec.style.palette = palette;
+  lightlist_build::StyleSpec style;
+  style.order = LIST_ORDER_SEQUENTIAL;
+  style.head =
+      (descriptor.head <= LIST_HEAD_BACK) ? static_cast<ListHead>(descriptor.head) : LIST_HEAD_FRONT;
+  style.linked = descriptor.linked;
+  style.speed = scaledSpeed;
+  style.easeIndex = descriptor.easeIndex;
+  style.fadeSpeed = descriptor.fadeSpeed;
+  style.fadeThresh = descriptor.fadeThresh;
+  style.fadeEaseIndex = descriptor.fadeEaseIndex;
+  style.minBri = descriptor.minBri;
+  style.maxBri = descriptor.maxBri;
+  style.blendMode =
+      (descriptor.blendMode <= BLEND_PIN_LIGHT) ? static_cast<BlendMode>(descriptor.blendMode)
+                                                : BLEND_NORMAL;
+  style.behaviourFlags = descriptor.behaviourFlags;
+  style.colorChangeGroups = descriptor.colorChangeGroups;
+  style.model = descriptor.model;
+  style.palette = palette;
 
-  lightlist_build::Policy policy;
-  policy.allocation = heapBudget.hasContiguousLightBlock
-      ? lightlist_build::AllocationMode::ContiguousLights
-      : lightlist_build::AllocationMode::DefaultHeap;
-  policy.allocateBehaviour = descriptor.hasBehaviour;
-  policy.behaviourFailureSite = LightgraphAllocationFailureSite::RemoteBehaviourAllocation;
-  policy.listFailureSite = LightgraphAllocationFailureSite::RemoteListAllocation;
-  policy.lightFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-  policy.exceptionFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-  LightList* list = lightlist_build::buildLightList(spec, policy);
-  if (list != nullptr || policy.allocation != lightlist_build::AllocationMode::ContiguousLights) {
-    return list;
-  }
-
-  // Heap shape can change between the preflight check and allocation.
-  policy.allocation = lightlist_build::AllocationMode::DefaultHeap;
-  return lightlist_build::buildLightList(spec, policy);
+  const lightlist_build::Spec spec = lightlist_build::makeDenseSnapshotSpec(
+      style,
+      scaledLength,
+      scaledLength,
+      scaledEdgeLights,
+      scaledPositionOffset,
+      descriptor.lifeMillis,
+      descriptor.duration);
+  const lightlist_build::Policy policy = lightlist_build::makeRemoteListPolicy(
+      descriptor.hasBehaviour,
+      heapBudget.hasContiguousLightBlock ? lightlist_build::AllocationMode::ContiguousLights
+                                         : lightlist_build::AllocationMode::DefaultHeap);
+  return lightlist_build::buildLightListWithFallback(
+      spec,
+      policy,
+      lightlist_build::AllocationMode::DefaultHeap);
 }
 
 inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& descriptor,
@@ -287,20 +276,8 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
   }
   const int16_t scaledPositionOffset = -static_cast<int16_t>(offsetLength);
 
-  lightlist_build::Spec spec;
-  spec.population = lightlist_build::PopulationKind::SparseSnapshot;
-  spec.numLights = scaledLength;
-  spec.length = scaledLength;
-  spec.trail = scaledEdgeLights;
-  spec.positionOffset = scaledPositionOffset;
-  spec.lifeMillis = descriptor.lifeMillis;
-  spec.style.order = LIST_ORDER_SEQUENTIAL;
-  spec.style.linked = true;
-  spec.style.speed = descriptor.speed;
-  spec.style.model = descriptor.model;
-  spec.style.behaviourFlags = descriptor.behaviourFlags;
-  spec.style.colorChangeGroups = descriptor.colorChangeGroups;
-
+  std::vector<lightlist_build::SparseEntry> sparseEntries;
+  sparseEntries.reserve(entries.size());
   for (size_t i = 0; i < entries.size(); i++) {
     const SequentialEntry& entry = entries[i];
     if (entry.lightIdx >= senderLength) {
@@ -311,16 +288,28 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
     sparseEntry.lightIdx = mapLightIndexByDensity(entry.lightIdx, senderLength, scaledLength);
     sparseEntry.brightness = entry.brightness;
     sparseEntry.color = ColorRGB(entry.colorR, entry.colorG, entry.colorB);
-    spec.sparseEntries.push_back(sparseEntry);
+    sparseEntries.push_back(sparseEntry);
   }
 
-  lightlist_build::Policy policy;
-  policy.allocateBehaviour = descriptor.hasBehaviour;
-  policy.behaviourFailureSite = LightgraphAllocationFailureSite::RemoteBehaviourAllocation;
-  policy.listFailureSite = LightgraphAllocationFailureSite::RemoteListAllocation;
-  policy.lightFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-  policy.exceptionFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-  return lightlist_build::buildLightList(spec, policy);
+  lightlist_build::StyleSpec style;
+  style.order = LIST_ORDER_SEQUENTIAL;
+  style.linked = true;
+  style.speed = descriptor.speed;
+  style.model = descriptor.model;
+  style.behaviourFlags = descriptor.behaviourFlags;
+  style.colorChangeGroups = descriptor.colorChangeGroups;
+
+  const lightlist_build::Spec spec = lightlist_build::makeSparseSnapshotSpec(
+      style,
+      scaledLength,
+      scaledLength,
+      scaledEdgeLights,
+      scaledPositionOffset,
+      descriptor.lifeMillis,
+      sparseEntries);
+  return lightlist_build::buildLightList(
+      spec,
+      lightlist_build::makeRemoteListPolicy(descriptor.hasBehaviour));
 }
 
 }  // namespace remote_snapshot

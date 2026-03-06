@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include "../core/Types.h"
 #include "../core/Limits.h"
 #include "../Random.h"
@@ -77,6 +79,29 @@ class HeptagonStar : public TopologyObject {
                 return TopologyObject::getParams(command);
         }
     }
+
+  protected:
+    static constexpr uint8_t kSegmentCount = 7;
+
+    struct BridgePlacement {
+        uint16_t fromPixel;
+        uint16_t toPixel;
+    };
+
+    struct IntersectionPlacement {
+        uint16_t topPixel;
+        int16_t bottomPixel;
+    };
+
+    struct LayoutDescriptor {
+        const BridgePlacement* outerBridges;
+        const IntersectionPlacement* middleIntersections;
+        const IntersectionPlacement* innerIntersections;
+        const PixelGap* gaps;
+        std::size_t gapCount;
+    };
+
+    void setupLayout(const LayoutDescriptor& descriptor);
 
   private:
     uint16_t mirrorPixels[3];

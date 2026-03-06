@@ -79,6 +79,41 @@ struct Policy {
   LightgraphAllocationFailureSite exceptionFailureSite = LightgraphAllocationFailureSite::Unknown;
 };
 
+inline Policy makePolicy(AllocationMode allocation,
+                         bool allocateBehaviour,
+                         LightgraphAllocationFailureSite behaviourFailureSite,
+                         LightgraphAllocationFailureSite listFailureSite,
+                         LightgraphAllocationFailureSite lightFailureSite,
+                         LightgraphAllocationFailureSite exceptionFailureSite) {
+  Policy policy;
+  policy.allocation = allocation;
+  policy.allocateBehaviour = allocateBehaviour;
+  policy.behaviourFailureSite = behaviourFailureSite;
+  policy.listFailureSite = listFailureSite;
+  policy.lightFailureSite = lightFailureSite;
+  policy.exceptionFailureSite = exceptionFailureSite;
+  return policy;
+}
+
+inline Policy makeStateEmitPolicy() {
+  return makePolicy(AllocationMode::DefaultHeap,
+                    true,
+                    LightgraphAllocationFailureSite::StateBehaviourAllocation,
+                    LightgraphAllocationFailureSite::StateListAllocation,
+                    LightgraphAllocationFailureSite::Unknown,
+                    LightgraphAllocationFailureSite::StateSetupException);
+}
+
+inline Policy makeRemoteListPolicy(bool allocateBehaviour,
+                                   AllocationMode allocation = AllocationMode::DefaultHeap) {
+  return makePolicy(allocation,
+                    allocateBehaviour,
+                    LightgraphAllocationFailureSite::RemoteBehaviourAllocation,
+                    LightgraphAllocationFailureSite::RemoteListAllocation,
+                    LightgraphAllocationFailureSite::RemoteLightAllocation,
+                    LightgraphAllocationFailureSite::RemoteLightAllocation);
+}
+
 inline void reportAllocationFailure(LightgraphAllocationFailureSite site,
                                     uint16_t detail0 = 0,
                                     uint16_t detail1 = 0) {
@@ -178,27 +213,96 @@ inline uint32_t addLifeDelayClamped(uint32_t baseLifeMillis, uint32_t delayMilli
   return static_cast<uint32_t>(baseLifeMillis + delayMillis);
 }
 
-inline Spec makeSpecFromEmitParams(const EmitParams& params, uint16_t resolvedLength) {
+inline Spec makeDerivedFromLengthSpec(const StyleSpec& style,
+                                      uint16_t resolvedLength,
+                                      uint16_t trail = 0,
+                                      uint32_t durationMillis = 0) {
   Spec spec;
   spec.population = PopulationKind::DerivedFromLength;
+  spec.style = style;
   spec.length = resolvedLength;
-  spec.durationMillis = params.getDuration();
-  spec.style.noteId = params.noteId;
-  spec.style.speed = params.getSpeed();
-  spec.style.easeIndex = params.ease;
-  spec.style.fadeSpeed = params.fadeSpeed;
-  spec.style.fadeThresh = params.fadeThresh;
-  spec.style.fadeEaseIndex = params.fadeEase;
-  spec.style.minBri = params.minBri;
-  spec.style.maxBri = params.getMaxBri();
-  spec.style.order = params.order;
-  spec.style.head = params.head;
-  spec.style.linked = params.linked;
-  spec.style.behaviourFlags = params.behaviourFlags;
-  spec.style.colorChangeGroups = params.colorChangeGroups;
-  spec.style.palette = params.palette;
-  spec.trail = (params.speed == 0) ? params.trail : params.getSpeedTrail(spec.style.speed, resolvedLength);
+  spec.durationMillis = durationMillis;
+  spec.trail = trail;
   return spec;
+}
+
+inline Spec makeDenseSnapshotSpec(const StyleSpec& style,
+                                  uint16_t numLights,
+                                  uint16_t length,
+                                  uint16_t trail,
+                                  int16_t positionOffset,
+                                  uint32_t lifeMillis,
+                                  uint32_t durationMillis) {
+  Spec spec;
+  spec.population = PopulationKind::DenseSnapshot;
+  spec.style = style;
+  spec.numLights = numLights;
+  spec.length = length;
+  spec.trail = trail;
+  spec.positionOffset = positionOffset;
+  spec.lifeMillis = lifeMillis;
+  spec.durationMillis = durationMillis;
+  return spec;
+}
+
+inline Spec makeSparseSnapshotSpec(const StyleSpec& style,
+                                   uint16_t numLights,
+                                   uint16_t length,
+                                   uint16_t trail,
+                                   int16_t positionOffset,
+                                   uint32_t lifeMillis,
+                                   const std::vector<SparseEntry>& sparseEntries) {
+  Spec spec;
+  spec.population = PopulationKind::SparseSnapshot;
+  spec.style = style;
+  spec.numLights = numLights;
+  spec.length = length;
+  spec.trail = trail;
+  spec.positionOffset = positionOffset;
+  spec.lifeMillis = lifeMillis;
+  spec.sparseEntries = sparseEntries;
+  return spec;
+}
+
+inline Spec makeSingleLightSpec(const StyleSpec& style,
+                                uint32_t lifeMillis,
+                                uint8_t brightness,
+                                const ColorRGB& color) {
+  Spec spec;
+  spec.population = PopulationKind::SingleLight;
+  spec.style = style;
+  spec.length = 1;
+  spec.numLights = 1;
+  spec.lifeMillis = lifeMillis;
+  spec.singleBrightness = brightness;
+  spec.singleColor = color;
+  return spec;
+}
+
+inline StyleSpec makeStyleSpecFromEmitParams(const EmitParams& params) {
+  StyleSpec style;
+  style.noteId = params.noteId;
+  style.speed = params.getSpeed();
+  style.easeIndex = params.ease;
+  style.fadeSpeed = params.fadeSpeed;
+  style.fadeThresh = params.fadeThresh;
+  style.fadeEaseIndex = params.fadeEase;
+  style.minBri = params.minBri;
+  style.maxBri = params.getMaxBri();
+  style.order = params.order;
+  style.head = params.head;
+  style.linked = params.linked;
+  style.behaviourFlags = params.behaviourFlags;
+  style.colorChangeGroups = params.colorChangeGroups;
+  style.palette = params.palette;
+  return style;
+}
+
+inline Spec makeSpecFromEmitParams(const EmitParams& params, uint16_t resolvedLength) {
+  StyleSpec style = makeStyleSpecFromEmitParams(params);
+  const uint16_t trail =
+      (params.speed == 0) ? params.trail : params.getSpeedTrail(style.speed, resolvedLength);
+  return makeDerivedFromLengthSpec(style, resolvedLength, trail, params.getDuration());
 }
 
 inline bool applyBehaviour(LightList* list, const Spec& spec, const Policy& policy) {
@@ -457,6 +561,19 @@ inline LightList* buildLightList(const Spec& spec, const Policy& policy) {
     return nullptr;
   }
 #endif
+}
+
+inline LightList* buildLightListWithFallback(const Spec& spec,
+                                             const Policy& primaryPolicy,
+                                             AllocationMode fallbackAllocation) {
+  LightList* list = buildLightList(spec, primaryPolicy);
+  if (list != nullptr || primaryPolicy.allocation == fallbackAllocation) {
+    return list;
+  }
+
+  Policy fallbackPolicy = primaryPolicy;
+  fallbackPolicy.allocation = fallbackAllocation;
+  return buildLightList(spec, fallbackPolicy);
 }
 
 }  // namespace lightlist_build

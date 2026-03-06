@@ -5,8 +5,6 @@
 #include "../../vendor/ofxEasing/ofxEasing.h"
 #include "../Globals.h"
 
-uint16_t RuntimeLight::pixels[CONNECTION_MAX_LEDS] = {0};
-
 LightgraphRuntimeContext& RuntimeLight::runtimeContext() {
   return (list != nullptr) ? list->runtimeContext() : lightgraphDefaultRuntimeContext();
 }
@@ -143,71 +141,64 @@ ColorRGB RuntimeLight::getPixelColor() const {
     return getPixelColorAt(pixel1);
 }
 
-uint16_t* RuntimeLight::getPixels() {
-  if (pixel1 >= 0) {
-    const Behaviour *behaviour = getBehaviour();
-    if (behaviour != NULL && behaviour->renderSegment()) {
-        setSegmentPixels();
-    }
-    else if (behaviour != NULL && behaviour->fillEase()) {
-        setLinkPixels();
-    }
-    else {
-        setPixel1();
-    }
-    return pixels;
+uint16_t RuntimeLight::writePixels(uint16_t* buffer, size_t capacity) const {
+  if (pixel1 < 0 || buffer == NULL || capacity == 0) {
+    return 0;
   }
-  return NULL;
+
+  const Behaviour *behaviour = getBehaviour();
+  if (behaviour != NULL && behaviour->renderSegment()) {
+    return setSegmentPixels(buffer, capacity);
+  }
+  if (behaviour != NULL && behaviour->fillEase()) {
+    return setLinkPixels(buffer, capacity);
+  }
+  return setPixel1(buffer, capacity);
 }
 
-void RuntimeLight::setPixel1() {
-    pixels[0] = 1;
-    pixels[1] = pixel1;
+uint16_t RuntimeLight::setPixel1(uint16_t* buffer, size_t capacity) const {
+    if (buffer == NULL || capacity < 2) {
+        return 0;
+    }
+    buffer[0] = 1;
+    buffer[1] = static_cast<uint16_t>(pixel1);
+    return buffer[0];
 }
 
-void RuntimeLight::setSegmentPixels() {
+uint16_t RuntimeLight::setSegmentPixels(uint16_t* buffer, size_t capacity) const {
     if (outPort != NULL) {
-        if (CONNECTION_MAX_LEDS < 3) {
-            setPixel1();
-            return;
+        const uint16_t numPixels = outPort->connection->numLeds;
+        const uint32_t required = static_cast<uint32_t>(numPixels) + 3U;
+        if (required > capacity) {
+            return setPixel1(buffer, capacity);
         }
-        const uint16_t maxPayload = CONNECTION_MAX_LEDS - 1;
-        uint16_t numPixels = outPort->connection->numLeds;
-        if (numPixels + 2 > maxPayload) {
-            numPixels = maxPayload - 2;
-        }
-        pixels[0] = numPixels + 2;
-        pixels[1] = outPort->connection->getFromPixel();
-        pixels[2] = outPort->connection->getToPixel();
+        buffer[0] = static_cast<uint16_t>(numPixels + 2);
+        buffer[1] = outPort->connection->getFromPixel();
+        buffer[2] = outPort->connection->getToPixel();
         for (uint16_t i=0; i<numPixels; i++) {
-            pixels[i + 3] = outPort->connection->getPixel(i);
+            buffer[i + 3] = outPort->connection->getPixel(i);
         }
+        return buffer[0];
     }
-    else {
-        setPixel1();
-    }
+    return setPixel1(buffer, capacity);
 }
 
-void RuntimeLight::setLinkPixels() {
+uint16_t RuntimeLight::setLinkPixels(uint16_t* buffer, size_t capacity) const {
     RuntimeLight* prev = getPrev();
     if (prev != NULL && owner == prev->owner) {
-        if (CONNECTION_MAX_LEDS < 2) {
-            setPixel1();
-            return;
-        }
         uint16_t numPixels = abs(pixel1 - prev->pixel1);
-        const uint16_t maxPayload = CONNECTION_MAX_LEDS - 1;
-        if (numPixels > maxPayload) {
-            numPixels = maxPayload;
+        const uint32_t required = static_cast<uint32_t>(numPixels) + 1U;
+        if (required > capacity) {
+            return setPixel1(buffer, capacity);
         }
-        pixels[0] = numPixels;
+        buffer[0] = numPixels;
         for (uint16_t i=1; i<numPixels+1; i++) {
-            pixels[i] = pixel1 + (i-1) * (pixel1 < prev->pixel1 ? 1 : -1);
+            buffer[i] = static_cast<uint16_t>(
+                pixel1 + (i-1) * (pixel1 < prev->pixel1 ? 1 : -1));
         }
+        return buffer[0];
     }
-    else {
-        setPixel1();
-    }
+    return setPixel1(buffer, capacity);
 }
 
 void RuntimeLight::nextFrame() {

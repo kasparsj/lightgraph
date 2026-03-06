@@ -760,6 +760,38 @@ int main() {
         }
     }
 
+    // Render-segment mode must scale beyond CONNECTION_MAX_LEDS-sized connections.
+    {
+        Line line(64);
+        State state(line);
+        state.lightLists[0]->visible = false;
+
+        const int physicalConnectionIndex = findPhysicalConnectionIndex(line);
+        if (physicalConnectionIndex < 0) {
+            return fail("Unable to resolve physical line connection for long segment test");
+        }
+        Connection* const physicalConnection = line.getConnection(static_cast<uint8_t>(physicalConnectionIndex), GROUP1);
+        if (physicalConnection == nullptr) {
+            return fail("Unable to materialize physical line connection for long segment test");
+        }
+
+        EmitParams params(L_BOUNCE, 1.0f, 0x22AA55);
+        params.setLength(1);
+        params.linked = false;
+        params.behaviourFlags = static_cast<uint16_t>(B_EMIT_FROM_CONN | B_RENDER_SEGMENT);
+        params.from = physicalConnectionIndex;
+
+        if (state.emit(params) < 0) {
+            return fail("Long render-segment emit failed unexpectedly");
+        }
+        advanceFrame(state);
+
+        const uint16_t expectedLitPixels = static_cast<uint16_t>(physicalConnection->numLeds + 2);
+        if (countLitPixels(state, 0, 64) != expectedLitPixels) {
+            return fail("Render-segment emit should cover the full long connection span");
+        }
+    }
+
     // Emit scenario: mirror-rotate mode should render mirrored pixel pairs on line topology.
     {
         Line line(30);

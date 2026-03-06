@@ -47,7 +47,8 @@ State::State(TopologyObject& obj)
       pixelValuesR(obj.pixelCount, 0),
       pixelValuesG(obj.pixelCount, 0),
       pixelValuesB(obj.pixelCount, 0),
-      pixelDiv(obj.pixelCount, 0)
+      pixelDiv(obj.pixelCount, 0),
+      renderPixelScratch(static_cast<size_t>(obj.pixelCount) + 3u, 0)
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
       ,
       listPixelValuesR(obj.pixelCount, 0),
@@ -95,13 +96,37 @@ int8_t State::emit(EmitParams &params) {
     }
     int8_t index = getOrCreateList(params);
     if (index > -1) {
-        lightLists[index]->model = model;
-        Owner *emitter = getEmitter(model, lightLists[index]->behaviour, params);
-        if (emitter == NULL) {
-            LG_LOGF("emit failed, no free emitter %d %d.\n", params.getEmit(), params.getEmitGroups(model->emitGroups));
+        LightList* const existing = lightLists[index];
+        const bool hadCountedList = (existing != NULL && existing->emitter != NULL);
+        const uint16_t oldLights = (existing != NULL) ? existing->numLights : 0;
+
+        LightList* replacement = setupListFrom(static_cast<uint8_t>(index), params);
+        if (replacement == NULL) {
             return -1;
         }
-        doEmit(emitter, lightLists[index], params);
+
+        replacement->model = model;
+        Owner *emitter = getEmitter(model, replacement->behaviour, params);
+        if (emitter == NULL) {
+            LG_LOGF("emit failed, no free emitter %d %d.\n", params.getEmit(), params.getEmitGroups(model->emitGroups));
+            delete replacement;
+            return -1;
+        }
+        if (hadCountedList) {
+            if (totalLights >= oldLights) {
+                totalLights = static_cast<uint16_t>(totalLights - oldLights);
+            } else {
+                totalLights = 0;
+            }
+            if (totalLightLists > 0) {
+                totalLightLists--;
+            }
+        }
+        if (existing != NULL) {
+            delete existing;
+        }
+        lightLists[index] = replacement;
+        doEmit(emitter, replacement, params);
         #ifdef LG_OSC_REPLY
         LG_OSC_REPLY(index);
         #endif
@@ -113,13 +138,13 @@ int8_t State::getOrCreateList(EmitParams &params) {
     if (params.noteId > 0) {
         int8_t listIndex = findList(params.noteId);
         if (listIndex > -1) {
-            return setupListFrom(listIndex, params);
+            return listIndex;
         }
     }
     const uint8_t localSlotsEndExclusive = getLocalSlotEndExclusive();
     for (uint8_t i = 0; i < localSlotsEndExclusive; i++) {
         if (lightLists[i] == NULL) {
-            return setupListFrom(i, params);
+            return i;
         }
     }
     LG_LOGF("emit failed: no free local light lists (%d, reserved tail=%d)\n",
@@ -128,7 +153,7 @@ int8_t State::getOrCreateList(EmitParams &params) {
     return -1;
 }
 
-int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
+LightList* State::setupListFrom(uint8_t i, EmitParams &params) {
     LightList* lightList = lightLists[i];
     uint16_t oldLen = (lightList != NULL ? lightList->length : 0);
     uint16_t oldLights = (lightList != NULL ? lightList->numLights : 0);
@@ -145,49 +170,11 @@ int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
     if (retainedLights + newLen > MAX_TOTAL_LIGHTS) {
         // todo: if it's a change, maybe emit max possible?
         LG_LOGF("emit failed, %d is over max %d lights\n", totalLights + newLen, MAX_TOTAL_LIGHTS);
-        return -1;
+        return NULL;
     }
 
-    lightlist_build::Spec spec = lightlist_build::makeSpecFromEmitParams(params, newLen);
-    lightlist_build::Policy policy;
-    policy.allocateBehaviour = true;
-    policy.behaviourFailureSite = LightgraphAllocationFailureSite::StateBehaviourAllocation;
-    policy.listFailureSite = LightgraphAllocationFailureSite::StateListAllocation;
-    policy.exceptionFailureSite = LightgraphAllocationFailureSite::StateSetupException;
-    LightList* replacement = lightlist_build::buildLightList(spec, policy);
-    if (replacement == NULL) {
-        if (lightList != NULL) {
-            delete lightList;
-            lightLists[i] = NULL;
-        }
-        if (hadCountedList) {
-            if (totalLights >= oldLights) {
-                totalLights = static_cast<uint16_t>(totalLights - oldLights);
-            } else {
-                totalLights = 0;
-            }
-            if (totalLightLists > 0) {
-                totalLightLists--;
-            }
-        }
-        return -1;
-    }
-
-    if (lightList != NULL) {
-        delete lightList;
-    }
-    lightLists[i] = replacement;
-    if (hadCountedList) {
-        if (totalLights >= oldLights) {
-            totalLights = static_cast<uint16_t>(totalLights - oldLights);
-        } else {
-            totalLights = 0;
-        }
-        if (totalLightLists > 0) {
-            totalLightLists--;
-        }
-    }
-    return i;
+    const lightlist_build::Spec spec = lightlist_build::makeSpecFromEmitParams(params, newLen);
+    return lightlist_build::buildLightList(spec, lightlist_build::makeStateEmitPolicy());
 }
 
 Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params) {
@@ -318,12 +305,10 @@ void State::updateLight(RuntimeLight* light) {
     // todo: perhaps it's OK to always retrieve pixels
     if (light->list->behaviour != NULL && (light->list->behaviour->renderSegment() || light->list->behaviour->fillEase())) {
       ColorRGB color = light->getPixelColor();
-      uint16_t* pixels = light->getPixels();
-      if (pixels != NULL) {
-        // first value is length
-        uint16_t numPixels = pixels[0];
+      uint16_t numPixels = light->writePixels(renderPixelScratch.data(), renderPixelScratch.size());
+      if (numPixels > 0) {
         for (uint16_t k=1; k<numPixels+1; k++) {
-          setPixels(pixels[k], color, light->list);
+          setPixels(renderPixelScratch[k], color, light->list);
         }
       }
     }

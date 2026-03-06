@@ -9,6 +9,12 @@ class Owner;
 
 namespace remote_ingress {
 
+struct ActivationOptions {
+    bool normalizeSnapshot = false;
+    bool compensateHiddenIngressContinuity = false;
+    bool advanceReplayOffset = false;
+};
+
 struct EmitIntentDescriptor {
     uint16_t length = 1;
     uint16_t trail = 0;
@@ -50,29 +56,40 @@ inline void normalizeSnapshotList(LightList* list) {
     }
 }
 
-inline bool activateList(State& state, Owner& emitter, LightList* list, uint8_t emitOffset = 0,
-                         bool normalizeSnapshot = false) {
+inline bool activatePreparedList(State& state,
+                                 Owner& emitter,
+                                 LightList* list,
+                                 uint8_t emitOffset,
+                                 const ActivationOptions& options = ActivationOptions()) {
     if (list == nullptr) {
         return false;
     }
-    list->compensateHiddenIngressContinuity = false;
-    if (normalizeSnapshot) {
+    if (options.normalizeSnapshot) {
         normalizeSnapshotList(list);
     }
-    state.activateList(&emitter, list, emitOffset, false);
+    const uint8_t resolvedEmitOffset =
+        (options.advanceReplayOffset && emitOffset == 0 && list->length > 1)
+            ? static_cast<uint8_t>(1)
+            : emitOffset;
+    list->compensateHiddenIngressContinuity = options.compensateHiddenIngressContinuity;
+    state.activateList(&emitter, list, resolvedEmitOffset, false);
     return true;
 }
 
-inline bool activateTemplateReplayList(State& state, Owner& emitter, LightList* list, uint8_t emitOffset = 0) {
-    if (list == nullptr) {
-        return false;
-    }
-    normalizeSnapshotList(list);
-    const uint8_t replayEmitOffset =
-        (emitOffset == 0 && list->length > 1) ? static_cast<uint8_t>(1) : emitOffset;
-    state.activateList(&emitter, list, replayEmitOffset, false);
-    list->compensateHiddenIngressContinuity = true;
-    return true;
+inline bool activateList(State& state, Owner& emitter, LightList* list, uint8_t emitOffset = 0,
+                         bool normalizeSnapshot = false) {
+    ActivationOptions options;
+    options.normalizeSnapshot = normalizeSnapshot;
+    return activatePreparedList(state, emitter, list, emitOffset, options);
+}
+
+inline bool activateTemplateReplayList(State& state, Owner& emitter, LightList* list,
+                                       uint8_t emitOffset = 0) {
+    ActivationOptions options;
+    options.normalizeSnapshot = true;
+    options.compensateHiddenIngressContinuity = true;
+    options.advanceReplayOffset = true;
+    return activatePreparedList(state, emitter, list, emitOffset, options);
 }
 
 inline LightList* buildEmitIntentList(const EmitIntentDescriptor& descriptor) {
@@ -96,35 +113,30 @@ inline LightList* buildEmitIntentList(const EmitIntentDescriptor& descriptor) {
         }
     }
 
-    lightlist_build::Spec spec;
-    spec.population = lightlist_build::PopulationKind::DerivedFromLength;
-    spec.length = scaledLength;
-    spec.trail = scaledTrail;
-    spec.durationMillis = descriptor.remainingLife;
-    spec.style.order = descriptor.order;
-    spec.style.head = descriptor.head;
-    spec.style.linked = descriptor.linked;
-    spec.style.speed =
+    lightlist_build::StyleSpec style;
+    style.order = descriptor.order;
+    style.head = descriptor.head;
+    style.linked = descriptor.linked;
+    style.speed =
         lightlist_build::scaleSpeedForDensity(descriptor.speed, senderDensity, receiverDensity);
-    spec.style.easeIndex = descriptor.easeIndex;
-    spec.style.fadeSpeed = descriptor.fadeSpeed;
-    spec.style.fadeThresh = descriptor.fadeThresh;
-    spec.style.fadeEaseIndex = descriptor.fadeEaseIndex;
-    spec.style.minBri = descriptor.minBri;
-    spec.style.maxBri = descriptor.maxBri;
-    spec.style.blendMode = descriptor.blendMode;
-    spec.style.behaviourFlags = descriptor.behaviourFlags;
-    spec.style.colorChangeGroups = descriptor.colorChangeGroups;
-    spec.style.model = descriptor.model;
-    spec.style.palette = descriptor.palette;
+    style.easeIndex = descriptor.easeIndex;
+    style.fadeSpeed = descriptor.fadeSpeed;
+    style.fadeThresh = descriptor.fadeThresh;
+    style.fadeEaseIndex = descriptor.fadeEaseIndex;
+    style.minBri = descriptor.minBri;
+    style.maxBri = descriptor.maxBri;
+    style.blendMode = descriptor.blendMode;
+    style.behaviourFlags = descriptor.behaviourFlags;
+    style.colorChangeGroups = descriptor.colorChangeGroups;
+    style.model = descriptor.model;
+    style.palette = descriptor.palette;
 
-    lightlist_build::Policy policy;
-    policy.allocateBehaviour = (descriptor.behaviourFlags != 0) || (descriptor.colorChangeGroups != 0);
-    policy.behaviourFailureSite = LightgraphAllocationFailureSite::RemoteBehaviourAllocation;
-    policy.listFailureSite = LightgraphAllocationFailureSite::RemoteListAllocation;
-    policy.lightFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-    policy.exceptionFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
-    return lightlist_build::buildLightList(spec, policy);
+    const lightlist_build::Spec spec =
+        lightlist_build::makeDerivedFromLengthSpec(style, scaledLength, scaledTrail, descriptor.remainingLife);
+    return lightlist_build::buildLightList(
+        spec,
+        lightlist_build::makeRemoteListPolicy(
+            (descriptor.behaviourFlags != 0) || (descriptor.colorChangeGroups != 0)));
 }
 
 } // namespace remote_ingress

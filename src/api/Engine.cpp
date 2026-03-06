@@ -3,14 +3,9 @@
 #include <utility>
 
 #include <lightgraph/engine.hpp>
-
+#include <lightgraph/internal/object_factory.hpp>
 #include "../core/Limits.h"
 #include "../Globals.h"
-#include "../objects/Cross.h"
-#include "../objects/Heptagon3024.h"
-#include "../objects/Heptagon919.h"
-#include "../objects/Line.h"
-#include "../objects/Triangle.h"
 #include "../runtime/EmitParams.h"
 #include "../runtime/State.h"
 
@@ -18,40 +13,8 @@ namespace lightgraph {
 
 namespace {
 
-uint16_t defaultPixelCountFor(ObjectType type) {
-    switch (type) {
-    case ObjectType::Heptagon919:
-        return HEPTAGON919_PIXEL_COUNT;
-    case ObjectType::Heptagon3024:
-        return HEPTAGON3024_PIXEL_COUNT;
-    case ObjectType::Line:
-        return LINE_PIXEL_COUNT;
-    case ObjectType::Cross:
-        return CROSS_PIXEL_COUNT;
-    case ObjectType::Triangle:
-        return TRIANGLE_PIXEL_COUNT;
-    }
-    return LINE_PIXEL_COUNT;
-}
-
 std::unique_ptr<TopologyObject> makeObject(const EngineConfig& config) {
-    const uint16_t pixel_count =
-        config.pixel_count > 0 ? config.pixel_count : defaultPixelCountFor(config.object_type);
-
-    switch (config.object_type) {
-    case ObjectType::Heptagon919:
-        return std::unique_ptr<TopologyObject>(new Heptagon919());
-    case ObjectType::Heptagon3024:
-        return std::unique_ptr<TopologyObject>(new Heptagon3024());
-    case ObjectType::Line:
-        return std::unique_ptr<TopologyObject>(new Line(pixel_count));
-    case ObjectType::Cross:
-        return std::unique_ptr<TopologyObject>(new Cross(pixel_count));
-    case ObjectType::Triangle:
-        return std::unique_ptr<TopologyObject>(new Triangle(pixel_count));
-    }
-
-    return std::unique_ptr<TopologyObject>(new Line(pixel_count));
+    return internal::makeBuiltinObject(config.object_type, config.pixel_count);
 }
 
 } // namespace
@@ -60,6 +23,7 @@ struct Engine::Impl {
     explicit Impl(const EngineConfig& config)
         : object(makeObject(config)), state(*object), now_millis(0) {
         state.autoEnabled = config.auto_emit;
+        state.clearListSlot(0);
     }
 
     bool hasFreeListSlot(uint16_t note_id) const {
@@ -77,6 +41,7 @@ struct Engine::Impl {
     std::unique_ptr<TopologyObject> object;
     State state;
     uint64_t now_millis;
+    bool output_enabled = true;
     mutable std::mutex mutex;
 };
 
@@ -171,12 +136,12 @@ void Engine::stopAll() {
 
 bool Engine::isOn() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    return impl_->state.isOn();
+    return impl_->output_enabled;
 }
 
 void Engine::setOn(bool on) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->state.setOn(on);
+    impl_->output_enabled = on;
 }
 
 bool Engine::autoEmitEnabled() const {
@@ -198,6 +163,9 @@ Result<Color> Engine::pixel(uint16_t index, uint8_t max_brightness) const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (index >= impl_->object->pixelCount) {
         return Result<Color>::error(ErrorCode::OutOfRange, "pixel index is out of range");
+    }
+    if (!impl_->output_enabled) {
+        return Result<Color>(Color{0, 0, 0});
     }
 
     const ColorRGB value = impl_->state.getPixel(index, max_brightness);

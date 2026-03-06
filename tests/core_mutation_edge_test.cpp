@@ -11,6 +11,7 @@
 #include "lightgraph/integration/remote_ingress.hpp"
 #include "lightgraph/integration/topology_summary.hpp"
 #include "lightgraph/internal/rendering.hpp"
+#include "lightgraph/internal/runtime/RemoteSnapshotBuilder.h"
 #include "lightgraph/internal/runtime.hpp"
 #include "lightgraph/internal/topology.hpp"
 
@@ -953,6 +954,64 @@ int main() {
             delete materialized;
             return fail("remote ingress helper should not seed normalized emit-intent lists forward by one pixel");
         }
+
+        remote_snapshot::TemplateSnapshotDescriptor templateDescriptor = {};
+        templateDescriptor.numLights = 3;
+        templateDescriptor.length = 4;
+        templateDescriptor.speed = 1.0f;
+        templateDescriptor.lifeMillis = 900;
+        templateDescriptor.duration = 1200;
+        templateDescriptor.head = LIST_HEAD_FRONT;
+        templateDescriptor.linked = true;
+        templateDescriptor.model = summaryObject.getModel(0);
+        templateDescriptor.senderPixelDensity = 60;
+        templateDescriptor.receiverPixelDensity = 60;
+
+        const std::vector<int64_t> templateColors = {0x00FF00, 0xFF0000};
+        const std::vector<float> templatePositions = {0.0f, 1.0f};
+        LightList* templateReplay =
+            remote_snapshot::buildTemplateSnapshot(templateDescriptor, templateColors, templatePositions);
+        if (templateReplay == nullptr) {
+            delete materialized;
+            return fail("remote template replay regression fixture should materialize a snapshot list");
+        }
+
+        RuntimeLight* templateLight = (*templateReplay)[0];
+        if (templateLight == nullptr) {
+            delete templateReplay;
+            delete materialized;
+            return fail("remote template replay regression fixture should create the first light");
+        }
+        templateLight->owner = ingressEmitter;
+        templateLight->lifeMillis = 17;
+
+        if (!lightgraph::integration::remote_ingress::activateTemplateReplayList(
+                ingressState, *ingressEmitter, templateReplay, 0)) {
+            delete templateReplay;
+            delete materialized;
+            return fail("remote template replay helper should activate a normalized snapshot list");
+        }
+        if (templateReplay->emitOffset != 1) {
+            delete templateReplay;
+            delete materialized;
+            return fail("remote template replay helper should auto-advance the replay offset by one pixel");
+        }
+        if (!templateReplay->compensateHiddenIngressContinuity) {
+            delete templateReplay;
+            delete materialized;
+            return fail("remote template replay helper should enable hidden-ingress continuity compensation");
+        }
+        if (templateLight->owner != nullptr || templateLight->lifeMillis != templateReplay->lifeMillis) {
+            delete templateReplay;
+            delete materialized;
+            return fail("remote template replay helper should normalize light ownership and life timing");
+        }
+        if (std::abs(templateLight->position - 1.0f) > 0.0001f) {
+            delete templateReplay;
+            delete materialized;
+            return fail("remote template replay helper should seed the first light one pixel forward");
+        }
+        delete templateReplay;
 
         materialized->compensateHiddenIngressContinuity = true;
         LightList* copied = new (std::nothrow) LightList(*materialized);

@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+#include <lightgraph/engine.hpp>
+#include <lightgraph/integration/factory.hpp>
+
 #include "lightgraph/internal/Globals.h"
 #include "lightgraph/internal/core/Limits.h"
 #include "lightgraph/internal/core/Types.h"
@@ -12,6 +15,7 @@
 #include "lightgraph/internal/rendering.hpp"
 #include "lightgraph/internal/runtime.hpp"
 #include "lightgraph/internal/runtime/RemoteSnapshotBuilder.h"
+#include "lightgraph/internal/topology/TopologySummary.h"
 #include "lightgraph/internal/topology.hpp"
 
 namespace {
@@ -604,6 +608,57 @@ int main() {
         }
     }
 
+    // Failed emits must not consume a runtime slot or evict an existing list.
+    {
+        Line line(LINE_PIXEL_COUNT);
+        State state(line);
+        state.lightLists[0]->visible = false;
+
+        EmitParams valid(0, 1.0f, 0x44CC88);
+        valid.setLength(4);
+        valid.noteId = 77;
+        const int8_t validIndex = state.emit(valid);
+        if (validIndex < 0) {
+            return fail("Baseline emit failed before failed-emit slot regression");
+        }
+
+        LightList* const original = state.lightLists[validIndex];
+        if (original == nullptr) {
+            return fail("Baseline emit did not materialize a light list");
+        }
+
+        int occupiedBefore = 0;
+        for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
+            if (state.lightLists[i] != nullptr) {
+                occupiedBefore++;
+            }
+        }
+
+        EmitParams invalidEmitter(0, 1.0f, 0xAA5500);
+        invalidEmitter.setLength(2);
+        invalidEmitter.emitGroups = GROUP2;
+        if (state.emit(invalidEmitter) != -1) {
+            return fail("Emit with no matching emitter should fail");
+        }
+
+        int occupiedAfter = 0;
+        for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
+            if (state.lightLists[i] != nullptr) {
+                occupiedAfter++;
+            }
+        }
+
+        if (occupiedAfter != occupiedBefore) {
+            return fail("Failed emit should not consume a light-list slot");
+        }
+        if (state.lightLists[validIndex] != original) {
+            return fail("Failed emit should not replace an existing active list");
+        }
+        if (state.findList(77) != validIndex) {
+            return fail("Failed emit should preserve existing note-to-slot mapping");
+        }
+    }
+
     // Recoloring an active list should refresh both palette metadata and live light colors.
     {
         Line line(LINE_PIXEL_COUNT);
@@ -796,6 +851,119 @@ int main() {
         }
         if (state.totalLightLists != 1) {
             return fail("Expected only background light list after stopAll drain");
+        }
+    }
+
+    // Built-in factory regression: stable Engine and integration factory must resolve the same objects.
+    {
+        struct FactoryCase {
+            lightgraph::ObjectType stableType;
+            lightgraph::integration::BuiltinObjectType integrationType;
+            uint16_t requestedPixelCount;
+            uint16_t expectedPixelCount;
+        };
+
+        const FactoryCase cases[] = {
+            {lightgraph::ObjectType::Heptagon919,
+             lightgraph::integration::BuiltinObjectType::Heptagon919,
+             0,
+             HEPTAGON919_PIXEL_COUNT},
+            {lightgraph::ObjectType::Heptagon3024,
+             lightgraph::integration::BuiltinObjectType::Heptagon3024,
+             0,
+             HEPTAGON3024_PIXEL_COUNT},
+            {lightgraph::ObjectType::Line,
+             lightgraph::integration::BuiltinObjectType::Line,
+             144,
+             144},
+            {lightgraph::ObjectType::Cross,
+             lightgraph::integration::BuiltinObjectType::Cross,
+             180,
+             180},
+            {lightgraph::ObjectType::Triangle,
+             lightgraph::integration::BuiltinObjectType::Triangle,
+             96,
+             96},
+        };
+
+        for (const FactoryCase& testCase : cases) {
+            lightgraph::EngineConfig config;
+            config.object_type = testCase.stableType;
+            config.pixel_count = testCase.requestedPixelCount;
+            lightgraph::Engine engine(config);
+
+            std::unique_ptr<lightgraph::integration::Object> object =
+                lightgraph::integration::makeObject(
+                    testCase.integrationType,
+                    testCase.requestedPixelCount);
+            if (object == nullptr) {
+                return fail("Built-in factory test failed to create integration object");
+            }
+            if (engine.pixelCount() != object->pixelCount ||
+                engine.pixelCount() != testCase.expectedPixelCount) {
+                return fail("Stable Engine and integration factory should resolve matching pixel counts");
+            }
+        }
+    }
+
+    // Heptagon layout regression: descriptor-driven setup must preserve topology shape and geometry data.
+    {
+        const auto verifyHeptagon = [&](const TopologyObject& object,
+                                        uint16_t expectedPixelCount,
+                                        uint16_t expectedGapCount,
+                                        uint16_t expectedFirstMiddleTopPixel,
+                                        uint16_t expectedFirstInnerTopPixel) -> int {
+            const TopologySummary summary = buildTopologySummary(object);
+            if (summary.pixelCount != expectedPixelCount) {
+                return fail("Heptagon summary pixel count mismatch");
+            }
+            if (summary.modelCount != 7 || summary.models.size() != 7) {
+                return fail("Heptagon summary should expose seven models");
+            }
+            if (summary.intersections.size() != 28) {
+                return fail("Heptagon summary should expose twenty-eight intersections");
+            }
+            if (summary.connections.size() != 42) {
+                return fail("Heptagon summary should expose forty-two connections");
+            }
+            if (summary.gapCount != expectedGapCount || summary.gaps.size() != expectedGapCount) {
+                return fail("Heptagon summary gap count mismatch");
+            }
+            if (summary.intersections[14].topPixel != expectedFirstMiddleTopPixel) {
+                return fail("Heptagon summary first middle intersection mismatch");
+            }
+            if (summary.intersections[21].topPixel != expectedFirstInnerTopPixel) {
+                return fail("Heptagon summary first inner intersection mismatch");
+            }
+            return 0;
+        };
+
+        {
+            Heptagon919 object;
+            if (verifyHeptagon(object, HEPTAGON919_PIXEL_COUNT, 0, 612, 597) != 0) {
+                return 1;
+            }
+        }
+        {
+            Heptagon3024 object;
+            if (verifyHeptagon(object, HEPTAGON3024_PIXEL_COUNT, 6, 2014, 1964) != 0) {
+                return 1;
+            }
+            if (object.realPixelCount !=
+                static_cast<uint16_t>(HEPTAGON3024_REAL_PIXEL_COUNT1 + HEPTAGON3024_REAL_PIXEL_COUNT2)) {
+                return fail("Heptagon3024 real pixel count should match firmware-facing strip constants");
+            }
+            if (object.gaps.size() != 6 ||
+                object.gaps[4].fromPixel != 2016 ||
+                object.gaps[4].toPixel != 2735) {
+                return fail("Heptagon3024 gap layout should preserve the large middle gap");
+            }
+            if (object.translateToLogicalPixel(static_cast<uint16_t>(object.realPixelCount - 1)) != 2879) {
+                return fail("Heptagon3024 last real pixel should map to the last non-gap logical pixel");
+            }
+            if (object.translateToLogicalPixel(object.realPixelCount) != object.pixelCount) {
+                return fail("Heptagon3024 physical pixel span should end exactly at the logical topology boundary");
+            }
         }
     }
 

@@ -32,8 +32,23 @@ int main() {
     config.pixel_count = 64;
     lightgraph::Engine engine(config);
 
+    if (!engine.isOn()) {
+        return fail("Engine should start with runtime output enabled");
+    }
+
     if (engine.pixelCount() != 64) {
         return fail("Engine did not respect configured pixel count");
+    }
+
+    engine.tick(16);
+    for (uint16_t i = 0; i < engine.pixelCount(); ++i) {
+        const auto pixel = engine.pixel(i);
+        if (!pixel) {
+            return fail("pixel() failed unexpectedly before any emit");
+        }
+        if (isNonBlack(pixel.value())) {
+            return fail("Fresh engine should not render visible pixels before emit");
+        }
     }
 
     lightgraph::EmitCommand invalid;
@@ -88,6 +103,54 @@ int main() {
     }
     if (lit_pixels == 0) {
         return fail("Engine produced no visible pixels");
+    }
+
+    engine.setOn(false);
+    if (engine.isOn()) {
+        return fail("Engine should report output disabled after setOn(false)");
+    }
+    for (uint16_t i = 0; i < engine.pixelCount(); ++i) {
+        const auto pixel = engine.pixel(i);
+        if (!pixel) {
+            return fail("pixel() failed unexpectedly while output was disabled");
+        }
+        if (isNonBlack(pixel.value())) {
+            return fail("Disabled engine should not report visible pixels");
+        }
+    }
+    engine.setOn(true);
+    if (!engine.isOn()) {
+        return fail("Engine should report output enabled after setOn(true)");
+    }
+    int resumed_lit_pixels = 0;
+    for (uint16_t i = 0; i < engine.pixelCount(); ++i) {
+        const auto pixel = engine.pixel(i);
+        if (!pixel) {
+            return fail("pixel() failed unexpectedly after re-enabling output");
+        }
+        if (isNonBlack(pixel.value())) {
+            ++resumed_lit_pixels;
+        }
+    }
+    if (resumed_lit_pixels == 0) {
+        return fail("Re-enabled engine should expose the current rendered frame");
+    }
+
+    lightgraph::EngineConfig auto_config;
+    auto_config.object_type = lightgraph::ObjectType::Line;
+    auto_config.pixel_count = 32;
+    auto_config.auto_emit = true;
+    lightgraph::Engine auto_engine(auto_config);
+    if (!auto_engine.autoEmitEnabled()) {
+        return fail("Engine should honor initial auto_emit configuration");
+    }
+    auto_engine.setOn(false);
+    if (!auto_engine.autoEmitEnabled()) {
+        return fail("setOn(false) should not change auto-emit state");
+    }
+    auto_engine.setOn(true);
+    if (!auto_engine.autoEmitEnabled()) {
+        return fail("setOn(true) should preserve auto-emit state");
     }
 
     const auto out_of_range = engine.pixel(engine.pixelCount());
