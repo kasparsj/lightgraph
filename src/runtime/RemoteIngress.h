@@ -1,8 +1,11 @@
 #pragma once
 
+#include "State.h"
 #include "LightListBuild.h"
 #include "RemoteSnapshotBuilder.h"
 #include "../rendering/Palette.h"
+
+class Owner;
 
 namespace remote_ingress {
 
@@ -34,7 +37,6 @@ inline void normalizeSnapshotList(LightList* list) {
         return;
     }
 
-    list->compensateHiddenIngressContinuity = true;
     for (uint16_t i = 0; i < list->numLights; i++) {
         RuntimeLight* light = (*list)[i];
         if (light == nullptr) {
@@ -53,13 +55,23 @@ inline bool activateList(State& state, Owner& emitter, LightList* list, uint8_t 
     if (list == nullptr) {
         return false;
     }
-    list->compensateHiddenIngressContinuity = true;
+    list->compensateHiddenIngressContinuity = false;
     if (normalizeSnapshot) {
         normalizeSnapshotList(list);
     }
+    state.activateList(&emitter, list, emitOffset, false);
+    return true;
+}
+
+inline bool activateTemplateReplayList(State& state, Owner& emitter, LightList* list, uint8_t emitOffset = 0) {
+    if (list == nullptr) {
+        return false;
+    }
+    normalizeSnapshotList(list);
     const uint8_t replayEmitOffset =
-        (normalizeSnapshot && emitOffset == 0 && list->length > 1) ? static_cast<uint8_t>(1) : emitOffset;
+        (emitOffset == 0 && list->length > 1) ? static_cast<uint8_t>(1) : emitOffset;
     state.activateList(&emitter, list, replayEmitOffset, false);
+    list->compensateHiddenIngressContinuity = true;
     return true;
 }
 

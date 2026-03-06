@@ -1,5 +1,6 @@
 #include <array>
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -924,6 +925,47 @@ int main() {
             delete materialized;
             return fail("remote ingress helper should materialize an emit-intent light list");
         }
+
+        MinimalObject ingressObject;
+        State ingressState(ingressObject);
+        Intersection* ingressEmitter =
+            ingressObject.addIntersection(new Intersection(2, 4, -1, GROUP1));
+        if (ingressEmitter == nullptr) {
+            delete materialized;
+            return fail("remote ingress helper regression fixture should create an emitter intersection");
+        }
+
+        materialized->compensateHiddenIngressContinuity = true;
+        if (!lightgraph::integration::remote_ingress::activateList(
+                ingressState, *ingressEmitter, materialized, 0, true)) {
+            delete materialized;
+            return fail("remote ingress helper should activate a normalized list");
+        }
+        if (materialized->emitOffset != 0) {
+            delete materialized;
+            return fail("remote ingress helper should preserve explicit emitOffset semantics when normalizing");
+        }
+        if (materialized->compensateHiddenIngressContinuity) {
+            delete materialized;
+            return fail("remote ingress helper should not enable template-only ingress compensation");
+        }
+        if ((*materialized)[0] == nullptr || std::abs((*materialized)[0]->position) > 0.0001f) {
+            delete materialized;
+            return fail("remote ingress helper should not seed normalized emit-intent lists forward by one pixel");
+        }
+
+        materialized->compensateHiddenIngressContinuity = true;
+        LightList* copied = new (std::nothrow) LightList(*materialized);
+        if (copied == nullptr) {
+            delete materialized;
+            return fail("LightList copy regression fixture should allocate a copy");
+        }
+        if (copied->compensateHiddenIngressContinuity) {
+            delete copied;
+            delete materialized;
+            return fail("LightList copy should clear template-only ingress compensation state");
+        }
+        delete copied;
         delete materialized;
     }
 

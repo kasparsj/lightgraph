@@ -93,7 +93,7 @@ class LightList {
       editable = other.editable;
       blendMode = other.blendMode;
       emitOffset = other.emitOffset;
-      compensateHiddenIngressContinuity = other.compensateHiddenIngressContinuity;
+      compensateHiddenIngressContinuity = false;
       
       // Deep copy behaviour if it exists
       if (other.behaviour != NULL) {

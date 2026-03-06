@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "lightgraph/internal/Globals.h"
+#include "lightgraph/integration/remote_ingress.hpp"
 #include "lightgraph/internal/runtime.hpp"
 #include "lightgraph/internal/runtime/LightListBuild.h"
 #include "lightgraph/internal/runtime/RemoteSnapshotBuilder.h"
@@ -322,25 +323,6 @@ struct DeviceFixture {
     ExternalPort* externalPort = nullptr;
 };
 
-void normalizeRemoteSnapshotListForIngress(LightList* list) {
-    if (list == nullptr) {
-        return;
-    }
-
-    list->compensateHiddenIngressContinuity = true;
-    for (uint16_t i = 0; i < list->numLights; ++i) {
-        RuntimeLight* light = (*list)[i];
-        if (light == nullptr) {
-            continue;
-        }
-        light->owner = nullptr;
-        light->isExpired = false;
-        light->setInPort(nullptr);
-        light->setOutPort(nullptr);
-        light->lifeMillis = list->lifeMillis;
-    }
-}
-
 Owner* resolveIngressOwnerForTest(InternalPort* targetPort) {
     if (targetPort == nullptr) {
         return nullptr;
@@ -471,7 +453,6 @@ bool sendLightViaESPNowTemplateHook(const uint8_t*,
         return false;
     }
 
-    normalizeRemoteSnapshotListForIngress(remoteList);
     Owner* ingressOwner = resolveIngressOwnerForTest(context->remoteTargetPort);
     if (ingressOwner == nullptr) {
         delete remoteList;
@@ -479,9 +460,12 @@ bool sendLightViaESPNowTemplateHook(const uint8_t*,
         return false;
     }
 
-    const uint8_t replayEmitOffset =
-        (remoteList->length > 1) ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0);
-    context->remoteState->activateList(ingressOwner, remoteList, replayEmitOffset, false);
+    if (!lightgraph::integration::remote_ingress::activateTemplateReplayList(
+            *context->remoteState, *ingressOwner, remoteList)) {
+        delete remoteList;
+        context->lastError = "remote template replay activation failed";
+        return false;
+    }
     const int8_t intersectionId =
         (context->remoteTargetPort != nullptr && context->remoteTargetPort->intersection != nullptr)
             ? static_cast<int8_t>(context->remoteTargetPort->intersection->id)
