@@ -436,6 +436,88 @@ int main() {
         return fail("Port ID allocator did not continue from imported maximum ID");
     }
 
+    // Exact 154 export from /export_topology should import even when model weights
+    // still reference internal ports that are no longer present in the saved port list.
+    {
+        TopologySnapshot device154Snapshot{};
+        device154Snapshot.schemaVersion = 3;
+        device154Snapshot.pixelCount = 488;
+        device154Snapshot.intersections = {
+            {0, 2, 487, -1, GROUP1, true, true},
+            {1, 2, 0, -1, GROUP1, true, true},
+            {2, 3, 126, -1, GROUP1, false, false},
+        };
+        device154Snapshot.connections = {
+            {0, 1, GROUP1, 0},
+            {0, 2, GROUP1, 360},
+            {1, 2, GROUP1, 125},
+        };
+        device154Snapshot.models = {
+            {0, 10, GROUP1, 0, RoutingStrategy::WeightedRandom, {}},
+            {1,
+             10,
+             GROUP1,
+             0,
+             RoutingStrategy::WeightedRandom,
+             {
+                 {0, 0, {}},
+                 {1, 0, {}},
+                 {2, 10, {}},
+                 {3, 10, {}},
+             }},
+        };
+        device154Snapshot.ports = {
+            {0, 0, 0, TopologyPortType::Internal, false, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {4, 0, 1, TopologyPortType::Internal, false, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {1, 1, 0, TopologyPortType::Internal, true, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {6, 1, 1, TopologyPortType::Internal, false, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {5, 2, 0, TopologyPortType::Internal, true, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {7, 2, 1, TopologyPortType::Internal, true, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {8,
+             2,
+             2,
+             TopologyPortType::External,
+             true,
+             GROUP1,
+             {0x08, 0x3A, 0xF2, 0x6C, 0xEB, 0x90},
+             5,
+             2},
+        };
+
+        MinimalObject imported154Object;
+        if (!imported154Object.importSnapshot(device154Snapshot, true)) {
+            return fail("Exact 154 export should import even with stale model weights");
+        }
+        if (imported154Object.countIntersections(GROUP1) != 3 ||
+            imported154Object.countConnections(GROUP1) != 3) {
+            return fail("Exact 154 export did not preserve topology structure");
+        }
+
+        Intersection* imported154Remote = imported154Object.findIntersectionById(2);
+        if (imported154Remote == nullptr || imported154Remote->ports[2] == nullptr ||
+            !imported154Remote->ports[2]->isExternal()) {
+            return fail("Exact 154 export did not restore the external port");
+        }
+        if (imported154Remote->allowEndOfLife || imported154Remote->allowEmit) {
+            return fail("Exact 154 export did not preserve intersection flags");
+        }
+
+        Model* imported154Model = imported154Object.getModel(1);
+        if (imported154Model == nullptr || imported154Model->weightCount() != 2) {
+            return fail("Exact 154 export should retain only live routing weights after import");
+        }
+
+        const TopologySnapshot cleaned154Snapshot = imported154Object.exportSnapshot();
+        if (cleaned154Snapshot.models.size() < 2 || cleaned154Snapshot.models[1].weights.size() != 2) {
+            return fail("Exact 154 export did not prune stale weights on re-export");
+        }
+        for (const TopologyPortWeightSnapshot& weight : cleaned154Snapshot.models[1].weights) {
+            if (weight.outgoingPortId != 0 && weight.outgoingPortId != 1) {
+                return fail("Exact 154 export re-export retained stale outgoing port weights");
+            }
+        }
+    }
+
     // Sequential lists should trigger batch forwarding as soon as the lead light reaches
     // the outgoing intersection pixel.
     {

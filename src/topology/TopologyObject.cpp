@@ -518,6 +518,7 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
     snapshot.gaps = gaps;
 
     std::unordered_set<const Intersection*> seenIntersections;
+    std::unordered_set<uint8_t> exportedPortIds;
     std::vector<const Intersection*> orderedIntersections;
     orderedIntersections.reserve(64);
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
@@ -562,6 +563,7 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
                 portSnapshot.targetIntersectionId = externalPort->targetIntersectionId;
             }
             snapshot.ports.push_back(portSnapshot);
+            exportedPortIds.insert(port->id);
         }
     }
 
@@ -600,12 +602,18 @@ TopologySnapshot TopologyObject::exportSnapshot() const {
             if (weightEntry.second == nullptr) {
                 continue;
             }
+            if (!exportedPortIds.count(weightEntry.first)) {
+                continue;
+            }
             TopologyPortWeightSnapshot weightSnapshot{
                 weightEntry.first,
                 weightEntry.second->defaultWeight(),
                 {},
             };
             for (const auto& conditional : weightEntry.second->conditionalWeights()) {
+                if (!exportedPortIds.count(conditional.first)) {
+                    continue;
+                }
                 weightSnapshot.conditionals.push_back({
                     conditional.first,
                     conditional.second,
@@ -682,19 +690,6 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
         if (!intersectionIds.count(connection.fromIntersectionId) ||
             !intersectionIds.count(connection.toIntersectionId)) {
             return false;
-        }
-    }
-
-    for (const TopologyModelSnapshot& model : snapshot.models) {
-        for (const TopologyPortWeightSnapshot& weight : model.weights) {
-            if (!snapshotPortIds.count(weight.outgoingPortId)) {
-                return false;
-            }
-            for (const TopologyWeightConditionalSnapshot& conditional : weight.conditionals) {
-                if (!snapshotPortIds.count(conditional.incomingPortId)) {
-                    return false;
-                }
-            }
         }
     }
 
@@ -889,7 +884,7 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
         for (const TopologyPortWeightSnapshot& weightSnapshot : modelSnapshot.weights) {
             auto outgoingIt = remappedPorts.find(weightSnapshot.outgoingPortId);
             if (outgoingIt == remappedPorts.end()) {
-                return false;
+                continue;
             }
             Weight* weight = model->_getOrCreate(outgoingIt->second, weightSnapshot.defaultWeight);
             if (weight == nullptr) {
@@ -898,7 +893,7 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
             for (const TopologyWeightConditionalSnapshot& conditional : weightSnapshot.conditionals) {
                 auto incomingIt = remappedPorts.find(conditional.incomingPortId);
                 if (incomingIt == remappedPorts.end()) {
-                    return false;
+                    continue;
                 }
                 weight->add(incomingIt->second, conditional.weight);
             }

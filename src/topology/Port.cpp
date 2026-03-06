@@ -139,10 +139,11 @@ void ExternalPort::sendOut(RuntimeLight* const light, bool sendList) {
     }
 
     LightList* const list = light->list;
-    const bool canBatch = sendList && list != nullptr;
+    const bool shouldBatchSequentially =
+        sendList && list != nullptr && list->order == LIST_ORDER_SEQUENTIAL;
     bool sendAsBatch = false;
     bool shouldSend = true;
-    if (canBatch) {
+    if (shouldBatchSequentially) {
         if (list->hasExternalBatchForwardedTo(device.data(), targetId)) {
             shouldSend = false;
         } else {
