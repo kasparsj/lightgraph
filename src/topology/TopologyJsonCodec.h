@@ -48,6 +48,49 @@ inline bool parseTopologyMacAddress(const String& input, uint8_t out[6]) {
   return true;
 }
 
+inline size_t normalizeTopologySnapshotDuplicatePortIds(TopologySnapshot& snapshot) {
+  bool usedIds[256] = {false};
+  bool hasDuplicate = false;
+
+  for (const TopologyPortSnapshot& port : snapshot.ports) {
+    if (usedIds[port.id]) {
+      hasDuplicate = true;
+      break;
+    }
+    usedIds[port.id] = true;
+  }
+
+  if (!hasDuplicate) {
+    return 0;
+  }
+
+  for (size_t i = 0; i < 256; i++) {
+    usedIds[i] = false;
+  }
+
+  size_t normalizedCount = 0;
+  for (TopologyPortSnapshot& port : snapshot.ports) {
+    if (!usedIds[port.id]) {
+      usedIds[port.id] = true;
+      continue;
+    }
+
+    uint16_t replacementId = 0;
+    while (replacementId < 256 && usedIds[replacementId]) {
+      replacementId += 1;
+    }
+    if (replacementId >= 256) {
+      break;
+    }
+
+    port.id = static_cast<uint8_t>(replacementId);
+    usedIds[port.id] = true;
+    normalizedCount += 1;
+  }
+
+  return normalizedCount;
+}
+
 inline bool parseTopologySnapshotFromJson(JsonObjectConst root, TopologySnapshot& snapshot, String& error) {
   long schemaVersion = 0;
   if (!parseTopologyBoundedLong(root["schemaVersion"], 0, 255, schemaVersion)) {
