@@ -15,7 +15,7 @@ float Behaviour::getPosition(RuntimeLight* const light) const {
   if (flags & B_POS_CHANGE_FADE) {
     if (light->bri >= 511) {
       light->bri -= 511;
-      return LP_RANDOM(light->getModel()->getMaxLength());
+      return LG_RANDOM(light->getModel()->getMaxLength());
     }
   }
   return light->position + light->getSpeed();
@@ -25,5 +25,5 @@ ColorRGB Behaviour::getColor(const RuntimeLight *light, uint8_t /*group*/) const
   if (light->getPrev() != NULL) {
     return light->getPrev()->getColor();
   }
-  return ColorRGB(LP_RANDOM(255), LP_RANDOM(255), LP_RANDOM(255));
+  return ColorRGB(LG_RANDOM(255), LG_RANDOM(255), LG_RANDOM(255));
 }

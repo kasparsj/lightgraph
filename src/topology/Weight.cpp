@@ -7,7 +7,7 @@ void Weight::add(const Port *incoming, uint8_t w) {
     }
     if (conditional.size() >= MAX_CONDITIONAL_WEIGHTS &&
         conditional.find(incoming->id) == conditional.end()) {
-        LP_LOGLN("Weight conditional map overflow");
+        LG_LOGLN("Weight conditional map overflow");
         return;
     }
     conditional[incoming->id] = w;

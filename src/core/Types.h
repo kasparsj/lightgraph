@@ -24,8 +24,12 @@ struct ColorRGB {
 
     ColorRGB() : ColorRGB(0) {}
 
+    ColorRGB dim(uint8_t ratio) const {
+        return ColorRGB(elementDim(R, ratio), elementDim(G, ratio), elementDim(B, ratio));
+    }
+
     ColorRGB Dim(uint8_t ratio) const {
-        return ColorRGB(_elementDim(R, ratio), _elementDim(G, ratio), _elementDim(B, ratio));
+        return dim(ratio);
     }
 
     uint32_t get() const {
@@ -94,8 +98,12 @@ struct ColorRGB {
         b = B;
     }
 
-    inline static uint8_t _elementDim(uint8_t value, uint8_t ratio) {
+    inline static uint8_t elementDim(uint8_t value, uint8_t ratio) {
         return (static_cast<uint16_t>(value) * (static_cast<uint16_t>(ratio) + 1)) >> 8;
+    }
+
+    inline static uint8_t _elementDim(uint8_t value, uint8_t ratio) {
+        return elementDim(value, ratio);
     }
 
     float getHueAngle() const {

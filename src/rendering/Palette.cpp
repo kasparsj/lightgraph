@@ -213,12 +213,20 @@ void Palette::setColorRule(int8_t rule) {
     rgbCacheDirty = true;
 }
 
+int8_t Palette::getInterpolationMode() const {
+    return interpolationMode;
+}
+
+void Palette::setInterpolationMode(int8_t mode) {
+    interpolationMode = mode;
+}
+
 int8_t Palette::getInterMode() const {
-    return interMode;
+    return getInterpolationMode();
 }
 
 void Palette::setInterMode(int8_t mode) {
-    interMode = mode;
+    setInterpolationMode(mode);
 }
 
 int8_t Palette::getWrapMode() const {

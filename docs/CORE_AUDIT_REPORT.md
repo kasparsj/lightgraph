@@ -150,7 +150,7 @@ Outputs
 - Missing/uninitialized submodule (`packages/lightgraph/vendor/ofxColorTheory`) causes compile failures in core palette code.
 - Firmware-core path depends on symlink (`firmware/esp/src`) which can be problematic on environments that do not preserve symlinks.
 - Debug visibility:
-- `LP_LOG*` macros route to `Serial` (Arduino) or `ofLog` (OF).
+- `LG_LOG*` macros route to `Serial` (Arduino) or `ofLog` (OF).
 - `Debugger` can visualize intersections/connections/model weights in simulator and firmware (when enabled).
 
 ## 4) Architecture & Implementation Analysis
@@ -231,7 +231,7 @@ Outputs
 
 ### Error handling patterns
 
-- Primarily log-and-return patterns (`LP_LOGF`, `-1` returns).
+- Primarily log-and-return patterns (`LG_LOGF`, `-1` returns).
 - Limited defensive checks in key paths.
 
 ### Logging/telemetry
@@ -453,7 +453,7 @@ Dependencies: 3.1.
 - Fixed `LightList::addLightFromMsg` missing return and `LightList::setDuration` wrong self-assignment.
 - Removed `uint8_t` truncation risk in `LightList::doEmit` loop counters.
 - Added emit-time guard for invalid model IDs in `State::emit`.
-- Fixed `LP_OSC_REPLY` index variable usage (`index` instead of undefined `i`).
+- Fixed `LG_OSC_REPLY` index variable usage (`index` instead of undefined `i`).
 - Prevented `Behaviour` leak on early max-light rejection in `State::setupListFrom`.
 - Added zero-candidate guards in `State::getEmitter` to avoid modulo/division by zero.
 - Fixed null-dereference path in `Intersection::update` when no port is chosen.

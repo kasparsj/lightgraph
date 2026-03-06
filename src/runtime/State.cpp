@@ -10,6 +10,7 @@
 #include "Behaviour.h"
 #include "BgLight.h"
 #include "EmitParams.h"
+#include "LightListBuild.h"
 #include "LightList.h"
 #include "../rendering/Palettes.h"
 #include "../Globals.h"
@@ -53,7 +54,7 @@ State::~State() {
 }
 
 uint8_t State::randomModel() {
-  return floor(LP_RANDOM(object.models.size()));
+  return floor(LG_RANDOM(object.models.size()));
 }
 
 ColorRGB State::paletteColor(uint8_t index, uint8_t /*maxBrightness*/) {
@@ -72,7 +73,7 @@ int8_t State::emit(EmitParams &params) {
     uint8_t which = params.model >= 0 ? params.model : randomModel();
     Model *model = object.getModel(which);
     if (model == NULL) {
-        LP_LOGF("emit failed, model %d not found\n", which);
+        LG_LOGF("emit failed, model %d not found\n", which);
         return -1;
     }
     int8_t index = getOrCreateList(params);
@@ -80,12 +81,12 @@ int8_t State::emit(EmitParams &params) {
         lightLists[index]->model = model;
         Owner *emitter = getEmitter(model, lightLists[index]->behaviour, params);
         if (emitter == NULL) {
-            LP_LOGF("emit failed, no free emitter %d %d.\n", params.getEmit(), params.getEmitGroups(model->emitGroups));
+            LG_LOGF("emit failed, no free emitter %d %d.\n", params.getEmit(), params.getEmitGroups(model->emitGroups));
             return -1;
         }
         doEmit(emitter, lightLists[index], params);
-        #ifdef LP_OSC_REPLY
-        LP_OSC_REPLY(index);
+        #ifdef LG_OSC_REPLY
+        LG_OSC_REPLY(index);
         #endif
     }
     return index;
@@ -104,7 +105,7 @@ int8_t State::getOrCreateList(EmitParams &params) {
             return setupListFrom(i, params);
         }
     }
-    LP_LOGF("emit failed: no free local light lists (%d, reserved tail=%d)\n",
+    LG_LOGF("emit failed: no free local light lists (%d, reserved tail=%d)\n",
             localSlotsEndExclusive,
             clampReservedTailSlots(reservedTailSlots));
     return -1;
@@ -115,64 +116,33 @@ int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
     uint16_t oldLen = (lightList != NULL ? lightList->length : 0);
     uint16_t oldLights = (lightList != NULL ? lightList->numLights : 0);
     const bool hadCountedList = (lightList != NULL && lightList->emitter != NULL);
+    const uint16_t countedOldLights = hadCountedList ? oldLights : 0;
     uint16_t newLen = params.getLength();
-    Behaviour* newBehaviour = new (std::nothrow) Behaviour(params);
-    if (newBehaviour == NULL) {
-        LP_LOGF("emit failed: OOM creating behaviour for slot %d\n", i);
-        lightgraphReportAllocationFailure(
-            LightgraphAllocationFailureSite::StateBehaviourAllocation,
-            static_cast<uint16_t>(i),
-            0);
-        return -1;
-    }
-    if (oldLen > 0 && newBehaviour->smoothChanges()) {
+    Behaviour smoothProbe(params);
+    if (oldLen > 0 && smoothProbe.smoothChanges()) {
         newLen = oldLen + (int) round((float)(newLen - oldLen) * 0.1f);
     }
-    if (totalLights - oldLights + newLen > MAX_TOTAL_LIGHTS) {
+    const uint32_t retainedLights = (totalLights >= countedOldLights)
+                                        ? static_cast<uint32_t>(totalLights - countedOldLights)
+                                        : 0U;
+    if (retainedLights + newLen > MAX_TOTAL_LIGHTS) {
         // todo: if it's a change, maybe emit max possible?
-        LP_LOGF("emit failed, %d is over max %d lights\n", totalLights + newLen, MAX_TOTAL_LIGHTS);
-        delete newBehaviour;
+        LG_LOGF("emit failed, %d is over max %d lights\n", totalLights + newLen, MAX_TOTAL_LIGHTS);
         return -1;
     }
-    if (lightList == NULL) {
-        lightList = new (std::nothrow) LightList();
-        if (lightList == NULL) {
-            LP_LOGF("emit failed: OOM creating list for slot %d\n", i);
-            lightgraphReportAllocationFailure(
-                LightgraphAllocationFailureSite::StateListAllocation,
-                static_cast<uint16_t>(i),
-                static_cast<uint16_t>(newLen));
-            delete newBehaviour;
-            return -1;
-        }
-        lightLists[i] = lightList;
-    }
-    lightList->length = newLen;
-    if (lightList->behaviour != NULL) {
-        delete lightList->behaviour;
-    }
-    lightList->behaviour = newBehaviour;
 
-#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
-    bool setupOk = true;
-    try {
-        lightList->setupFrom(params);
-    } catch (const std::bad_alloc&) {
-        setupOk = false;
-        LP_LOGF("emit failed: OOM while setting up list slot %d\n", i);
-        lightgraphReportAllocationFailure(
-            LightgraphAllocationFailureSite::StateSetupException,
-            static_cast<uint16_t>(i),
-            static_cast<uint16_t>(newLen));
-    } catch (...) {
-        setupOk = false;
-        LP_LOGF("emit failed: exception while setting up list slot %d\n", i);
-    }
-    if (!setupOk) {
-        delete lightList->behaviour;
-        lightList->behaviour = NULL;
-        delete lightList;
-        lightLists[i] = NULL;
+    lightlist_build::Spec spec = lightlist_build::makeSpecFromEmitParams(params, newLen);
+    lightlist_build::Policy policy;
+    policy.allocateBehaviour = true;
+    policy.behaviourFailureSite = LightgraphAllocationFailureSite::StateBehaviourAllocation;
+    policy.listFailureSite = LightgraphAllocationFailureSite::StateListAllocation;
+    policy.exceptionFailureSite = LightgraphAllocationFailureSite::StateSetupException;
+    LightList* replacement = lightlist_build::buildLightList(spec, policy);
+    if (replacement == NULL) {
+        if (lightList != NULL) {
+            delete lightList;
+            lightLists[i] = NULL;
+        }
         if (hadCountedList) {
             if (totalLights >= oldLights) {
                 totalLights = static_cast<uint16_t>(totalLights - oldLights);
@@ -185,9 +155,11 @@ int8_t State::setupListFrom(uint8_t i, EmitParams &params) {
         }
         return -1;
     }
-#else
-    lightList->setupFrom(params);
-#endif
+
+    if (lightList != NULL) {
+        delete lightList;
+    }
+    lightLists[i] = replacement;
     if (hadCountedList) {
         if (totalLights >= oldLights) {
             totalLights = static_cast<uint16_t>(totalLights - oldLights);
@@ -210,29 +182,40 @@ Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params)
         uint8_t emitGroups = params.emitGroups;
         uint8_t connCount = object.countConnections(emitGroups);
         if (connCount == 0) {
-            LP_LOGF("emit failed, no connections for groups %d\n", emitGroups);
+            LG_LOGF("emit failed, no connections for groups %d\n", emitGroups);
             return NULL;
         }
-        from = from >= 0 ? from : LP_RANDOM(connCount);
+        from = from >= 0 ? from : LG_RANDOM(connCount);
         return object.getConnection(from % connCount, emitGroups);
     }
     else {
         uint8_t emitGroups = params.getEmitGroups(model->emitGroups);
         uint8_t interCount = object.countIntersections(emitGroups);
         if (interCount == 0) {
-            LP_LOGF("emit failed, no intersections for groups %d\n", emitGroups);
+            LG_LOGF("emit failed, no intersections for groups %d\n", emitGroups);
             return NULL;
         }
-        from = from >= 0 ? from : LP_RANDOM(interCount);
+        from = from >= 0 ? from : LG_RANDOM(interCount);
         return object.getIntersection(from % interCount, emitGroups);
     }
 }
 
-void State::doEmit(Owner* from, LightList *lightList, uint8_t emitOffset) {
+void State::activateList(Owner* from, LightList *lightList, uint8_t emitOffset, bool countTotals) {
+    if (lightList == NULL) {
+        return;
+    }
+    lightList->numEmitted = 0;
+    lightList->numSplits = 0;
     lightList->initEmit(emitOffset);
     lightList->emitter = from;
-    totalLights += lightList->numLights;
-    totalLightLists++;
+    if (countTotals) {
+        totalLights += lightList->numLights;
+        totalLightLists++;
+    }
+}
+
+void State::doEmit(Owner* from, LightList *lightList, uint8_t emitOffset) {
+    activateList(from, lightList, emitOffset, true);
 }
 
 void State::doEmit(Owner* from, LightList *lightList, EmitParams& params) {
@@ -485,7 +468,7 @@ void State::setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lig
 void State::setupBg(uint8_t i) {
     BgLight* bgLight = new (std::nothrow) BgLight();
     if (bgLight == nullptr) {
-        LP_LOGLN("setupBg failed: OOM creating background layer");
+        LG_LOGLN("setupBg failed: OOM creating background layer");
         lightgraphReportAllocationFailure(
             LightgraphAllocationFailureSite::SetupBgAllocation,
             static_cast<uint16_t>(i),
@@ -662,7 +645,7 @@ void State::stopNote(uint16_t noteId) {
 void State::debug() {
   for (uint8_t i=0; i<MAX_LIGHT_LISTS; i++) {
     if (lightLists[i] == NULL) continue;
-    LP_STRING lights = "";
+    LG_STRING lights = "";
     for (uint16_t j=0; j<lightLists[i]->numLights; j++) {
       if (lightLists[i]->lights[j] == NULL || lightLists[i]->lights[j]->isExpired) {
         continue;
@@ -675,8 +658,8 @@ void State::debug() {
         lights += ", ";
       }
     }
-    LP_LOGF("LightList %d (%d) active lights:", i, lightLists[i]->numLights);
-    LP_LOG(lights);
-    LP_LOGLN("");
+    LG_LOGF("LightList %d (%d) active lights:", i, lightLists[i]->numLights);
+    LG_LOG(lights);
+    LG_LOGLN("");
   }
 }

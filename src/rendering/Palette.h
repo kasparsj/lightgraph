@@ -110,11 +110,11 @@ public:
     const std::vector<ColorRGB>& getRGBColors();
     std::vector<ColorRGB> interpolate(uint16_t maxColors) {
         std::vector<ColorRGB> rgbColors = getRGBColors();
-        if (interMode < 0 || rgbColors.size() < 2) {
+        if (interpolationMode < 0 || rgbColors.size() < 2) {
             return rgbColors;
         }
         ofxColorTheory::ColorScheme_<ColorRGB> basicScheme(rgbColors);
-        return basicScheme.interpolate(maxColors, interMode, &positions);
+        return basicScheme.interpolate(maxColors, interpolationMode, &positions);
     }
     
     // Set colors
@@ -127,6 +127,8 @@ public:
     void setColorRule(int8_t rule);
     
     // Get/set interpolation mode
+    int8_t getInterpolationMode() const;
+    void setInterpolationMode(int8_t mode);
     int8_t getInterMode() const;
     void setInterMode(int8_t mode);
     
@@ -150,7 +152,7 @@ private:
     std::vector<float> positions;
     mutable std::vector<ColorRGB> rgbColors; // Cache for RGB colors, updated as needed
     int8_t colorRule = -1;
-    int8_t interMode = 1; // 0 = RGB, 1 = HSB, 2 = CIELCh, -1 = none. Default: HSB
+    int8_t interpolationMode = 1; // 0 = RGB, 1 = HSB, 2 = CIELCh, -1 = none. Default: HSB
     int8_t wrapMode = -1; // 0 = clamp to edge, 1 = wrap, 2 = wrapMirror, -1 = none. Default: none
     float segmentation = 0.0f; // Segmentation value - 0 means no segmentation
     

@@ -66,7 +66,7 @@ ColorRGB RuntimeLight::getPixelColor() const {
     if (brightness == 255) {
         return list->getColor(pixel1);
     }
-    return list->getColor(pixel1).Dim(brightness);
+    return list->getColor(pixel1).dim(brightness);
 }
 
 uint16_t* RuntimeLight::getPixels() {

@@ -58,6 +58,7 @@ class State {
     bool isOn();
     void setOn(bool newState);
     void setupBg(uint8_t i);
+    void activateList(Owner* from, LightList *lightList, uint8_t emitOffset = 0, bool countTotals = true);
     void doEmit(Owner* from, LightList *lightList, uint8_t emitOffset = 0);
     void setReservedTailSlots(uint8_t slots);
     uint8_t getReservedTailSlots() const;

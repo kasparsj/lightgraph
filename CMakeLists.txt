@@ -123,6 +123,7 @@ target_link_libraries(lightgraph_integration INTERFACE lightgraph)
 target_include_directories(
   lightgraph_integration
   INTERFACE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
 )

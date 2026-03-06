@@ -136,27 +136,27 @@ bool TopologyPixels::isConnection(uint16_t i) const {
 }
 
 void TopologyPixels::dumpConnections() const {
-  LP_LOGLN("--- CONNECTIONS ---");
+  LG_LOGLN("--- CONNECTIONS ---");
   for (uint8_t i = 0; i < MAX_GROUPS; i++) {
     for (uint32_t j = 0; j < object.conn[i].size(); j++) {
       Connection* connection = object.conn[i][j];
       if (connection == nullptr) {
         continue;
       }
-      LP_LOGF("Connection%d %d - %d\n", i, connection->fromPixel, connection->toPixel);
+      LG_LOGF("Connection%d %d - %d\n", i, connection->fromPixel, connection->toPixel);
     }
   }
 }
 
 void TopologyPixels::dumpIntersections() const {
-  LP_LOGLN("--- INTERSECTIONS ---");
+  LG_LOGLN("--- INTERSECTIONS ---");
   for (uint8_t i = 0; i < MAX_GROUPS; i++) {
     for (uint32_t j = 0; j < object.inter[i].size(); j++) {
       Intersection* intersection = object.inter[i][j];
       if (intersection == nullptr) {
         continue;
       }
-      LP_LOGF("Intersection%d %d\n", i, intersection->id);
+      LG_LOGF("Intersection%d %d\n", i, intersection->id);
     }
   }
 }

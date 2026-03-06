@@ -107,7 +107,7 @@ public:
         }
         ColorRGB color = getLightColor(uint32_t(position + pixel) % length);
         if (maxBri < 255) {
-            return color.Dim(maxBri);
+            return color.dim(maxBri);
         }
         return color;
     }

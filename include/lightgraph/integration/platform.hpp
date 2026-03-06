@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../../src/core/Platform.h"
+#include "src/core/Platform.h"
 
 /**
  * @file platform.hpp

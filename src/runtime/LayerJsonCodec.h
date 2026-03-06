@@ -116,7 +116,7 @@ inline void applyLayerArray(JsonArrayConst layersArray, State& state) {
       palette.setColorRule(layerObj["colorRule"].as<int8_t>());
     }
     if (layerObj.containsKey("interMode")) {
-      palette.setInterMode(layerObj["interMode"].as<int8_t>());
+      palette.setInterpolationMode(layerObj["interMode"].as<int8_t>());
     }
     if (layerObj.containsKey("wrapMode")) {
       palette.setWrapMode(layerObj["wrapMode"].as<int8_t>());
@@ -166,7 +166,7 @@ inline void serializeStateLayers(const State& state, JsonArray layersArray) {
     }
 
     layerObj["colorRule"] = palette.getColorRule();
-    layerObj["interMode"] = palette.getInterMode();
+    layerObj["interMode"] = palette.getInterpolationMode();
     layerObj["wrapMode"] = palette.getWrapMode();
     layerObj["segmentation"] = palette.getSegmentation();
   }

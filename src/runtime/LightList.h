@@ -6,6 +6,7 @@
 #include "../../vendor/ofxEasing/ofxEasing.h"
 #include "Behaviour.h"
 #include "RuntimeLight.h"
+#include <cstddef>
 #include <cstring>
 #include <new>
 #include <stdexcept>
@@ -127,18 +128,7 @@ class LightList {
     LightList(LightList&&) = delete;
     LightList& operator=(LightList&&) = delete;
 
-    virtual ~LightList() {
-      if (lights != NULL) {
-        for (uint16_t i = 0; i < allocatedLights; i++) {
-          delete lights[i];
-        }
-        delete[] lights;
-      }
-      
-      if (behaviour != NULL) {
-        delete behaviour;
-      }
-    }
+    virtual ~LightList();
     
     virtual void init(uint16_t numLights);
     virtual void setup(uint16_t numLights, uint8_t brightness = 255);
@@ -206,6 +196,11 @@ class LightList {
     
     RuntimeLight* addLightFromMsg(const LightMessage* lightMsg);
     static void releaseLightFromMsg(RuntimeLight* light);
+    RuntimeLight* createAutoLight(uint16_t slot, uint8_t brightness);
+    void releaseOwnedLight(RuntimeLight*& light);
+    bool initContiguousLights(uint16_t numLights);
+    Light* createContiguousLight(uint16_t slot, float speed, uint32_t lifeMillis,
+                                 uint16_t idx = 0, uint8_t maxBri = 255);
     void clearExternalBatchForwardState() {
       externalBatchForwarded = false;
       externalBatchTargetId = 0;
@@ -228,6 +223,8 @@ class LightList {
   private:
 
     RuntimeLight* createLight(uint16_t i, uint8_t brightness);
+    void clearAllocatedLights();
+    bool ownsContiguousLight(const RuntimeLight* light) const;
     void initPosition(uint16_t i, RuntimeLight* const light) const;
     void initBri(uint16_t i, RuntimeLight* const light) const;
     void initLife(uint16_t i, RuntimeLight* const light) const;
@@ -237,5 +234,7 @@ class LightList {
         return numLights - lead - trail;
     }
     uint16_t allocatedLights = 0;
+    void* contiguousLightStorage = nullptr;
+    size_t contiguousLightStrideBytes = 0;
 
 };

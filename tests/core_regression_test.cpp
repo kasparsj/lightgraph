@@ -23,6 +23,18 @@
 
 namespace {
 
+class TestOwner : public Owner {
+  public:
+    TestOwner() : Owner(0) {}
+    uint8_t getType() override { return TYPE_CONNECTION; }
+    void emit(RuntimeLight* const light) const override {
+        if (light != nullptr) {
+            light->owner = this;
+        }
+    }
+    void update(RuntimeLight* const /*light*/) const override {}
+};
+
 int fail(const std::string& message) {
     std::cerr << "FAIL: " << message << std::endl;
     return 1;
@@ -210,6 +222,37 @@ int main() {
         }
     }
 
+    // RANDOM_COLOR palettes should resolve once and remain stable until mutated.
+    {
+        Palette palette({RANDOM_COLOR});
+        const uint32_t first = palette.getRGBColors().front().get();
+        const uint32_t second = palette.getRGBColors().front().get();
+        const uint32_t third = palette.getRGBColors().front().get();
+        if (first != second || second != third) {
+            return fail("Palette::getRGBColors should not re-randomize unchanged RANDOM_COLOR stops");
+        }
+    }
+
+    // Compatibility aliases should keep the old and new dim/interpolation APIs equivalent.
+    {
+        const ColorRGB original(0x804020);
+        const ColorRGB legacyDimmed = original.Dim(127);
+        const ColorRGB renamedDimmed = original.dim(127);
+        if (!isApproxColor(legacyDimmed, renamedDimmed.R, renamedDimmed.G, renamedDimmed.B, 0)) {
+            return fail("ColorRGB dim aliases should return identical values");
+        }
+
+        Palette palette({0x112233, 0x445566}, {0.0f, 1.0f});
+        palette.setInterpolationMode(2);
+        if (palette.getInterpolationMode() != 2 || palette.getInterMode() != 2) {
+            return fail("Palette interpolation aliases should stay in sync");
+        }
+        palette.setInterMode(1);
+        if (palette.getInterpolationMode() != 1) {
+            return fail("Legacy Palette interpolation setter should update renamed API state");
+        }
+    }
+
     // Remote template speed should scale with sender->receiver pixel density ratio.
     {
         remote_snapshot::TemplateSnapshotDescriptor descriptor = {};
@@ -218,6 +261,7 @@ int main() {
         descriptor.speed = 2.0f;
         descriptor.lifeMillis = 1200;
         descriptor.duration = 2400;
+        descriptor.interpolationMode = 2;
         descriptor.senderPixelDensity = 144;
         descriptor.receiverPixelDensity = 60;
 
@@ -233,6 +277,59 @@ int main() {
         if (std::fabs(list->speed - expectedSpeed) > 0.0001f) {
             delete list;
             return fail("Remote template speed should be scaled by receiver/sender pixel density");
+        }
+        const uint16_t expectedNumLights = remote_snapshot::scaleLengthForDensity(
+            descriptor.numLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
+        if (list->numLights != expectedNumLights) {
+            delete list;
+            return fail("Remote template snapshot should materialize the scaled logical light count");
+        }
+        for (uint16_t i = 0; i < list->numLights; i++) {
+            if ((*list)[i] == nullptr) {
+                delete list;
+                return fail("Remote template snapshot should materialize each logical light");
+            }
+        }
+        delete list;
+    }
+
+    // Remote sparse snapshots should scale indices and keep the brightest duplicate entry.
+    {
+        remote_snapshot::SequentialSnapshotDescriptor descriptor = {};
+        descriptor.numLights = 5;
+        descriptor.positionOffset = -5;
+        descriptor.speed = 1.5f;
+        descriptor.lifeMillis = 900;
+        descriptor.senderPixelDensity = 120;
+        descriptor.receiverPixelDensity = 60;
+
+        std::vector<remote_snapshot::SequentialEntry> entries;
+        entries.push_back({0, 40, 10, 20, 30});
+        entries.push_back({4, 180, 100, 110, 120});
+        entries.push_back({4, 120, 1, 2, 3});
+
+        LightList* list = remote_snapshot::buildSequentialSnapshot(descriptor, entries);
+        if (list == nullptr) {
+            return fail("Remote sparse snapshot should materialize for valid descriptor");
+        }
+
+        const uint16_t expectedNumLights = remote_snapshot::scaleLengthForDensity(
+            descriptor.numLights, descriptor.senderPixelDensity, descriptor.receiverPixelDensity);
+        if (list->numLights != expectedNumLights) {
+            delete list;
+            return fail("Remote sparse snapshot should materialize the scaled logical light count");
+        }
+
+        const uint16_t lastIdx = expectedNumLights - 1;
+        RuntimeLight* brightest = (*list)[lastIdx];
+        if (brightest == nullptr) {
+            delete list;
+            return fail("Remote sparse snapshot should map the last source light into the scaled target list");
+        }
+        const ColorRGB brightestColor = brightest->getColor();
+        if (brightestColor.R != 100 || brightestColor.G != 110 || brightestColor.B != 120) {
+            delete list;
+            return fail("Remote sparse snapshot should keep the brightest duplicate mapped light");
         }
         delete list;
     }
@@ -304,6 +401,18 @@ int main() {
             return fail("State should reuse list index for noteId > 255");
         }
 
+        const uint8_t listCountBeforeActivate = state.totalLightLists;
+        Owner* const originalEmitter = state.lightLists[wideIndex]->emitter;
+        TestOwner ingressOwner;
+        state.activateList(&ingressOwner, state.lightLists[wideIndex], 0, false);
+        if (state.totalLightLists != listCountBeforeActivate) {
+            return fail("State::activateList(countTotals=false) should not increment list counters");
+        }
+        if (state.lightLists[wideIndex]->emitter != &ingressOwner) {
+            return fail("State::activateList should attach the provided emitter");
+        }
+        state.lightLists[wideIndex]->emitter = originalEmitter;
+
         state.stopNote(300);
         for (int i = 0; i < 8; i++) {
             gMillis += 250;
@@ -327,6 +436,44 @@ int main() {
         }
         if (state.totalLights != 0) {
             return fail("State::stopAll did not clear active emitted lights");
+        }
+    }
+
+    // Recoloring an active list should refresh both palette metadata and live light colors.
+    {
+        Line line(LINE_PIXEL_COUNT);
+        State state(line);
+        state.lightLists[0]->visible = false;
+
+        EmitParams params(0, 1.0f, 0x112233);
+        params.setLength(3);
+        const int8_t listIndex = state.emit(params);
+        if (listIndex < 0) {
+            return fail("State::emit failed unexpectedly for recolor regression");
+        }
+
+        LightList* const list = state.lightLists[listIndex];
+        Light* const firstLight = dynamic_cast<Light*>((*list)[0]);
+        if (firstLight == nullptr) {
+            return fail("Emitter-created list should materialize Light instances");
+        }
+
+        const ColorRGB before = firstLight->getColor();
+        std::srand(12345);
+        state.colorAll();
+
+        const std::vector<ColorRGB>& paletteColors = list->palette.getRGBColors();
+        if (paletteColors.empty()) {
+            return fail("State::colorAll should keep at least one palette color");
+        }
+
+        const ColorRGB after = firstLight->getColor();
+        const ColorRGB expected = paletteColors[0];
+        if (after.get() != expected.get()) {
+            return fail("State::colorAll should refresh active light colors to match the new palette");
+        }
+        if (after.get() == before.get()) {
+            return fail("State::colorAll should update the active list color");
         }
     }
 

@@ -173,7 +173,7 @@ Namespace aliases/constants:
 
 ### `lightgraph/integration/platform.hpp`
 
-- imports platform logging and utility macros (`LP_LOG*`, `LP_RANDOM`, `LP_STRING`)
+- imports platform logging and utility macros (`LG_LOG*`, `LG_RANDOM`, `LG_STRING`)
 
 ### `lightgraph/integration/palette_names.hpp`
 

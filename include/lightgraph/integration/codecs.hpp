@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../../src/runtime/LayerJsonCodec.h"
-#include "../../../src/topology/TopologyJsonCodec.h"
+#include "src/runtime/LayerJsonCodec.h"
+#include "src/topology/TopologyJsonCodec.h"
 
 /**
  * @file codecs.hpp

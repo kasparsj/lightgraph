@@ -33,7 +33,7 @@ ColorRGB Light::getPixelColor() const {
     if (brightness == 255) {
         return color;
     }
-    return color.Dim(brightness);
+    return color.dim(brightness);
 }
 
 void Light::nextFrame() {
