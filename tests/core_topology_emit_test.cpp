@@ -110,6 +110,16 @@ Port* portAtIntersection(Connection* connection, const Intersection* intersectio
     return nullptr;
 }
 
+Port* findPortByConnectionLength(const Intersection& intersection, uint16_t numLeds) {
+    for (uint8_t i = 0; i < intersection.numPorts; ++i) {
+        Port* port = intersection.ports[i];
+        if (port != nullptr && port->connection != nullptr && port->connection->numLeds == numLeds) {
+            return port;
+        }
+    }
+    return nullptr;
+}
+
 uint16_t countLitPixels(State& state, uint16_t startInclusive, uint16_t endExclusive) {
     uint16_t lit = 0;
     for (uint16_t pixel = startInclusive; pixel < endExclusive; ++pixel) {
@@ -124,6 +134,35 @@ void advanceFrame(State& state, unsigned long deltaMillis = 16) {
     gMillis += deltaMillis;
     state.update();
 }
+
+class NoMirrorObject : public TopologyObject {
+  public:
+    explicit NoMirrorObject(uint16_t pixelCount) : TopologyObject(pixelCount) {
+        addModel(new Model(0, pixelCount, GROUP1));
+    }
+
+    uint16_t* getMirroredPixels(uint16_t, Owner*, bool) override {
+        mirroredPixels_[0] = 0;
+        return mirroredPixels_;
+    }
+
+    EmitParams getModelParams(int model) const override {
+        return EmitParams(model % 1, 0.0f);
+    }
+
+  private:
+    uint16_t mirroredPixels_[2] = {0};
+};
+
+class GradientRuntimeList : public LightList {
+  public:
+    ColorRGB getColor(int16_t pixel = -1) const override {
+        if (pixel <= 0) {
+            return ColorRGB(200, 0, 0);
+        }
+        return ColorRGB(0, 0, 200);
+    }
+};
 
 } // namespace
 
@@ -383,6 +422,200 @@ int main() {
             return fail("Connection emit offset should shift away from the unshifted origin pixel");
         }
     }
+
+    // Fractional connection rendering should either split across neighboring LEDs or remain snapped
+    // in compatibility builds.
+    {
+        Line line(30);
+        State state(line);
+        state.lightLists[0]->visible = false;
+
+        const int physicalConnectionIndex = findPhysicalConnectionIndex(line);
+        if (physicalConnectionIndex < 0) {
+            return fail("Unable to resolve physical line connection for fractional connection test");
+        }
+
+        EmitParams params(L_BOUNCE, 0.0f, 0x00CC00);
+        params.setLength(1);
+        params.linked = false;
+        params.behaviourFlags = B_EMIT_FROM_CONN;
+        params.from = physicalConnectionIndex;
+
+        const int8_t listIndex = state.emit(params);
+        if (listIndex < 0) {
+            return fail("Line fractional connection emit failed unexpectedly");
+        }
+        advanceFrame(state);
+
+        LightList* list = state.lightLists[listIndex];
+        RuntimeLight* light = (list != nullptr) ? list->lights[0] : nullptr;
+        Connection* connection = line.getConnection(static_cast<uint8_t>(physicalConnectionIndex), GROUP1);
+        if (light == nullptr || connection == nullptr) {
+            return fail("Fractional connection test fixture is incomplete");
+        }
+
+        light->owner = connection;
+        light->position = 5.25f;
+        light->setOutPort(connection->fromPort, static_cast<int8_t>(connection->from->id));
+        state.update();
+
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+        if (!isApproxColor(state.getPixel(6), 0, 153, 0, 1) ||
+            !isApproxColor(state.getPixel(7), 0, 51, 0, 1)) {
+            return fail("Fractional connection rendering should split 75/25 across adjacent LEDs");
+        }
+#else
+        if (!isApproxColor(state.getPixel(6), 0, 204, 0, 1) || isNonBlack(state.getPixel(7))) {
+            return fail("Compatibility build should keep fractional connection positions snapped");
+        }
+#endif
+
+        light->owner = connection;
+        light->position = 5.0f;
+        light->setOutPort(connection->fromPort, static_cast<int8_t>(connection->from->id));
+        state.update();
+
+        if (!isApproxColor(state.getPixel(6), 0, 204, 0, 1) || isNonBlack(state.getPixel(7))) {
+            return fail("Exact integer connection positions should render on a single LED");
+        }
+    }
+
+    // Fractional intersection handoff should either blend into the first outgoing LED or remain snapped
+    // in compatibility and unsupported-port cases.
+    {
+        Line line(30);
+        State state(line);
+        state.lightLists[0]->visible = false;
+
+        EmitParams params(L_BOUNCE, 0.0f, 0xCC2200);
+        params.setLength(1);
+        params.linked = false;
+        params.from = findIntersectionIndexByTopPixel(line, 0);
+        if (params.from < 0) {
+            return fail("Unable to resolve line intersection for fractional handoff test");
+        }
+
+        const int8_t listIndex = state.emit(params);
+        if (listIndex < 0) {
+            return fail("Line fractional handoff emit failed unexpectedly");
+        }
+        advanceFrame(state);
+
+        LightList* list = state.lightLists[listIndex];
+        RuntimeLight* light = (list != nullptr) ? list->lights[0] : nullptr;
+        Intersection* source = findIntersectionByTopPixel(line, 0);
+        if (light == nullptr || source == nullptr) {
+            return fail("Fractional handoff test fixture is incomplete");
+        }
+
+        Port* physicalPort =
+            findPortByConnectionLength(*source, static_cast<uint16_t>(line.pixelCount - 3));
+        if (physicalPort == nullptr) {
+            return fail("Unable to resolve outgoing physical port for fractional handoff test");
+        }
+
+        light->owner = source;
+        light->position = 0.25f;
+        light->setOutPort(physicalPort, static_cast<int8_t>(source->id));
+        state.update();
+
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+        if (!isApproxColor(state.getPixel(0), 153, 25, 0, 1) ||
+            !isApproxColor(state.getPixel(1), 51, 8, 0, 1)) {
+            return fail("Fractional intersection handoff should split between the node and first LED");
+        }
+#else
+        if (!isApproxColor(state.getPixel(0), 204, 34, 0, 1) || isNonBlack(state.getPixel(1))) {
+            return fail("Compatibility build should keep fractional handoff snapped to the intersection");
+        }
+#endif
+
+        Port* zeroLengthPort = findPortByConnectionLength(*source, 0);
+        if (zeroLengthPort == nullptr) {
+            return fail("Unable to resolve zero-length port for fractional handoff fallback test");
+        }
+
+        light->owner = source;
+        light->position = 0.5f;
+        light->setOutPort(zeroLengthPort, static_cast<int8_t>(source->id));
+        state.update();
+
+        if (!isApproxColor(state.getPixel(0), 204, 34, 0, 1) || isNonBlack(state.getPixel(1))) {
+            return fail("Zero-length outgoing ports should keep intersection rendering snapped");
+        }
+    }
+
+    // External outgoing ports should keep the intersection render snapped even when fractional
+    // rendering is enabled.
+    {
+        NoMirrorObject object(12);
+        Intersection* intersection = object.addIntersection(new Intersection(2, 3, -1, GROUP1));
+        if (intersection == nullptr) {
+            return fail("Failed to create external-port handoff fixture");
+        }
+        const uint8_t device[6] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB};
+        ExternalPort* externalPort = object.addExternalPort(intersection, 0, false, GROUP1, device, 9);
+        if (externalPort == nullptr) {
+            return fail("Failed to create external port for handoff fallback test");
+        }
+
+        State state(object);
+        state.lightLists[0]->visible = false;
+
+        EmitParams params(0, 0.0f, 0x33AA55);
+        params.setLength(1);
+        params.linked = false;
+        params.from = 0;
+
+        const int8_t listIndex = state.emit(params);
+        if (listIndex < 0) {
+            return fail("External-port handoff emit failed unexpectedly");
+        }
+        advanceFrame(state);
+
+        LightList* list = state.lightLists[listIndex];
+        RuntimeLight* light = (list != nullptr) ? list->lights[0] : nullptr;
+        if (light == nullptr) {
+            return fail("External-port handoff light fixture is missing");
+        }
+
+        light->owner = intersection;
+        light->position = 0.5f;
+        light->setOutPort(externalPort, static_cast<int8_t>(intersection->id));
+        state.update();
+
+        if (!isApproxColor(state.getPixel(3), 0x33, 0xAA, 0x55, 1) || countLitPixels(state, 0, 12) != 1) {
+            return fail("External outgoing ports should keep intersection rendering snapped");
+        }
+    }
+
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    // RuntimeLight split rendering should sample each target pixel's color independently.
+    {
+        NoMirrorObject object(2);
+        State state(object);
+        state.lightLists[0]->visible = false;
+
+        GradientRuntimeList list;
+        list.setup(1, 255);
+        list.speed = 0.0f;
+        list.lifeMillis = INFINITE_DURATION;
+
+        RuntimeLight* light = list[0];
+        if (light == nullptr) {
+            return fail("Gradient runtime-light fixture did not allocate a light");
+        }
+        light->brightness = 255;
+        light->setRenderedPixels(0, 1, 128);
+
+        state.updateLight(light);
+
+        if (!isApproxColor(state.getPixel(0), 100, 0, 0, 1) ||
+            !isApproxColor(state.getPixel(1), 0, 0, 100, 1)) {
+            return fail("Split RuntimeLight rendering should sample color from each target pixel");
+        }
+    }
+#endif
 
     // Emit scenario: render-segment mode should paint the full connection span (including endpoints).
     {

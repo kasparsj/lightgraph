@@ -85,6 +85,16 @@
         "LIGHTGRAPH_CORE_BUILD_EXAMPLES": "OFF",
         "LIGHTGRAPH_CORE_ENABLE_COVERAGE": "ON"
       }
+    },
+    {
+      "name": "fractional-off",
+      "displayName": "Fractional Rendering Off",
+      "description": "Compatibility profile with snapped LED rendering",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/preset-fractional-off",
+      "cacheVariables": {
+        "LIGHTGRAPH_CORE_ENABLE_FRACTIONAL_RENDERING": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -118,6 +128,10 @@
     {
       "name": "coverage",
       "configurePreset": "coverage"
+    },
+    {
+      "name": "fractional-off",
+      "configurePreset": "fractional-off"
     }
   ],
   "testPresets": [
@@ -155,6 +169,13 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "fractional-off",
+      "configurePreset": "fractional-off",
       "output": {
         "outputOnFailure": true
       }

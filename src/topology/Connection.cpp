@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <math.h>
 #include "Connection.h"
 #include "Intersection.h"
@@ -160,14 +161,46 @@ bool Connection::render(RuntimeLight* const light) const {
     // handle float inprecision
     float pos = round(light->position * 1000) / 1000.0;
     if (numLeds > 0 && pos < numLeds) {
-        pos = ofxeasing::map(light->position, 0, numLeds, 0, numLeds, light->getEasing());
+        const float coordRaw = ofxeasing::map(light->position, 0, numLeds, 0, numLeds, light->getEasing());
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+        const float maxCoord = std::nextafter(static_cast<float>(numLeds), 0.0f);
+        const float coord = std::clamp(coordRaw, 0.0f, maxCoord);
+        const int32_t logicalIndex = std::clamp<int32_t>(
+            static_cast<int32_t>(floor(coord)),
+            0,
+            static_cast<int32_t>(numLeds) - 1);
+        const float frac = coord - static_cast<float>(logicalIndex);
+        const bool reverseDirection = light->outPort->direction;
+
+        const auto physicalIndexForLogical = [this, reverseDirection](int32_t logical) -> int32_t {
+            return reverseDirection ? static_cast<int32_t>(numLeds) - logical - 1 : logical;
+        };
+
+        const int32_t primaryPhysicalIndex = physicalIndexForLogical(logicalIndex);
+        const uint16_t primaryPixel = getPixel(static_cast<uint16_t>(primaryPhysicalIndex));
+
+        const int32_t nextLogicalIndex = logicalIndex + 1;
+        if (nextLogicalIndex >= static_cast<int32_t>(numLeds)) {
+            light->setRenderedPixel(primaryPixel);
+            return true;
+        }
+
+        const uint8_t secondaryWeight = static_cast<uint8_t>(std::clamp<int32_t>(
+            static_cast<int32_t>(round(frac * FULL_BRIGHTNESS)),
+            0,
+            FULL_BRIGHTNESS));
+        const uint16_t secondaryPixel =
+            getPixel(static_cast<uint16_t>(physicalIndexForLogical(nextLogicalIndex)));
+        light->setRenderedPixels(primaryPixel, secondaryPixel, secondaryWeight);
+#else
         const float led_idx =
-            light->outPort->direction ? ceil((float) numLeds - pos - 1.0) : floor(pos);
+            light->outPort->direction ? ceil((float) numLeds - coordRaw - 1.0f) : floor(coordRaw);
         const int32_t clamped_led_idx = std::clamp<int32_t>(
             static_cast<int32_t>(led_idx),
             0,
             static_cast<int32_t>(numLeds) - 1);
-        light->pixel1 = getPixel(static_cast<uint16_t>(clamped_led_idx));
+        light->setRenderedPixel(getPixel(static_cast<uint16_t>(clamped_led_idx)));
+#endif
         return true;
     }
     return false;

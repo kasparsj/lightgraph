@@ -42,6 +42,7 @@ class Light : public RuntimeLight {
     }
 
     uint8_t getBrightness() const;
+    ColorRGB getPixelColorAt(int16_t pixel) const override;
     ColorRGB getPixelColor() const;
     void nextFrame();
     bool shouldExpire() const;

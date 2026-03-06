@@ -78,7 +78,11 @@ target_link_libraries(your_target PRIVATE lightgraph::lightgraph)
 - `LIGHTGRAPH_CORE_ENABLE_ASAN` (default: `OFF`)
 - `LIGHTGRAPH_CORE_ENABLE_UBSAN` (default: `OFF`)
 - `LIGHTGRAPH_CORE_ENABLE_COVERAGE` (default: `OFF`)
+- `LIGHTGRAPH_CORE_ENABLE_FRACTIONAL_RENDERING` (default: `ON`)
 - `LIGHTGRAPH_CORE_ENABLE_LEGACY_INCLUDE_PATHS` (default: `OFF`)
+
+Non-CMake integrations can disable the same feature by defining
+`LIGHTGRAPH_FRACTIONAL_RENDERING=0` when compiling Lightgraph sources.
 
 ## Package Distribution
 

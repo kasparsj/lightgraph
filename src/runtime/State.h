@@ -69,6 +69,7 @@ class State {
   private:
     void doEmit(Owner* from, LightList *lightList, EmitParams& params);
     void updatePass(bool renderStep);
+    void setPixelsWeighted(uint16_t pixel, const ColorRGB& color, const LightList* const lightList, uint8_t weight);
     void setPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
     void setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList);
 

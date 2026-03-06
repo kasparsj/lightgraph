@@ -30,6 +30,10 @@ uint8_t Light::getBrightness() const {
 }
 
 ColorRGB Light::getPixelColor() const {
+    return getPixelColorAt(pixel1);
+}
+
+ColorRGB Light::getPixelColorAt(int16_t /*pixel*/) const {
     if (brightness == 255) {
         return color;
     }

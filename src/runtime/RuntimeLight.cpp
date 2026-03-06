@@ -9,8 +9,44 @@ uint16_t RuntimeLight::pixels[CONNECTION_MAX_LEDS] = {0};
 
 void RuntimeLight::resetPixels() {
   pixel1 = -1;
-  // pixel2 = -1;
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+  pixel2 = -1;
+  pixel2Weight = 0;
+#endif
 }
+
+void RuntimeLight::setRenderedPixel(uint16_t pixel) {
+  pixel1 = static_cast<int16_t>(pixel);
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+  pixel2 = -1;
+  pixel2Weight = 0;
+#endif
+}
+
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+void RuntimeLight::setRenderedPixels(uint16_t primaryPixel,
+                                     uint16_t secondaryPixel,
+                                     uint8_t secondaryWeight) {
+  pixel1 = static_cast<int16_t>(primaryPixel);
+  if (secondaryWeight == 0 || primaryPixel == secondaryPixel) {
+    pixel2 = -1;
+    pixel2Weight = 0;
+    return;
+  }
+
+  pixel2 = static_cast<int16_t>(secondaryPixel);
+  pixel2Weight = secondaryWeight;
+}
+
+bool RuntimeLight::hasSecondaryPixel() const {
+  return pixel2 >= 0 && pixel2Weight > 0;
+}
+
+uint8_t RuntimeLight::getPrimaryPixelWeight() const {
+  return hasSecondaryPixel() ? static_cast<uint8_t>(FULL_BRIGHTNESS - pixel2Weight)
+                             : FULL_BRIGHTNESS;
+}
+#endif
 
 Port* RuntimeLight::getOutPort(uint8_t intersectionId) const {
   for (uint8_t i=0; i<OUT_PORTS_MEMORY; i++) {
@@ -62,11 +98,15 @@ uint8_t RuntimeLight::getBrightness() const {
     return 0;
 }
 
-ColorRGB RuntimeLight::getPixelColor() const {
+ColorRGB RuntimeLight::getPixelColorAt(int16_t pixel) const {
     if (brightness == 255) {
-        return list->getColor(pixel1);
+        return list->getColor(pixel);
     }
-    return list->getColor(pixel1).dim(brightness);
+    return list->getColor(pixel).dim(brightness);
+}
+
+ColorRGB RuntimeLight::getPixelColor() const {
+    return getPixelColorAt(pixel1);
 }
 
 uint16_t* RuntimeLight::getPixels() {

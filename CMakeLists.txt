@@ -12,6 +12,7 @@ option(LIGHTGRAPH_CORE_BUILD_DOCS "Build Lightgraph Doxygen docs target" OFF)
 option(LIGHTGRAPH_CORE_ENABLE_ASAN "Enable AddressSanitizer for host builds" OFF)
 option(LIGHTGRAPH_CORE_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer for host builds" OFF)
 option(LIGHTGRAPH_CORE_ENABLE_COVERAGE "Enable gcov/llvm-cov coverage instrumentation" OFF)
+option(LIGHTGRAPH_CORE_ENABLE_FRACTIONAL_RENDERING "Enable fractional subpixel rendering for simple moving lights" ON)
 option(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings and treat warnings as errors" OFF)
 option(
   LIGHTGRAPH_CORE_ENABLE_LEGACY_INCLUDE_PATHS
@@ -104,6 +105,12 @@ add_library(lightgraph::lightgraph ALIAS lightgraph)
 # Source-tree compatibility alias.
 add_library(lightgraph_core ALIAS lightgraph)
 set_target_properties(lightgraph PROPERTIES EXPORT_NAME lightgraph)
+
+target_compile_definitions(
+  lightgraph
+  PUBLIC
+    LIGHTGRAPH_FRACTIONAL_RENDERING=$<IF:$<BOOL:${LIGHTGRAPH_CORE_ENABLE_FRACTIONAL_RENDERING}>,1,0>
+)
 
 target_include_directories(
   lightgraph

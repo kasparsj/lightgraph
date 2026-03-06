@@ -280,9 +280,9 @@ void State::updatePass(bool renderStep) {
 }
 
 void State::updateLight(RuntimeLight* light) {
-    ColorRGB color = light->getPixelColor();
     // todo: perhaps it's OK to always retrieve pixels
     if (light->list->behaviour != NULL && (light->list->behaviour->renderSegment() || light->list->behaviour->fillEase())) {
+      ColorRGB color = light->getPixelColor();
       uint16_t* pixels = light->getPixels();
       if (pixels != NULL) {
         // first value is length
@@ -293,7 +293,23 @@ void State::updateLight(RuntimeLight* light) {
       }
     }
     else if (light->pixel1 >= 0) {
-      setPixels(light->pixel1, color, light->list);
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+      setPixelsWeighted(
+          static_cast<uint16_t>(light->pixel1),
+          light->getPixelColorAt(light->pixel1),
+          light->list,
+          light->getPrimaryPixelWeight());
+      if (light->hasSecondaryPixel()) {
+        setPixelsWeighted(
+            static_cast<uint16_t>(light->pixel2),
+            light->getPixelColorAt(light->pixel2),
+            light->list,
+            light->pixel2Weight);
+      }
+#else
+      ColorRGB color = light->getPixelColor();
+      setPixels(static_cast<uint16_t>(light->pixel1), color, light->list);
+#endif
     }
     light->nextFrame();
 }
@@ -318,6 +334,26 @@ ColorRGB State::getPixel(uint16_t i, uint8_t maxBrightness) {
     color.B = static_cast<uint8_t>((clampedB * maxBrightness + 127u) / 255u);
   }
   return color;
+}
+
+void State::setPixelsWeighted(uint16_t pixel,
+                              const ColorRGB& color,
+                              const LightList* const lightList,
+                              uint8_t weight) {
+    if (weight == 0) {
+        return;
+    }
+    if (weight == FULL_BRIGHTNESS) {
+        ColorRGB fullColor = color;
+        setPixels(pixel, fullColor, lightList);
+        return;
+    }
+
+    ColorRGB weightedColor = color.dim(weight);
+    if (weightedColor.R == 0 && weightedColor.G == 0 && weightedColor.B == 0) {
+        return;
+    }
+    setPixels(pixel, weightedColor, lightList);
 }
 
 void State::setPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {

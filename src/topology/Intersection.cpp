@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cmath>
+
 #include "Intersection.h"
 #include "Connection.h"
 #include "Model.h"
@@ -112,7 +115,23 @@ void Intersection::update(RuntimeLight* const light) const {
             light->setOutPort(port, id);
         }
         if (light->position >= 0.f && light->position < 1.f) { // render
-            light->pixel1 = topPixel;
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+            if (port != nullptr && !port->isExternal() && port->connection != nullptr &&
+                port->connection->numLeds > 0) {
+                const uint16_t adjacentPixel = port->direction
+                    ? port->connection->getPixel(static_cast<uint16_t>(port->connection->numLeds - 1))
+                    : port->connection->getPixel(0);
+                const uint8_t secondaryWeight = static_cast<uint8_t>(std::clamp<int32_t>(
+                    static_cast<int32_t>(round(light->position * FULL_BRIGHTNESS)),
+                    0,
+                    FULL_BRIGHTNESS));
+                light->setRenderedPixels(topPixel, adjacentPixel, secondaryWeight);
+            } else {
+                light->setRenderedPixel(topPixel);
+            }
+#else
+            light->setRenderedPixel(topPixel);
+#endif
             // Start remote sequential forwarding as soon as the leading light reaches
             // the outgoing intersection pixel, so local and remote tails overlap.
             tryForwardSequentialBatchAtExternalPort(light, port);

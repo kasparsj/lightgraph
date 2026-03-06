@@ -23,6 +23,10 @@ class RuntimeLight
     Port *outPorts[OUT_PORTS_MEMORY] = {0}; // 4 bytes * 7
     int8_t outPortsInt[OUT_PORTS_MEMORY] = {-1};
     int16_t pixel1 = -1;
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    int16_t pixel2 = -1;
+    uint8_t pixel2Weight = 0;
+#endif
     bool isExpired = false;
     float position;
     uint16_t bri = 255;
@@ -57,9 +61,16 @@ class RuntimeLight
     virtual ColorRGB getColor() const;
     virtual void setColor(ColorRGB /*color*/) {}
     virtual uint8_t getBrightness() const;
+    virtual ColorRGB getPixelColorAt(int16_t pixel) const;
     virtual ColorRGB getPixelColor() const;
     uint16_t* getPixels();
     uint16_t getListId() const;
+    void setRenderedPixel(uint16_t pixel);
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    void setRenderedPixels(uint16_t primaryPixel, uint16_t secondaryPixel, uint8_t secondaryWeight);
+    bool hasSecondaryPixel() const;
+    uint8_t getPrimaryPixelWeight() const;
+#endif
 
   private:
     void setPixel1();
