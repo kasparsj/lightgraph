@@ -73,6 +73,10 @@ class RuntimeLight
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
     void setRenderedPixelWeighted(uint16_t pixel, uint8_t weight);
     void setRenderedPixels(uint16_t primaryPixel, uint16_t secondaryPixel, uint8_t secondaryWeight);
+    void setRenderedPixelsWeighted(uint16_t primaryPixel,
+                                   uint8_t primaryWeight,
+                                   uint16_t secondaryPixel,
+                                   uint8_t secondaryWeight);
     bool hasSecondaryPixel() const;
     uint8_t getPrimaryPixelWeight() const;
 #endif

@@ -34,6 +34,7 @@ inline void normalizeSnapshotList(LightList* list) {
         return;
     }
 
+    list->compensateHiddenIngressContinuity = true;
     for (uint16_t i = 0; i < list->numLights; i++) {
         RuntimeLight* light = (*list)[i];
         if (light == nullptr) {
@@ -52,10 +53,13 @@ inline bool activateList(State& state, Owner& emitter, LightList* list, uint8_t 
     if (list == nullptr) {
         return false;
     }
+    list->compensateHiddenIngressContinuity = true;
     if (normalizeSnapshot) {
         normalizeSnapshotList(list);
     }
-    state.activateList(&emitter, list, emitOffset, false);
+    const uint8_t replayEmitOffset =
+        (normalizeSnapshot && emitOffset == 0 && list->length > 1) ? static_cast<uint8_t>(1) : emitOffset;
+    state.activateList(&emitter, list, replayEmitOffset, false);
     return true;
 }
 

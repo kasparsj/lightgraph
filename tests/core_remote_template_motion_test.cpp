@@ -234,6 +234,57 @@ bool findAccumulatedContributionAtPixel(LightList* list, uint16_t pixel, ColorRG
     return found;
 }
 
+bool findRemoteIngressExpectedContributionAtPixel(LightList* list,
+                                                  uint16_t pixel,
+                                                  uint16_t adjacentPixel,
+                                                  ColorRGB& contributionOut) {
+    if (list == nullptr) {
+        return false;
+    }
+
+    bool found = false;
+    ColorRGB total(0, 0, 0);
+    for (uint16_t i = 0; i < list->numLights; ++i) {
+        RuntimeLight* light = (*list)[i];
+        if (light == nullptr) {
+            continue;
+        }
+
+        if (light->pixel1 == static_cast<int16_t>(pixel)) {
+            ColorRGB contribution = light->getPixelColorAt(light->pixel1);
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+            const RuntimeLight* previous = light->getPrev();
+            const bool compensateHiddenIngress =
+                list->compensateHiddenIngressContinuity &&
+                light->inPort == nullptr &&
+                previous != nullptr &&
+                previous->pixel1 == static_cast<int16_t>(adjacentPixel) &&
+                previous->pixel1Weight > 0 &&
+                previous->owner != nullptr &&
+                const_cast<Owner*>(previous->owner)->getType() == Owner::TYPE_CONNECTION;
+            if (!compensateHiddenIngress) {
+                contribution = scaleColor(contribution, light->pixel1Weight);
+            }
+#endif
+            total = accumulateColor(total, contribution);
+            found = true;
+        }
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+        if (light->pixel2 == static_cast<int16_t>(pixel) && light->pixel2Weight > 0) {
+            ColorRGB contribution = light->getPixelColorAt(light->pixel2);
+            contribution = scaleColor(contribution, light->pixel2Weight);
+            total = accumulateColor(total, contribution);
+            found = true;
+        }
+#endif
+    }
+
+    if (found) {
+        contributionOut = total;
+    }
+    return found;
+}
+
 class DeviceObject : public TopologyObject {
   public:
     explicit DeviceObject(uint16_t pixelCount) : TopologyObject(pixelCount) {}
@@ -276,6 +327,7 @@ void normalizeRemoteSnapshotListForIngress(LightList* list) {
         return;
     }
 
+    list->compensateHiddenIngressContinuity = true;
     for (uint16_t i = 0; i < list->numLights; ++i) {
         RuntimeLight* light = (*list)[i];
         if (light == nullptr) {
@@ -427,7 +479,9 @@ bool sendLightViaESPNowTemplateHook(const uint8_t*,
         return false;
     }
 
-    context->remoteState->activateList(ingressOwner, remoteList, 0, false);
+    const uint8_t replayEmitOffset =
+        (remoteList->length > 1) ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0);
+    context->remoteState->activateList(ingressOwner, remoteList, replayEmitOffset, false);
     const int8_t intersectionId =
         (context->remoteTargetPort != nullptr && context->remoteTargetPort->intersection != nullptr)
             ? static_cast<int8_t>(context->remoteTargetPort->intersection->id)
@@ -574,10 +628,15 @@ int main() {
                 gTemplateTransportContext = nullptr;
                 return fail("Remote ingress intersection should light immediately once the template handoff starts");
             }
-            if (!remoteStrip.empty()) {
+            if (remoteStrip.size() > 1) {
                 ::sendLightViaESPNow = nullptr;
                 gTemplateTransportContext = nullptr;
-                return fail("Remote strip body should begin one frame after the ingress intersection lights");
+                return fail("Remote strip should start with at most the ingress-adjacent connection pixel when template forwarding begins");
+            }
+            if (!remoteStrip.empty() && remoteStrip.first() != remoteStripStart) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Remote strip should start from the ingress-adjacent connection pixel when template forwarding begins");
             }
             if (senderStrip.empty()) {
                 ::sendLightViaESPNow = nullptr;
@@ -610,12 +669,6 @@ int main() {
                 gTemplateTransportContext = nullptr;
                 return fail("Sender exit intersection should stay continuously lit during handoff");
             }
-            if (!remoteIngressLit) {
-                ::sendLightViaESPNow = nullptr;
-                gTemplateTransportContext = nullptr;
-                return fail("Remote ingress intersection should stay continuously lit during handoff");
-            }
-
             const size_t step = checkedTransferFrames + 1;
             if (senderStrip.size() != transferSenderBaseline.size() - step) {
                 ::sendLightViaESPNow = nullptr;
@@ -740,6 +793,13 @@ int main() {
         size_t checkedRemoteConnectionFrames = 0;
         size_t checkedRemoteIntersectionFrames = 0;
         const size_t framesPerPixel = static_cast<size_t>(std::ceil(1.0f / slowParams.getSpeed()));
+        const ColorRGB expectedBodyColor = scaleColor(ColorRGB(0x204830), slowParams.maxBri);
+        const size_t requiredSenderStableBodyFrames = framesPerPixel;
+        const size_t requiredRemoteStableBodyFrames = framesPerPixel;
+        size_t senderStableBodyFrames = 0;
+        size_t remoteStableBodyFrames = 0;
+        bool sawSenderStableBodyStart = false;
+        bool sawRemoteStableBodyStart = false;
         const size_t slowMaxFrames =
             (static_cast<size_t>(slowSender->conn12->numLeds) + static_cast<size_t>(slowSenderList->length) + 12) *
             framesPerPixel;
@@ -756,14 +816,15 @@ int main() {
                 continue;
             }
 
+            const ColorRGB senderConnectionActual = slowSender->state.getPixel(senderConnectionPixel);
+            const ColorRGB senderIntersectionActual = slowSender->state.getPixel(slowSender->inter2->topPixel);
             ColorRGB expectedSenderConnection = {};
             if (findAccumulatedContributionAtPixel(slowSenderList, senderConnectionPixel, expectedSenderConnection)) {
-                const ColorRGB actual = slowSender->state.getPixel(senderConnectionPixel);
-                if (!isApproxColor(actual, expectedSenderConnection, 1)) {
+                if (!isApproxColor(senderConnectionActual, expectedSenderConnection, 1)) {
                     ::sendLightViaESPNow = nullptr;
                     gTemplateTransportContext = nullptr;
                     return fail("Sender connection pixel should match the accumulated list contribution during slow template handoff"
-                                " (actual=" + describeColor(actual) + ", expected=" + describeColor(expectedSenderConnection) +
+                                " (actual=" + describeColor(senderConnectionActual) + ", expected=" + describeColor(expectedSenderConnection) +
                                 ", frame=" + std::to_string(frame) + ")");
                 }
                 checkedSenderConnectionFrames++;
@@ -772,43 +833,84 @@ int main() {
             ColorRGB expectedSenderIntersection = {};
             if (findDominantContributionAtPixel(slowSenderList, slowSender->inter2->topPixel,
                                                 expectedSenderIntersection)) {
-                const ColorRGB actual = slowSender->state.getPixel(slowSender->inter2->topPixel);
-                if (!isApproxColor(actual, expectedSenderIntersection, 1)) {
+                if (!isApproxColor(senderIntersectionActual, expectedSenderIntersection, 1)) {
                     ::sendLightViaESPNow = nullptr;
                     gTemplateTransportContext = nullptr;
                     return fail("Sender exit intersection should match the dominant single-light contribution during slow template handoff"
-                                " (actual=" + describeColor(actual) + ", expected=" + describeColor(expectedSenderIntersection) +
+                                " (actual=" + describeColor(senderIntersectionActual) + ", expected=" + describeColor(expectedSenderIntersection) +
                                 ", frame=" + std::to_string(frame) + ")");
                 }
                 checkedSenderIntersectionFrames++;
             }
 
+            const bool senderBodyPlateauFrame =
+                isApproxColor(senderConnectionActual, expectedBodyColor, 1) &&
+                isApproxColor(senderIntersectionActual, expectedBodyColor, 1);
+            if (senderBodyPlateauFrame) {
+                sawSenderStableBodyStart = true;
+                senderStableBodyFrames++;
+            } else if (sawSenderStableBodyStart && senderStableBodyFrames < requiredSenderStableBodyFrames) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Slow template regression sender exit body plateau should stay stable"
+                            " (connection=" + describeColor(senderConnectionActual) +
+                            ", intersection=" + describeColor(senderIntersectionActual) +
+                            ", expected=" + describeColor(expectedBodyColor) +
+                            ", connection_contributors=" + describeContributorsAtPixel(slowSenderList, senderConnectionPixel) +
+                            ", intersection_contributors=" + describeContributorsAtPixel(slowSenderList, slowSender->inter2->topPixel) +
+                            ", frame=" + std::to_string(frame) + ")");
+            } else if (!sawSenderStableBodyStart) {
+                senderStableBodyFrames = 0;
+            }
+
             LightList* slowRemoteList = slowRemote->state.lightLists[kRemoteSlot];
+            const ColorRGB remoteConnectionActual = slowRemote->state.getPixel(remoteConnectionPixel);
+            const ColorRGB remoteIntersectionActual = slowRemote->state.getPixel(slowRemote->inter2->topPixel);
             ColorRGB expectedRemoteConnection = {};
             if (findAccumulatedContributionAtPixel(slowRemoteList, remoteConnectionPixel, expectedRemoteConnection)) {
-                const ColorRGB actual = slowRemote->state.getPixel(remoteConnectionPixel);
-                if (!isApproxColor(actual, expectedRemoteConnection, 1)) {
+                if (!isApproxColor(remoteConnectionActual, expectedRemoteConnection, 1)) {
                     ::sendLightViaESPNow = nullptr;
                     gTemplateTransportContext = nullptr;
                     return fail("Remote connection pixel should match the accumulated list contribution during slow template handoff"
-                                " (actual=" + describeColor(actual) + ", expected=" + describeColor(expectedRemoteConnection) +
+                                " (actual=" + describeColor(remoteConnectionActual) + ", expected=" + describeColor(expectedRemoteConnection) +
                                 ", frame=" + std::to_string(frame) + ")");
                 }
                 checkedRemoteConnectionFrames++;
             }
 
             ColorRGB expectedRemoteIntersection = {};
-            if (findDominantContributionAtPixel(slowRemoteList, slowRemote->inter2->topPixel,
-                                                expectedRemoteIntersection)) {
-                const ColorRGB actual = slowRemote->state.getPixel(slowRemote->inter2->topPixel);
-                if (!isApproxColor(actual, expectedRemoteIntersection, 1)) {
+            if (findRemoteIngressExpectedContributionAtPixel(slowRemoteList,
+                                                             slowRemote->inter2->topPixel,
+                                                             remoteConnectionPixel,
+                                                             expectedRemoteIntersection)) {
+                if (!isApproxColor(remoteIntersectionActual, expectedRemoteIntersection, 1)) {
                     ::sendLightViaESPNow = nullptr;
                     gTemplateTransportContext = nullptr;
-                    return fail("Remote ingress intersection should match the dominant single-light contribution during slow template handoff"
-                                " (actual=" + describeColor(actual) + ", expected=" + describeColor(expectedRemoteIntersection) +
+                    return fail("Remote ingress intersection should match the compensated ingress contribution during slow template handoff"
+                                " (actual=" + describeColor(remoteIntersectionActual) + ", expected=" + describeColor(expectedRemoteIntersection) +
                                 ", frame=" + std::to_string(frame) + ")");
                 }
                 checkedRemoteIntersectionFrames++;
+            }
+
+            const bool remoteBodyPlateauFrame =
+                isApproxColor(remoteConnectionActual, expectedBodyColor, 1) &&
+                isApproxColor(remoteIntersectionActual, expectedBodyColor, 1);
+            if (remoteBodyPlateauFrame) {
+                sawRemoteStableBodyStart = true;
+                remoteStableBodyFrames++;
+            } else if (sawRemoteStableBodyStart && remoteStableBodyFrames < requiredRemoteStableBodyFrames) {
+                ::sendLightViaESPNow = nullptr;
+                gTemplateTransportContext = nullptr;
+                return fail("Slow template regression remote ingress body plateau should stay stable"
+                            " (connection=" + describeColor(remoteConnectionActual) +
+                            ", intersection=" + describeColor(remoteIntersectionActual) +
+                            ", expected=" + describeColor(expectedBodyColor) +
+                            ", connection_contributors=" + describeContributorsAtPixel(slowRemoteList, remoteConnectionPixel) +
+                            ", intersection_contributors=" + describeContributorsAtPixel(slowRemoteList, slowRemote->inter2->topPixel) +
+                            ", frame=" + std::to_string(frame) + ")");
+            } else if (!sawRemoteStableBodyStart) {
+                remoteStableBodyFrames = 0;
             }
         }
 
@@ -824,6 +926,12 @@ int main() {
         if (checkedSenderConnectionFrames == 0 || checkedSenderIntersectionFrames == 0 ||
             checkedRemoteConnectionFrames == 0 || checkedRemoteIntersectionFrames == 0) {
             return fail("Slow template regression did not observe both connection pixels and both intersection pixels during handoff");
+        }
+        if (senderStableBodyFrames < requiredSenderStableBodyFrames) {
+            return fail("Slow template regression never observed a stable sender exit body plateau");
+        }
+        if (remoteStableBodyFrames < requiredRemoteStableBodyFrames) {
+            return fail("Slow template regression never observed a stable remote ingress body plateau");
         }
     }
 

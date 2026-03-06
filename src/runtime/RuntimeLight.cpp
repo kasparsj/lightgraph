@@ -57,6 +57,22 @@ void RuntimeLight::setRenderedPixels(uint16_t primaryPixel,
   pixel2Weight = secondaryWeight;
 }
 
+void RuntimeLight::setRenderedPixelsWeighted(uint16_t primaryPixel,
+                                             uint8_t primaryWeight,
+                                             uint16_t secondaryPixel,
+                                             uint8_t secondaryWeight) {
+  pixel1 = static_cast<int16_t>(primaryPixel);
+  pixel1Weight = primaryWeight;
+  if (secondaryWeight == 0 || primaryPixel == secondaryPixel) {
+    pixel2 = -1;
+    pixel2Weight = 0;
+    return;
+  }
+
+  pixel2 = static_cast<int16_t>(secondaryPixel);
+  pixel2Weight = secondaryWeight;
+}
+
 bool RuntimeLight::hasSecondaryPixel() const {
   return pixel2 >= 0 && pixel2Weight > 0;
 }

@@ -34,6 +34,21 @@ void tryForwardSequentialBatchAtExternalPort(RuntimeLight* const light, Port* co
     }
 }
 
+bool shouldCompensateHiddenIngressContinuity(const RuntimeLight* light,
+                                             const Connection* connection,
+                                             uint16_t adjacentPixel) {
+    if (light == nullptr || connection == nullptr || light->list == nullptr ||
+        !light->list->compensateHiddenIngressContinuity || light->inPort != nullptr) {
+        return false;
+    }
+
+    const RuntimeLight* previous = light->getPrev();
+    return previous != nullptr &&
+           previous->owner == connection &&
+           previous->pixel1 == static_cast<int16_t>(adjacentPixel) &&
+           previous->pixel1Weight > 0;
+}
+
 }  // namespace
 
 Intersection::Intersection(uint8_t numPorts, uint16_t topPixel, int16_t bottomPixel, uint8_t group,
@@ -138,7 +153,20 @@ void Intersection::update(RuntimeLight* const light) const {
                     previous->pixel1 == static_cast<int16_t>(adjacentPixel) &&
                     previous->pixel1Weight > 0 &&
                     !previous->hasSecondaryPixel();
-                if (secondaryWeight > 0 && previousFullyOwnsAdjacentPixel) {
+                const bool compensateHiddenIngress =
+                    secondaryWeight > 0 &&
+                    shouldCompensateHiddenIngressContinuity(light, port->connection, adjacentPixel);
+                if (compensateHiddenIngress) {
+                    if (previousFullyOwnsAdjacentPixel) {
+                        light->setRenderedPixel(topPixel);
+                    } else {
+                        light->setRenderedPixelsWeighted(
+                            topPixel,
+                            FULL_BRIGHTNESS,
+                            adjacentPixel,
+                            secondaryWeight);
+                    }
+                } else if (secondaryWeight > 0 && previousFullyOwnsAdjacentPixel) {
                     light->setRenderedPixelWeighted(topPixel, primaryWeight);
                 } else {
                     light->setRenderedPixels(topPixel, adjacentPixel, secondaryWeight);
