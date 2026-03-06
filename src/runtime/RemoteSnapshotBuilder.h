@@ -87,38 +87,57 @@ using lightlist_build::sanitizePixelDensity;
 using lightlist_build::scaleLengthForDensity;
 using lightlist_build::scaleSpeedForDensity;
 
-inline bool hasRemoteSnapshotHeapBudget(uint16_t scaledNumLights,
-                                        size_t paletteStopCount,
-                                        LightgraphAllocationFailureSite failureSite) {
+struct RemoteSnapshotHeapBudget {
+  bool hasTotalHeap = true;
+  bool hasContiguousLightBlock = true;
+  uint32_t estimatedBytes = 0;
+  uint32_t requiredContiguousLightBytes = 0;
+};
+
+inline RemoteSnapshotHeapBudget assessRemoteSnapshotHeapBudget(uint16_t scaledNumLights,
+                                                               size_t paletteStopCount) {
+  RemoteSnapshotHeapBudget budget;
 #if defined(ARDUINO_ARCH_ESP32)
   constexpr uint32_t kHeapGuardBytes = 4096U;
   constexpr uint32_t kAllocatorOverheadBytes = 1024U;
-  constexpr uint32_t kLargestBlockGuardBytes = static_cast<uint32_t>(sizeof(Light)) + 128U;
+  constexpr uint32_t kLargestBlockGuardBytes = 256U;
   const uint32_t lightBytes = static_cast<uint32_t>(scaledNumLights) *
                               static_cast<uint32_t>(sizeof(Light) + sizeof(RuntimeLight*) + sizeof(ColorRGB));
   const uint32_t paletteBytes = static_cast<uint32_t>(paletteStopCount) *
                                 static_cast<uint32_t>(sizeof(int64_t) + sizeof(float));
-  const uint32_t estimatedBytes = static_cast<uint32_t>(sizeof(LightList) + sizeof(Palette)) +
-                                  lightBytes + paletteBytes + kAllocatorOverheadBytes;
+  budget.estimatedBytes = static_cast<uint32_t>(sizeof(LightList) + sizeof(Palette)) +
+                          lightBytes + paletteBytes + kAllocatorOverheadBytes;
+  budget.requiredContiguousLightBytes =
+      static_cast<uint32_t>(scaledNumLights) * static_cast<uint32_t>(sizeof(Light));
   const uint32_t freeHeap = ESP.getFreeHeap();
   const uint32_t largestBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-  if (freeHeap < estimatedBytes + kHeapGuardBytes || largestBlock < kLargestBlockGuardBytes) {
-    lightgraphReportAllocationFailure(
-        failureSite,
-        scaledNumLights,
-        static_cast<uint16_t>(std::min<uint32_t>(estimatedBytes, std::numeric_limits<uint16_t>::max())));
-    return false;
-  }
+  budget.hasTotalHeap = freeHeap >= (budget.estimatedBytes + kHeapGuardBytes);
+  budget.hasContiguousLightBlock =
+      largestBlock >= (budget.requiredContiguousLightBytes + kLargestBlockGuardBytes);
 #else
   (void) scaledNumLights;
   (void) paletteStopCount;
-  (void) failureSite;
 #endif
-  return true;
+  return budget;
+}
+
+inline bool hasRemoteSnapshotTotalHeapBudget(const RemoteSnapshotHeapBudget& budget,
+                                             uint16_t scaledNumLights,
+                                             LightgraphAllocationFailureSite failureSite) {
+  if (budget.hasTotalHeap) {
+    return true;
+  }
+  lightgraphReportAllocationFailure(
+      failureSite,
+      scaledNumLights,
+      static_cast<uint16_t>(std::min<uint32_t>(budget.estimatedBytes, std::numeric_limits<uint16_t>::max())));
+  return false;
 }
 
 inline LightList* buildSingleLightSnapshot(const SingleSnapshotDescriptor& descriptor) {
-  if (!hasRemoteSnapshotHeapBudget(1, 0, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
+  const RemoteSnapshotHeapBudget heapBudget = assessRemoteSnapshotHeapBudget(1, 0);
+  if (!hasRemoteSnapshotTotalHeapBudget(
+          heapBudget, 1, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
     return nullptr;
   }
 
@@ -164,8 +183,10 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
   if (scaledLength < scaledNumLights) {
     scaledLength = scaledNumLights;
   }
-  if (!hasRemoteSnapshotHeapBudget(
-          scaledNumLights, colors.size(), LightgraphAllocationFailureSite::RemoteLightAllocation)) {
+  const RemoteSnapshotHeapBudget heapBudget =
+      assessRemoteSnapshotHeapBudget(scaledNumLights, colors.size());
+  if (!hasRemoteSnapshotTotalHeapBudget(
+          heapBudget, scaledNumLights, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
     return nullptr;
   }
 
@@ -208,12 +229,21 @@ inline LightList* buildTemplateSnapshot(const TemplateSnapshotDescriptor& descri
   spec.style.palette = palette;
 
   lightlist_build::Policy policy;
-  policy.allocation = lightlist_build::AllocationMode::ContiguousLights;
+  policy.allocation = heapBudget.hasContiguousLightBlock
+      ? lightlist_build::AllocationMode::ContiguousLights
+      : lightlist_build::AllocationMode::DefaultHeap;
   policy.allocateBehaviour = descriptor.hasBehaviour;
   policy.behaviourFailureSite = LightgraphAllocationFailureSite::RemoteBehaviourAllocation;
   policy.listFailureSite = LightgraphAllocationFailureSite::RemoteListAllocation;
   policy.lightFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
   policy.exceptionFailureSite = LightgraphAllocationFailureSite::RemoteLightAllocation;
+  LightList* list = lightlist_build::buildLightList(spec, policy);
+  if (list != nullptr || policy.allocation != lightlist_build::AllocationMode::ContiguousLights) {
+    return list;
+  }
+
+  // Heap shape can change between the preflight check and allocation.
+  policy.allocation = lightlist_build::AllocationMode::DefaultHeap;
   return lightlist_build::buildLightList(spec, policy);
 }
 
@@ -240,8 +270,9 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
   if (scaledLength < scaledNumLights) {
     scaledLength = scaledNumLights;
   }
-  if (!hasRemoteSnapshotHeapBudget(
-          scaledNumLights, 0, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
+  const RemoteSnapshotHeapBudget heapBudget = assessRemoteSnapshotHeapBudget(scaledNumLights, 0);
+  if (!hasRemoteSnapshotTotalHeapBudget(
+          heapBudget, scaledNumLights, LightgraphAllocationFailureSite::RemoteLightAllocation)) {
     return nullptr;
   }
 
