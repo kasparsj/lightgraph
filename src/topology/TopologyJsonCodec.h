@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_TOPOLOGYJSONCODEC_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_TOPOLOGYJSONCODEC_H_
+
 #pragma once
 
 #include <Arduino.h>
@@ -570,3 +573,5 @@ inline String serializeTopologySnapshotToJson(const TopologySnapshot& snapshot) 
 
   return payload;
 }
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_TOPOLOGYJSONCODEC_H_

@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_WEIGHT_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_WEIGHT_H_
+
 #pragma once
 
 #include "../core/Limits.h"
@@ -22,3 +25,5 @@ class Weight {
     std::unordered_map<uint16_t, uint8_t> conditional;
   
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_WEIGHT_H_

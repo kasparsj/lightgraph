@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_OBJECTS_LINE_H_
+#define PACKAGES_LIGHTGRAPH_SRC_OBJECTS_LINE_H_
+
 #pragma once
 
 #include "../core/Types.h"
@@ -39,3 +42,5 @@ class Line : public TopologyObject {
     uint16_t mirrorPixels[2];
 
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_LINE_H_

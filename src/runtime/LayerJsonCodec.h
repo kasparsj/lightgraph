@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LAYERJSONCODEC_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LAYERJSONCODEC_H_
+
 #pragma once
 
 #include <vector>
@@ -173,3 +176,5 @@ inline void serializeStateLayers(const State& state, JsonArray layersArray) {
 }
 
 }  // namespace lightgraph_layer_json
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LAYERJSONCODEC_H_

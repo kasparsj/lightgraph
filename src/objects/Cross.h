@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_OBJECTS_CROSS_H_
+#define PACKAGES_LIGHTGRAPH_SRC_OBJECTS_CROSS_H_
+
 #pragma once
 
 #include "../core/Types.h"
@@ -53,3 +56,5 @@ class Cross : public TopologyObject {
     uint16_t horizontalCross;
     uint16_t verticalCross;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_CROSS_H_

@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_INTERSECTION_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_INTERSECTION_H_
+
 #pragma once
 
 #include <cstdint>
@@ -47,3 +50,5 @@ class Intersection : public Owner {
     Port* getPrevOutPort(const RuntimeLight* const light) const;
   
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_INTERSECTION_H_

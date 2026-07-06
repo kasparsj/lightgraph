@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_CONNECTION_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_CONNECTION_H_
+
 #pragma once
 
 #include <cstdint>
@@ -42,3 +45,5 @@ class Connection : public Owner {
     bool render(RuntimeLight* const light) const;
     int16_t forcedNumLeds_ = -1;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_CONNECTION_H_

@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RENDERING_PALETTES_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RENDERING_PALETTES_H_
+
 #pragma once
 
 #include "Palette.h"
@@ -52,3 +55,5 @@ uint8_t getPaletteCount();
 
 // Function to get a palette by index
 Palette getPalette(uint8_t index);
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RENDERING_PALETTES_H_

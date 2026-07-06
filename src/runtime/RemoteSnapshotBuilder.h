@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_REMOTESNAPSHOTBUILDER_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_REMOTESNAPSHOTBUILDER_H_
+
 #pragma once
 
 #include <algorithm>
@@ -313,3 +316,5 @@ inline LightList* buildSequentialSnapshot(const SequentialSnapshotDescriptor& de
 }
 
 }  // namespace remote_snapshot
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_REMOTESNAPSHOTBUILDER_H_

@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_RUNTIMELIGHT_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_RUNTIMELIGHT_H_
+
 #pragma once
 
 #include "../Globals.h"
@@ -87,3 +90,5 @@ class RuntimeLight
     uint16_t setSegmentPixels(uint16_t* buffer, size_t capacity) const;
     uint16_t setLinkPixels(uint16_t* buffer, size_t capacity) const;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_RUNTIMELIGHT_H_

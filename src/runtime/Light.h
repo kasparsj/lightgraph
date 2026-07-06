@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHT_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHT_H_
+
 #pragma once
 
 #include <algorithm>
@@ -57,3 +60,5 @@ class Light : public RuntimeLight {
     // int16_t pixel2 = -1; // 4 bytes
   
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHT_H_

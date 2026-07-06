@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_CORE_LIMITS_H_
+#define PACKAGES_LIGHTGRAPH_SRC_CORE_LIMITS_H_
+
 #pragma once
 
 #include <cstdint>
@@ -90,3 +93,5 @@ constexpr uint8_t kFullBrightness = 255;
 #ifndef FULL_BRIGHTNESS
 #define FULL_BRIGHTNESS lightgraph::core::kFullBrightness
 #endif
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_CORE_LIMITS_H_

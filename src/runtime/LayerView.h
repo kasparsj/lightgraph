@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LAYERVIEW_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LAYERVIEW_H_
+
 #pragma once
 
 #include <vector>
@@ -82,3 +85,5 @@ inline std::vector<LayerView> snapshotLayers(const State& state, bool editableOn
     }
     return layers;
 }
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LAYERVIEW_H_

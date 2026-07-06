@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_OBJECTS_HEPTAGON3024_H_
+#define PACKAGES_LIGHTGRAPH_SRC_OBJECTS_HEPTAGON3024_H_
+
 #pragma once
 
 #include "HeptagonStar.h"
@@ -22,3 +25,5 @@ private:
   void setup();
     
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_HEPTAGON3024_H_

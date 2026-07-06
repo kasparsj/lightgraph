@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_CORE_TYPES_H_
+#define PACKAGES_LIGHTGRAPH_SRC_CORE_TYPES_H_
+
 #pragma once
 
 #include <algorithm>
@@ -399,3 +402,5 @@ enum Ease {
     EASE_ELASTIC_OUT = 32,
     EASE_ELASTIC_INOUT = 33,
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_CORE_TYPES_H_

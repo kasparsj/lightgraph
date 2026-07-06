@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_CORE_PLATFORM_H_
+#define PACKAGES_LIGHTGRAPH_SRC_CORE_PLATFORM_H_
+
 #pragma once
 
 #if defined(ARDUINO)
@@ -139,3 +142,5 @@ inline void lgLogPrintf(const char* format, ...) {
 #define LG_STRING std::string
 
 #endif
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_CORE_PLATFORM_H_

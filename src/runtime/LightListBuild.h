@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHTLISTBUILD_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHTLISTBUILD_H_
+
 #pragma once
 
 #include <algorithm>
@@ -577,3 +580,5 @@ inline LightList* buildLightListWithFallback(const Spec& spec,
 }
 
 }  // namespace lightlist_build
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHTLISTBUILD_H_

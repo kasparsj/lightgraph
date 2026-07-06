@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RENDERING_PALETTE_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RENDERING_PALETTE_H_
+
 #pragma once
 
 #include <algorithm>
@@ -165,3 +168,5 @@ private:
     // Flag to track if the RGB cache is dirty
     mutable bool rgbCacheDirty;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RENDERING_PALETTE_H_

@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_FASTNOISE_H_
+#define PACKAGES_LIGHTGRAPH_SRC_FASTNOISE_H_
+
 // FastNoise.h
 //
 // MIT License
@@ -92,7 +95,7 @@ public:
 
 	// Returns octave count for all fractal noise types
 	int GetFractalOctaves() const { return m_octaves; }
-	
+
 	// Sets octave lacunarity for all fractal noise types
 	// Default: 2.0
 	void SetFractalLacunarity(FN_DECIMAL lacunarity) { m_lacunarity = lacunarity; }
@@ -309,3 +312,5 @@ private:
 	inline FN_DECIMAL GradCoord4D(unsigned char offset, int x, int y, int z, int w, FN_DECIMAL xd, FN_DECIMAL yd, FN_DECIMAL zd, FN_DECIMAL wd) const;
 };
 #endif
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_FASTNOISE_H_

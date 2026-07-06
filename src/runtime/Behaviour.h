@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BEHAVIOUR_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BEHAVIOUR_H_
+
 #pragma once
 
 #include "../core/Types.h"
@@ -54,3 +57,5 @@ class Behaviour {
         return flags & B_SMOOTH_CHANGES;
     }
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BEHAVIOUR_H_

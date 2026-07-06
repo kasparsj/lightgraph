@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_HASHMAP_H_
+#define PACKAGES_LIGHTGRAPH_SRC_HASHMAP_H_
+
 #pragma once
 
 //for convenience
@@ -138,3 +141,5 @@ class HashMap
     unsigned int currentIndex;
     comparator cb_comparator;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_HASHMAP_H_

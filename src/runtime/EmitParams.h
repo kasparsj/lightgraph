@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_EMITPARAMS_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_EMITPARAMS_H_
+
 #pragma once
 
 #include <algorithm>
@@ -190,3 +193,5 @@ class EmitParams {
         return emitGroups > 0 ? emitGroups : defaultValue;
     }
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_EMITPARAMS_H_

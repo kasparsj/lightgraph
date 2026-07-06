@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_REMOTEINGRESS_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_REMOTEINGRESS_H_
+
 #pragma once
 
 #include "State.h"
@@ -140,3 +143,5 @@ inline LightList* buildEmitIntentList(const EmitIntentDescriptor& descriptor) {
 }
 
 } // namespace remote_ingress
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_REMOTEINGRESS_H_

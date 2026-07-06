@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_DEBUG_TOPOLOGYPIXELS_H_
+#define PACKAGES_LIGHTGRAPH_SRC_DEBUG_TOPOLOGYPIXELS_H_
+
 #pragma once
 
 #include <cstddef>
@@ -30,3 +33,5 @@ class TopologyPixels {
     bool* connPixels = nullptr;
     size_t weightRows = 0;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_DEBUG_TOPOLOGYPIXELS_H_

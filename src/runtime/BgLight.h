@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BGLIGHT_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BGLIGHT_H_
+
 #pragma once
 
 #include "LightList.h"
@@ -134,3 +137,5 @@ public:
         offset = newPosition;
     }
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BGLIGHT_H_

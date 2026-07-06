@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_OBJECTS_TRIANGLE_H_
+#define PACKAGES_LIGHTGRAPH_SRC_OBJECTS_TRIANGLE_H_
+
 #pragma once
 
 #include "../core/Types.h"
@@ -61,3 +64,5 @@ class Triangle : public TopologyObject {
     uint16_t segment3Start;
     uint16_t segment3End;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_TRIANGLE_H_

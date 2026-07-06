@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_MODEL_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_MODEL_H_
+
 #pragma once
 
 #include <cstddef>
@@ -122,3 +125,5 @@ class Model {
 
     friend class TopologyObject;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_MODEL_H_

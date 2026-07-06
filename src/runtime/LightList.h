@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHTLIST_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHTLIST_H_
+
 #pragma once
 
 #include "../core/Types.h"
@@ -252,3 +255,5 @@ class LightList {
     LightgraphRuntimeContext* runtimeContext_ = nullptr;
 
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_LIGHTLIST_H_

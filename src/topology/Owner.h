@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_OWNER_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_OWNER_H_
+
 #pragma once
 
 #include <cstdint>
@@ -20,3 +23,5 @@ class Owner
     void add(RuntimeLight* const light) const;
     virtual void update(RuntimeLight* const light) const = 0;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_OWNER_H_

@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_TOPOLOGYSUMMARY_H_
+#define PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_TOPOLOGYSUMMARY_H_
+
 #pragma once
 
 #include <array>
@@ -160,3 +163,5 @@ inline TopologySummary buildTopologySummary(const TopologyObject& object) {
     out.gaps = object.gaps;
     return out;
 }
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_TOPOLOGY_TOPOLOGYSUMMARY_H_

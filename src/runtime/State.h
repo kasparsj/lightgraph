@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RUNTIME_STATE_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RUNTIME_STATE_H_
+
 #pragma once
 
 #include <vector>
@@ -91,3 +94,5 @@ class State {
 #endif
 
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_STATE_H_

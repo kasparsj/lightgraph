@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_DEBUG_DEBUGGER_H_
+#define PACKAGES_LIGHTGRAPH_SRC_DEBUG_DEBUGGER_H_
+
 #pragma once
 
 #include <cstdint>
@@ -25,3 +28,5 @@ class Debugger
     unsigned long prevMillis = 0;
 
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_DEBUG_DEBUGGER_H_

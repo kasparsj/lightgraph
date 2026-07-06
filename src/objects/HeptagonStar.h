@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_OBJECTS_HEPTAGONSTAR_H_
+#define PACKAGES_LIGHTGRAPH_SRC_OBJECTS_HEPTAGONSTAR_H_
+
 #pragma once
 
 #include <cstddef>
@@ -107,3 +110,5 @@ class HeptagonStar : public TopologyObject {
     uint16_t mirrorPixels[3];
 
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_HEPTAGONSTAR_H_

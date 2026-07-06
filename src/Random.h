@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_RANDOM_H_
+#define PACKAGES_LIGHTGRAPH_SRC_RANDOM_H_
+
 #pragma once
 
 #include <stdint.h>
@@ -26,3 +29,5 @@ class Random
     static uint16_t MIN_NEXT;
     static uint16_t MAX_NEXT;
 };
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_RANDOM_H_

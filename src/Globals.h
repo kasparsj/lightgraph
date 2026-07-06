@@ -1,3 +1,6 @@
+#ifndef PACKAGES_LIGHTGRAPH_SRC_GLOBALS_H_
+#define PACKAGES_LIGHTGRAPH_SRC_GLOBALS_H_
+
 #pragma once
 
 #include <cstdint>
@@ -90,3 +93,5 @@ float lightgraphMotionDistance(float speed);
 float lightgraphMotionDistance(const LightgraphRuntimeContext& context, float speed);
 void lightgraphSetNowMillis(unsigned long nowMillis);
 void lightgraphSetNowMillis(LightgraphRuntimeContext& context, unsigned long nowMillis);
+
+#endif  // PACKAGES_LIGHTGRAPH_SRC_GLOBALS_H_
