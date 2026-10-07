@@ -523,7 +523,7 @@ int main() {
                   << ", peak=" << rebuild919Peak << '\n';
         return 68;
     }
-    if (rebuild3024Allocations != 1 + (rebuild3024Orphans == 0 ? 0 : 1) ||
+    if (rebuild3024Allocations != 1u + (rebuild3024Orphans == 0 ? 0u : 1u) ||
         rebuild3024Bytes != HEPTAGON3024_PIXEL_COUNT +
                                 rebuild3024Orphans * sizeof(HeptagonGeometry::OrphanAssignment) ||
         rebuild3024Peak != retained3024 + rebuild3024Bytes) {
