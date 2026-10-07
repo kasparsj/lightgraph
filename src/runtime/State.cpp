@@ -644,7 +644,6 @@ bool State::setListLengths(const lightgraph::ListLengthUpdate* updates, size_t c
             continue;
         }
         if (list == nullptr || list->lengthMode != lightgraph::LengthMode::Centered ||
-            update.visible_length < 0.0f ||
             update.visible_length > static_cast<float>(list->numLights)) {
             return false;
         }

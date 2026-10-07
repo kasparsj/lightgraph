@@ -116,6 +116,16 @@ double distanceToSegment(Vec2 p, Vec2 a, Vec2 b) {
     return std::hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
+bool canonicalizeScene(const DrawingScene& value, DrawingScene& canonical) {
+    if (!DrawingRuntime::validateScene(value))
+        return false;
+    canonical = value;
+    canonical.rotationDegrees = normalizedDegrees(canonical.rotationDegrees);
+    std::sort(canonical.shapes.begin(), canonical.shapes.begin() + canonical.shapeCount,
+              [](const DrawingShape& a, const DrawingShape& b) { return a.id < b.id; });
+    return true;
+}
+
 } // namespace
 
 class DrawingRuntime::Impl {
@@ -226,6 +236,18 @@ class DrawingRuntime::Impl {
     }
 
     void reject(const char* reason) { copyText(lastRejection, reason); }
+
+    bool validQueued(const DrawingHandle& handle) const {
+        if (handle.runtimeGeneration != runtimeGeneration || handle.slot >= 2)
+            return false;
+        if (handle.kind == DrawingHandleKind::Scene)
+            return sceneSlotOccupied[handle.slot] &&
+                   sceneSlotGeneration[handle.slot] == handle.slotGeneration;
+        if (handle.kind == DrawingHandleKind::Image)
+            return imageQueued && imageQueuedSlot == handle.slot &&
+                   imageSlotGeneration[handle.slot] == handle.slotGeneration;
+        return false;
+    }
 
     void retireQueued() {
         for (int slot = 0; slot < 2; ++slot) {
@@ -728,7 +750,8 @@ DrawingResult DrawingRuntime::queueScene(const DrawingScene& value, DrawingHandl
         return DrawingResult::Busy;
     if (!impl_->ensureGeometry())
         return impl_->rasterFailure;
-    if (!validateScene(value)) {
+    DrawingScene canonical;
+    if (!canonicalizeScene(value, canonical)) {
         impl_->reject("invalid_scene");
         return DrawingResult::Invalid;
     }
@@ -743,10 +766,6 @@ DrawingResult DrawingRuntime::queueScene(const DrawingScene& value, DrawingHandl
         impl_->reject("scene_mailbox_busy");
         return DrawingResult::Busy;
     }
-    DrawingScene canonical = value;
-    canonical.rotationDegrees = normalizedDegrees(canonical.rotationDegrees);
-    std::sort(canonical.shapes.begin(), canonical.shapes.begin() + canonical.shapeCount,
-              [](const DrawingShape& a, const DrawingShape& b) { return a.id < b.id; });
     impl_->sceneSlots[slot] = canonical;
     impl_->sceneSlotOccupied[slot] = true;
     ++impl_->sceneSlotGeneration[slot];
@@ -763,8 +782,7 @@ DrawingResult DrawingRuntime::applyQueued(const DrawingHandle& handle) {
     if (handle.runtimeGeneration != impl_->runtimeGeneration)
         return DrawingResult::Stale;
     if (handle.kind == DrawingHandleKind::Scene) {
-        if (handle.slot >= 2 || !impl_->sceneSlotOccupied[handle.slot] ||
-            impl_->sceneSlotGeneration[handle.slot] != handle.slotGeneration)
+        if (!impl_->validQueued(handle))
             return DrawingResult::Stale;
         const DrawingScene value = impl_->sceneSlots[handle.slot];
         const bool noChange =
@@ -786,8 +804,7 @@ DrawingResult DrawingRuntime::applyQueued(const DrawingHandle& handle) {
         return DrawingResult::Applied;
     }
     if (handle.kind == DrawingHandleKind::Image) {
-        if (handle.slot >= 2 || !impl_->imageQueued || impl_->imageQueuedSlot != handle.slot ||
-            impl_->imageSlotGeneration[handle.slot] != handle.slotGeneration)
+        if (!impl_->validQueued(handle))
             return DrawingResult::Stale;
         const DrawingResult result = impl_->presentImage(impl_->queuedFrameId, impl_->queuedWidth,
                                                          impl_->queuedHeight, handle.slot, nullptr);
@@ -801,30 +818,15 @@ DrawingResult DrawingRuntime::applyQueued(const DrawingHandle& handle) {
 }
 
 bool DrawingRuntime::validQueued(const DrawingHandle& handle) const {
-    if (!impl_ || handle.runtimeGeneration != impl_->runtimeGeneration)
-        return false;
-    if (handle.kind == DrawingHandleKind::Scene) {
-        return handle.slot < 2 && impl_->sceneSlotOccupied[handle.slot] &&
-               impl_->sceneSlotGeneration[handle.slot] == handle.slotGeneration;
-    }
-    if (handle.kind == DrawingHandleKind::Image) {
-        return handle.slot < 2 && impl_->imageQueued &&
-               impl_->imageQueuedSlot == handle.slot &&
-               impl_->imageSlotGeneration[handle.slot] == handle.slotGeneration;
-    }
-    return false;
+    return impl_ && impl_->validQueued(handle);
 }
 
 void DrawingRuntime::releaseQueued(const DrawingHandle& handle) {
-    if (!impl_ || handle.runtimeGeneration != impl_->runtimeGeneration)
+    if (!validQueued(handle))
         return;
-    if (handle.kind == DrawingHandleKind::Scene && handle.slot < 2 &&
-        impl_->sceneSlotOccupied[handle.slot] &&
-        impl_->sceneSlotGeneration[handle.slot] == handle.slotGeneration) {
+    if (handle.kind == DrawingHandleKind::Scene) {
         impl_->sceneSlotOccupied[handle.slot] = false;
-    } else if (handle.kind == DrawingHandleKind::Image && handle.slot < 2 && impl_->imageQueued &&
-               impl_->imageQueuedSlot == handle.slot &&
-               impl_->imageSlotGeneration[handle.slot] == handle.slotGeneration) {
+    } else if (handle.kind == DrawingHandleKind::Image) {
         impl_->imageQueued = false;
         impl_->imageQueuedSlot = -1;
     }
@@ -838,14 +840,11 @@ DrawingResult DrawingRuntime::replaceScene(const DrawingScene& value,
         return DrawingResult::Stale;
     if (!impl_->ensureGeometry())
         return impl_->rasterFailure;
-    if (!validateScene(value)) {
+    DrawingScene canonical;
+    if (!canonicalizeScene(value, canonical)) {
         impl_->reject("invalid_scene");
         return DrawingResult::Invalid;
     }
-    DrawingScene canonical = value;
-    canonical.rotationDegrees = normalizedDegrees(canonical.rotationDegrees);
-    std::sort(canonical.shapes.begin(), canonical.shapes.begin() + canonical.shapeCount,
-              [](const DrawingShape& a, const DrawingShape& b) { return a.id < b.id; });
     if (sameScene(canonical, impl_->sceneValue) && impl_->source == DrawingSource::Scene) {
         return DrawingResult::NoChange;
     }
