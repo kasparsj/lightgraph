@@ -26,6 +26,73 @@ bool denyGeometry(lightgraph::memory::Operation operation, const lightgraph::mem
     return operation != lightgraph::memory::Operation::Geometry || !*static_cast<bool*>(user);
 }
 
+struct DrawingAdmissionProbe {
+    bool denied = true;
+    unsigned attempts = 0;
+};
+
+bool admitDrawing(lightgraph::memory::Operation operation, const lightgraph::memory::Estimate&,
+                  void* user) noexcept {
+    auto& probe = *static_cast<DrawingAdmissionProbe*>(user);
+    if (operation != lightgraph::memory::Operation::DrawingCache)
+        return true;
+    ++probe.attempts;
+    return !probe.denied;
+}
+
+void checkPaletteSurvivesDrawingDenial() {
+    Line object(16);
+    DrawingAdmissionProbe probe;
+    object.runtimeContext().memoryAdmission = {admitDrawing, &probe};
+    RuntimeState state(object);
+    CHECK(state.ready());
+    auto* background = state.lightLists[0]->asBgLight();
+    background->setPalette(Palette({0xFF0000}, {0.0f}));
+    background->maxBri = 255;
+    background->visible = true;
+
+    for (unsigned long now : {0ul, 16ul, 96ul}) {
+        object.runtimeContext().nowMillis = now;
+        object.runtimeContext().hasExplicitNowMillis = true;
+        probe.attempts = 0;
+        state.update();
+        CHECK(state.ready());
+        CHECK_EQ(probe.attempts, 1u);
+        for (std::uint16_t pixel = 0; pixel < object.pixelCount; ++pixel)
+            CHECK_EQ(state.getPixel(pixel).get(), 0xFF0000u);
+    }
+    CHECK(object.runtimeContext().currentStepMillis < object.runtimeContext().frameElapsedMillis);
+
+    background->visible = false;
+    EmitParams params(0, 1.0f, 0x00FF00);
+    params.setLength(3);
+    const int8_t listIndex = state.emit(params);
+    CHECK(listIndex >= 0);
+    probe.attempts = 0;
+    state.update();
+    CHECK_EQ(probe.attempts, 1u);
+    bool lit = false;
+    for (std::uint16_t pixel = 0; pixel < object.pixelCount; ++pixel)
+        lit = lit || state.getPixel(pixel).get() != 0;
+    CHECK(lit);
+    if (listIndex >= 0)
+        CHECK(state.clearListSlot(static_cast<uint8_t>(listIndex)));
+    background->visible = true;
+
+    probe.denied = false;
+    probe.attempts = 0;
+    state.update();
+    CHECK_EQ(probe.attempts, 1u);
+    CHECK(state.drawing().status().supported);
+    CHECK_EQ(state.drawing().setFill(0x0000FF), DrawingResult::Applied);
+    CHECK_EQ(state.drawing().setEnabled(true), DrawingResult::Applied);
+    probe.attempts = 0;
+    state.update();
+    CHECK_EQ(probe.attempts, 0u);
+    for (std::uint16_t pixel = 0; pixel < object.pixelCount; ++pixel)
+        CHECK_EQ(state.getPixel(pixel).get(), 0x0000FFu);
+}
+
 void mutateGeometry(Heptagon919& object) {
     Intersection* changed = object.inter[1][0];
     TopologyIntersectionUpdate update;
@@ -330,6 +397,7 @@ void checkSessionSurvivesRuntimeDestruction() {
 } // namespace
 
 int main() {
+    checkPaletteSurvivesDrawingDenial();
     checkGeometryFactoryBadAllocRecovery();
     checkRejectionStatusOwnsText();
     checkGenerationChangeInvalidatesPendingStorage();

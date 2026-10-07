@@ -496,8 +496,10 @@ void State::doEmit(Owner* from, LightList *lightList, EmitParams& params) {
 void State::update() {
   if (!ready()) return;
   BgLight* background = lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr;
-  if (background != nullptr && drawing().mode() == lightgraph::drawing::DrawingMode::Drawing) {
-    drawing().refreshGeometry();
+  // Drawing is optional; retry its initialization once before rendering any pixels.
+  drawingRuntime_.synchronize(object, background);
+  if (background != nullptr && drawingRuntime_.mode() == lightgraph::drawing::DrawingMode::Drawing) {
+    drawingRuntime_.refreshGeometry();
   }
   lightgraphAdvanceFrameTiming(object.runtimeContext(), object.nowMillis());
   const uint8_t substeps = lightgraphSimulationSubsteps(object.runtimeContext());
@@ -532,8 +534,8 @@ void State::updatePass(bool renderStep) {
         else if (lightList->visible) {
       BgLight* editableBackground = lightList->asBgLight();
       if (i == 0 && editableBackground != nullptr &&
-          drawing().mode() == lightgraph::drawing::DrawingMode::Drawing &&
-          drawing().placement() == lightgraph::drawing::DrawingPlacement::Overlay) {
+          drawingRuntime_.mode() == lightgraph::drawing::DrawingMode::Drawing &&
+          drawingRuntime_.placement() == lightgraph::drawing::DrawingPlacement::Overlay) {
         continue;
       }
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
@@ -545,7 +547,9 @@ void State::updatePass(bool renderStep) {
       if (lightList->editable && lightList->numLights == 0) {
         if (renderStep) {
           for (uint16_t p = 0; p < object.pixelCount; p++) {
-              ColorRGB color = i == 0 && editableBackground != nullptr ? drawing().layerColor(p) : lightList->getColor(p);
+              ColorRGB color = i == 0 && editableBackground != nullptr &&
+                  drawingRuntime_.mode() == lightgraph::drawing::DrawingMode::Drawing
+                  ? drawingRuntime_.layerColor(p) : lightList->getColor(p);
               setPixel(p, color, lightList);
           }
         }
@@ -980,13 +984,13 @@ bool State::isOccupied(uint16_t pixel) const {
 void State::renderDrawingOverlay() {
     BgLight* background = lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr;
     if (background == nullptr || !background->visible ||
-        drawing().mode() != lightgraph::drawing::DrawingMode::Drawing ||
-        drawing().placement() != lightgraph::drawing::DrawingPlacement::Overlay) {
+        drawingRuntime_.mode() != lightgraph::drawing::DrawingMode::Drawing ||
+        drawingRuntime_.placement() != lightgraph::drawing::DrawingPlacement::Overlay) {
         return;
     }
     for (uint16_t pixel = 0; pixel < object.pixelCount; ++pixel) {
         const bool occupied = isOccupied(pixel);
-        if (drawing().clipToContent() && !occupied) {
+        if (drawingRuntime_.clipToContent() && !occupied) {
             continue;
         }
         if (occupied || pixelDiv[pixel] != 0 || pixelValuesR[pixel] != 0 ||
@@ -1000,7 +1004,7 @@ void State::renderDrawingOverlay() {
                 FULL_BRIGHTNESS, static_cast<uint16_t>(pixelValuesB[pixel] / divisor));
             pixelDiv[pixel] = 1;
         }
-        ColorRGB color = drawing().layerColor(pixel);
+        ColorRGB color = drawingRuntime_.layerColor(pixel);
         setFramePixel(pixel, color, background);
     }
 }

@@ -157,6 +157,12 @@ and `AllocationFailed`. A state that is not ready is permanently inert: it
 rejects emissions, ignores updates, and returns black pixels. Construct a fresh
 candidate to recover, and publish it only after `ready()` succeeds.
 
+Drawing initialization is optional: failure to allocate or admit drawing resources
+keeps a ready runtime's palette background and moving lights available. Rendering
+retries drawing initialization at most once per `RuntimeState::update()`, before
+simulation substeps and pixel loops. Explicit `drawing()` access retains lazy
+initialization, allowing drawing commands to recover when resources return.
+
 ### Drawing and geometry source integration
 
 - `lightgraph/integration/drawing.hpp` re-exports core-owned drawing scene,

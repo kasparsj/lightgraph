@@ -33,6 +33,7 @@ std::size_t outstanding = 0;
 bool scalarTracking = false;
 std::size_t scalarFailAt = static_cast<std::size_t>(-1);
 std::size_t scalarAttempts = 0;
+std::size_t scalarFailurePeriod = 0;
 void* scalarTracked[16]{};
 std::size_t scalarOutstanding = 0;
 LightgraphAllocationFailureSite observedSite = LightgraphAllocationFailureSite::Unknown;
@@ -97,8 +98,13 @@ void begin(std::size_t failure = static_cast<std::size_t>(-1)) {
 }
 
 void* allocateScalar(std::size_t size) noexcept {
-    if (scalarTracking && scalarAttempts++ == scalarFailAt)
-        return nullptr;
+    if (scalarTracking) {
+        const std::size_t attempt = scalarAttempts++;
+        if (attempt == scalarFailAt ||
+            (scalarFailurePeriod != 0 && attempt > 0 &&
+             (attempt - 1) % scalarFailurePeriod == scalarFailurePeriod - 1))
+            return nullptr;
+    }
     void* result = std::malloc(size == 0 ? 1 : size);
     if (scalarTracking && result != nullptr) {
         for (void*& entry : scalarTracked) {
@@ -149,7 +155,56 @@ void operator delete(void* pointer) noexcept { releaseScalar(pointer); }
 void operator delete(void* pointer, std::size_t) noexcept { releaseScalar(pointer); }
 void operator delete(void* pointer, const std::nothrow_t&) noexcept { releaseScalar(pointer); }
 
+namespace {
+bool checkPersistentDrawingAllocationFailure(std::size_t failurePeriod) {
+    Line object(16);
+    scalarAttempts = 0;
+    scalarFailAt = static_cast<std::size_t>(-1);
+    scalarFailurePeriod = failurePeriod;
+    scalarTracking = true;
+    bool passed = true;
+    {
+        RuntimeState state(object);
+        passed = state.ready();
+        if (passed) {
+            auto* background = state.lightLists[0]->asBgLight();
+            background->setPalette(Palette({0xFF0000}, {0.0f}));
+            background->maxBri = 255;
+            background->visible = true;
+            for (unsigned update = 0; update < 3; ++update) {
+                const std::size_t before = scalarAttempts;
+                state.update();
+                passed = passed && state.ready() &&
+                    scalarAttempts - before == failurePeriod && scalarOutstanding == 1;
+                for (std::uint16_t pixel = 0; pixel < object.pixelCount; ++pixel)
+                    passed = passed && state.getPixel(pixel).get() == 0xFF0000u;
+            }
+            scalarFailurePeriod = 0;
+            const std::size_t before = scalarAttempts;
+            state.update();
+            passed = passed && scalarAttempts - before == 2 && state.drawing().status().supported;
+            passed = passed && state.drawing().setFill(0x0000FF) == DrawingResult::Applied;
+            passed = passed && state.drawing().setEnabled(true) == DrawingResult::Applied;
+            state.update();
+            for (std::uint16_t pixel = 0; pixel < object.pixelCount; ++pixel)
+                passed = passed && state.getPixel(pixel).get() == 0x0000FFu;
+        }
+    }
+    scalarFailurePeriod = 0;
+    scalarTracking = false;
+    if (!passed || scalarOutstanding != 0) {
+        std::cerr << "Persistent drawing allocation failure regression: period "
+                  << failurePeriod << '\n';
+        return false;
+    }
+    return true;
+}
+} // namespace
+
 int main() {
+    if (!checkPersistentDrawingAllocationFailure(1) ||
+        !checkPersistentDrawingAllocationFailure(2))
+        return 60;
     for (std::size_t failure = 0; failure < 3; ++failure) {
         Heptagon919 object;
         setAllocationFailureObserver(object, observeAllocationFailure);
