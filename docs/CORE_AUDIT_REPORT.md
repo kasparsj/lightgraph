@@ -3,6 +3,10 @@
 Date: 2026-02-23
 Scope: `src` and core-adjacent runtime adapters. Downstream integration references to MeshLED (`apps/simulator`, `firmware/esp`) are included where relevant.
 
+Implementation note (2026-10-07): the unused standalone `gPerlinNoise` was
+removed. Noise effects now use `LightgraphRuntimeContext::perlinNoise`; references
+to the standalone global below describe the historical audit snapshot.
+
 Canonical location: `lightgraph/docs/CORE_AUDIT_REPORT.md` in the Lightgraph repository.
 
 ## 1) Executive Summary

@@ -30,6 +30,16 @@ enum class ObjectType {
     Triangle,
 };
 
+enum class LengthMode : uint8_t {
+    Legacy = 0,
+    Centered = 1,
+};
+
+struct ListLengthUpdate {
+    uint16_t note_id = 0;
+    float visible_length = 0.0f;
+};
+
 /**
  * @brief Engine construction configuration.
  */
@@ -75,6 +85,10 @@ struct EmitCommand {
     int8_t from = -1;
     /// Whether new lights should be linked.
     bool linked = true;
+    /// List-length behavior. Centered reserves `length` and changes visible coverage in place.
+    LengthMode length_mode = LengthMode::Legacy;
+    /// Initial visible span for centered lists; omitted means the full reserved length.
+    std::optional<float> visible_length;
 };
 
 } // namespace lightgraph

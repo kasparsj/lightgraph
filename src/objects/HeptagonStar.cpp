@@ -1,5 +1,33 @@
 #include "HeptagonStar.h"
 
+#include <new>
+
+#include "../geometry/HeptagonGeometry.h"
+
+HeptagonStar::~HeptagonStar() = default;
+
+std::unique_ptr<lightgraph::geometry::GeometryProvider> HeptagonStar::createGeometry() {
+    lightgraph::memory::Estimate estimate;
+    estimate.addAllocation(sizeof(HeptagonGeometry));
+    if (!lightgraph::memory::admitted(runtimeContext().memoryAdmission,
+            lightgraph::memory::Operation::Geometry, estimate)) {
+        setGeometryCreationResult(lightgraph::geometry::GeometryResult::AdmissionDenied);
+        return nullptr;
+    }
+    std::unique_ptr<lightgraph::geometry::GeometryProvider> geometry(
+        new (std::nothrow) HeptagonGeometry(*this, firstStripPixelCount_));
+    if (!geometry) {
+        setGeometryCreationResult(lightgraph::geometry::GeometryResult::AllocationFailed);
+        lightgraphReportAllocationFailure(
+            runtimeContext(),
+            LightgraphAllocationFailureSite::HeptagonGeometryAllocation,
+            pixelCount,
+            1);
+    }
+    if (geometry) setGeometryCreationResult(lightgraph::geometry::GeometryResult::Ready);
+    return geometry;
+}
+
 void HeptagonStar::setupLayout(const LayoutDescriptor& descriptor) {
     Model::maxWeights = kSegmentCount * 4 * 2;
 

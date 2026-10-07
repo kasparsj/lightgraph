@@ -30,8 +30,14 @@ void LightList::clearAllocatedLights() {
         lights = NULL;
     }
     if (contiguousLightStorage != nullptr) {
-        std::free(contiguousLightStorage);
+        if (contiguousLightDeallocator != nullptr) {
+            contiguousLightDeallocator(contiguousLightStorage, contiguousLightAllocatorUser);
+        } else {
+            std::free(contiguousLightStorage);
+        }
         contiguousLightStorage = nullptr;
+        contiguousLightDeallocator = nullptr;
+        contiguousLightAllocatorUser = nullptr;
         contiguousLightStrideBytes = 0;
     }
     allocatedLights = 0;
@@ -65,18 +71,27 @@ void LightList::init(uint16_t numLights) {
     }
 }
 
-bool LightList::initContiguousLights(uint16_t numLights) {
+bool LightList::initContiguousLights(uint16_t numLights,
+                                     LightgraphAllocationFailureSite failureSite) {
+    const auto allocation = runtimeContext().contiguousAllocation;
+    if ((allocation.allocate == nullptr) != (allocation.deallocate == nullptr)) {
+        lightgraphReportAllocationFailure(runtimeContext(), failureSite, numLights, 0);
+        return false;
+    }
     init(numLights);
     if (numLights == 0 || lights == NULL) {
         return numLights == 0;
     }
 
-    contiguousLightStorage = std::malloc(static_cast<size_t>(numLights) * sizeof(Light));
+    const size_t storageBytes = static_cast<size_t>(numLights) * sizeof(Light);
+    contiguousLightStorage = allocation.allocate != nullptr
+        ? allocation.allocate(storageBytes, allocation.user)
+        : std::malloc(storageBytes);
     if (contiguousLightStorage == nullptr) {
         LG_LOGF("LightList::initContiguousLights failed: OOM for %u lights\n", numLights);
         lightgraphReportAllocationFailure(
             runtimeContext(),
-            LightgraphAllocationFailureSite::RemoteLightAllocation,
+            failureSite,
             numLights,
             0);
         delete[] lights;
@@ -87,6 +102,8 @@ bool LightList::initContiguousLights(uint16_t numLights) {
     }
 
     contiguousLightStrideBytes = sizeof(Light);
+    contiguousLightDeallocator = allocation.deallocate;
+    contiguousLightAllocatorUser = allocation.user;
     return true;
 }
 
@@ -104,6 +121,28 @@ void LightList::setup(uint16_t numLights, uint8_t maxBri) {
     if (createdLights < this->numLights) {
         this->numLights = createdLights;
     }
+}
+
+bool LightList::setupContiguous(uint16_t numLights,
+                                uint8_t maxBri,
+                                LightgraphAllocationFailureSite failureSite) {
+    const uint16_t targetLights = static_cast<uint16_t>(lead + numLights + trail);
+    if (!initContiguousLights(targetLights, failureSite)) {
+        return targetLights == 0;
+    }
+    this->maxBri = maxBri;
+    for (uint16_t i = 0; i < this->numLights; ++i) {
+        const float mult = getBriMult(i);
+        const float scaled = static_cast<float>(maxBri) * mult;
+        const uint8_t brightness = static_cast<uint8_t>(
+            std::max(0.0f, std::min(255.0f, scaled)));
+        if (createContiguousLight(i, speed, lifeMillis, linked ? i : 0, brightness) == nullptr) {
+            clearAllocatedLights();
+            this->numLights = 0;
+            return false;
+        }
+    }
+    return true;
 }
 
 float LightList::getBriMult(uint16_t i) {
@@ -285,13 +324,45 @@ uint16_t LightList::getBri(const RuntimeLight* light) const {
 
 void LightList::initLife(uint16_t i, RuntimeLight* const light) const {
   uint32_t lifeMillis = light->lifeMillis;
-  if (order == LIST_ORDER_SEQUENTIAL && light->getSpeed() > 0) {
+  if (lengthMode != lightgraph::LengthMode::Centered &&
+      order == LIST_ORDER_SEQUENTIAL && light->getSpeed() > 0) {
     lifeMillis += ceil(1.f / light->getSpeed() * i) * EmitParams::frameMs();
   }
   light->lifeMillis = lifeMillis;
 }
 
+uint8_t LightList::centeredCoverage(uint16_t slot) const {
+    if (lengthMode != lightgraph::LengthMode::Centered) {
+        return FULL_BRIGHTNESS;
+    }
+    const float capacity = static_cast<float>(numLights);
+    const float clamped = std::max(0.0f, std::min(visibleLength, capacity));
+    const float start = (capacity - clamped) * 0.5f;
+    const float end = start + clamped;
+    const float overlap = std::max(
+        0.0f,
+        std::min(static_cast<float>(slot + 1u), end) -
+            std::max(static_cast<float>(slot), start));
+    return static_cast<uint8_t>(std::lround(std::min(1.0f, overlap) * FULL_BRIGHTNESS));
+}
+
+bool LightList::setVisibleLength(float value) {
+    if (lengthMode != lightgraph::LengthMode::Centered || !std::isfinite(value) ||
+        value < 0.0f || value > static_cast<float>(numLights)) {
+        return false;
+    }
+    visibleLength = value;
+    return true;
+}
+
 bool LightList::update() {
+    if (lengthMode == lightgraph::LengthMode::Centered &&
+        lifeMillis < INFINITE_DURATION && runtimeContext().nowMillis >= lifeMillis) {
+        for (uint16_t j = 0; j < numLights; ++j) {
+            releaseOwnedLight(lights[j]);
+        }
+        return true;
+    }
     doEmit();
     bool allExpired = true;
     for (uint16_t j=0; j<numLights; j++) {

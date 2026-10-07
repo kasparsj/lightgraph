@@ -53,6 +53,10 @@ int main() {
 
     lp::RuntimeState line_state(*line);
     lp::RuntimeState cross_state(*cross);
+    if (!line_state.ready() || !cross_state.ready()) {
+        std::cerr << "runtime initialization failed\n";
+        return 1;
+    }
 
     lp::EmitParams line_params = makeGradientParams(0, 1, 1.5f);
     lp::EmitParams cross_params = makeGradientParams(0, 2, 0.8f);
@@ -65,5 +69,21 @@ int main() {
     std::cout << "line non-black samples: " << line_samples << "\n";
     std::cout << "cross non-black samples: " << cross_samples << "\n";
 
-    return (line_samples > 0 && cross_samples > 0) ? 0 : 1;
+    // Drawing uses logical geometry for Line just as it does for other topologies.
+    auto& drawing = line_state.drawing();
+    if (drawing.setGradient(-1.0f, 0.0f, 1.0f, 0.0f, 0x0044FF, 0xFFAA00) !=
+            lp::DrawingResult::Applied ||
+        drawing.setEnabled(true) != lp::DrawingResult::Applied) {
+        return 1;
+    }
+    // Keep protocol metadata in a session; image bytes lease the runtime's inactive slot.
+    lp::DrawingSession session(drawing);
+    const std::uint8_t rgb[] = {0x22, 0xCC, 0x66};
+    if (session.imageChunk(1, 0, 1, 1, 1, 0, rgb, sizeof(rgb)) != lp::DrawingResult::Applied ||
+        session.imageCommit(1, 1, 1) != lp::DrawingResult::Applied) {
+        return 1;
+    }
+    line_state.update();
+    return (line_samples > 0 && cross_samples > 0 && drawing.sampleColor(0).get() == 0x22CC66) ? 0
+                                                                                               : 1;
 }

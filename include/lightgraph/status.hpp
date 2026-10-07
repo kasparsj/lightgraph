@@ -22,6 +22,8 @@ enum class ErrorCode {
     CapacityExceeded,
     OutOfRange,
     InternalError,
+    ResourceUnavailable,
+    NotReady,
 };
 
 /**

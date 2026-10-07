@@ -1,7 +1,12 @@
 #pragma once
 
 #include "integration/debug.hpp"
+#include "integration/drawing.hpp"
+#include "integration/drawing_codec.hpp"
+#include "integration/drawing_session.hpp"
+#include "integration/drawing_presentation.hpp"
 #include "integration/factory.hpp"
+#include "integration/geometry.hpp"
 #include "integration/layers.hpp"
 #include "integration/objects.hpp"
 #include "integration/palette_names.hpp"

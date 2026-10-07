@@ -15,10 +15,12 @@
 #include <stdexcept>
 #include <vector>
 #include "../rendering/Palette.h"
+#include "lightgraph/types.hpp"
 
 class Model;
 class Light;
 class Owner;
+class BgLight;
 
 class LightList {
 
@@ -59,6 +61,8 @@ class LightList {
     uint32_t duration = 1000;
     uint8_t emitOffset = 0;
     bool compensateHiddenIngressContinuity = false;
+    lightgraph::LengthMode lengthMode = lightgraph::LengthMode::Legacy;
+    float visibleLength = 0.0f;
     bool externalBatchForwarded = false;
     bool externalBatchHasTargetId = false;
     uint8_t externalBatchDevice[6] = {0};
@@ -99,6 +103,9 @@ class LightList {
       blendMode = other.blendMode;
       emitOffset = other.emitOffset;
       compensateHiddenIngressContinuity = false;
+      length = other.length;
+      lengthMode = other.lengthMode;
+      visibleLength = other.visibleLength;
       
       // Deep copy behaviour if it exists
       if (other.behaviour != NULL) {
@@ -130,6 +137,10 @@ class LightList {
     
     virtual void init(uint16_t numLights);
     virtual void setup(uint16_t numLights, uint8_t brightness = 255);
+    bool setupContiguous(
+        uint16_t numLights,
+        uint8_t brightness = 255,
+        LightgraphAllocationFailureSite failureSite = LightgraphAllocationFailureSite::RemoteLightAllocation);
     virtual void reset();
 
     float getBriMult(uint16_t i);
@@ -168,9 +179,12 @@ class LightList {
     void setupFrom(const EmitParams &params);
     void initEmit(uint8_t posOffset = 0);
     virtual bool update();
+    virtual BgLight* asBgLight() { return nullptr; }
     void split();
     float getPosition(RuntimeLight* const light) const;
     uint16_t getBri(const RuntimeLight* light) const;
+    uint8_t centeredCoverage(uint16_t slot) const;
+    bool setVisibleLength(float value);
     virtual ColorRGB getColor(int16_t /*pixel*/ = -1) const {
         throw std::runtime_error("LightList::getColor not implemented");
     }
@@ -194,7 +208,9 @@ class LightList {
     
     RuntimeLight* createAutoLight(uint16_t slot, uint8_t brightness);
     void releaseOwnedLight(RuntimeLight*& light);
-    bool initContiguousLights(uint16_t numLights);
+    bool initContiguousLights(
+        uint16_t numLights,
+        LightgraphAllocationFailureSite failureSite = LightgraphAllocationFailureSite::RemoteLightAllocation);
     Light* createContiguousLight(uint16_t slot, float speed, uint32_t lifeMillis,
                                  uint16_t idx = 0, uint8_t maxBri = 255);
     void clearExternalBatchForwardState() {
@@ -251,6 +267,8 @@ class LightList {
     }
     uint16_t allocatedLights = 0;
     void* contiguousLightStorage = nullptr;
+    LightgraphContiguousDeallocator contiguousLightDeallocator = nullptr;
+    void* contiguousLightAllocatorUser = nullptr;
     size_t contiguousLightStrideBytes = 0;
     LightgraphRuntimeContext* runtimeContext_ = nullptr;
 

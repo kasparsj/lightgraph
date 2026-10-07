@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <mutex>
 #include <utility>
 
@@ -55,9 +56,31 @@ Engine& Engine::operator=(Engine&&) noexcept = default;
 Result<int8_t> Engine::emit(const EmitCommand& command) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
 
+    if (!impl_->state.ready()) {
+        return Result<int8_t>::error(ErrorCode::NotReady,
+                                     "runtime initialization did not complete");
+    }
+    if (!std::isfinite(command.speed) ||
+        (command.visible_length.has_value() && !std::isfinite(*command.visible_length)) ||
+        (command.length_mode != LengthMode::Legacy &&
+         command.length_mode != LengthMode::Centered)) {
+        return Result<int8_t>::error(ErrorCode::InvalidArgument,
+                                     "numeric inputs must be finite and length_mode must be valid");
+    }
     if (command.max_brightness < command.min_brightness) {
         return Result<int8_t>::error(ErrorCode::InvalidArgument,
                                      "max_brightness must be >= min_brightness");
+    }
+    if (command.length_mode == LengthMode::Centered) {
+        if (!command.length.has_value() || *command.length == 0 || command.note_id == 0 ||
+            !command.linked ||
+            (command.behaviour_flags & (B_RENDER_SEGMENT | B_FILL_EASE | B_EMIT_FROM_CONN)) != 0 ||
+            (command.visible_length.has_value() &&
+             (*command.visible_length < 0.0f ||
+              *command.visible_length > static_cast<float>(*command.length)))) {
+            return Result<int8_t>::error(ErrorCode::InvalidArgument,
+                                         "centered length configuration is invalid");
+        }
     }
 
     const int8_t model_index = command.model;
@@ -69,12 +92,6 @@ Result<int8_t> Engine::emit(const EmitCommand& command) {
     if (!impl_->hasFreeListSlot(command.note_id)) {
         return Result<int8_t>::error(ErrorCode::NoFreeLightList,
                                      "no free light-list slots are available");
-    }
-
-    if (command.length.has_value() &&
-        impl_->state.totalLights + *command.length > MAX_TOTAL_LIGHTS) {
-        return Result<int8_t>::error(ErrorCode::CapacityExceeded,
-                                     "emit request exceeds MAX_TOTAL_LIGHTS");
     }
 
     EmitParams params(model_index, command.speed, command.color.value_or(RANDOM_COLOR));
@@ -91,6 +108,8 @@ Result<int8_t> Engine::emit(const EmitCommand& command) {
     params.duration = command.duration_ms;
     params.from = command.from;
     params.linked = command.linked;
+    params.lengthMode = command.length_mode;
+    params.visibleLength = command.visible_length;
 
     Model* const model = impl_->object->getModel(model_index);
     if (model != nullptr) {
@@ -108,9 +127,44 @@ Result<int8_t> Engine::emit(const EmitCommand& command) {
 
     const int8_t list_index = impl_->state.emit(params);
     if (list_index < 0) {
-        return Result<int8_t>::error(ErrorCode::InternalError, "emit failed unexpectedly");
+        switch (impl_->state.lastEmitFailure) {
+        case State::EmitFailure::InvalidArgument:
+            return Result<int8_t>::error(ErrorCode::InvalidArgument, "emit arguments are invalid");
+        case State::EmitFailure::InvalidModel:
+            return Result<int8_t>::error(ErrorCode::InvalidModel, "model index is invalid");
+        case State::EmitFailure::NoFreeLightList:
+            return Result<int8_t>::error(ErrorCode::NoFreeLightList,
+                                         "no free light-list slots are available");
+        case State::EmitFailure::NoEmitterAvailable:
+            return Result<int8_t>::error(ErrorCode::NoEmitterAvailable,
+                                         "no matching emitter is available");
+        case State::EmitFailure::CapacityExceeded:
+            return Result<int8_t>::error(ErrorCode::CapacityExceeded,
+                                         "emit request exceeds runtime capacity");
+        case State::EmitFailure::AdmissionDenied:
+        case State::EmitFailure::AllocationFailed:
+            return Result<int8_t>::error(ErrorCode::ResourceUnavailable,
+                                         "runtime resources are unavailable");
+        case State::EmitFailure::NotReady:
+            return Result<int8_t>::error(ErrorCode::NotReady,
+                                         "runtime initialization did not complete");
+        case State::EmitFailure::None:
+        default:
+            return Result<int8_t>::error(ErrorCode::InternalError, "emit failed unexpectedly");
+        }
     }
     return Result<int8_t>(list_index);
+}
+
+Status Engine::setListLengths(const ListLengthUpdate* updates, size_t count) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (!impl_->state.ready()) {
+        return Status::error(ErrorCode::NotReady, "runtime initialization did not complete");
+    }
+    if (!impl_->state.setListLengths(updates, count)) {
+        return Status::error(ErrorCode::InvalidArgument, "list-length update batch is invalid");
+    }
+    return Status::success();
 }
 
 void Engine::update(uint64_t millis) {

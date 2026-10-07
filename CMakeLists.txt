@@ -54,6 +54,13 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/api/Engine.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/debug/TopologyPixels.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/debug/Debugger.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/MemoryAdmission.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/drawing/DrawingRuntime.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/integration/DrawingSceneCodec.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/integration/DrawingSession.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/geometry/GeometryProvider.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/geometry/BuiltinGeometry.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/geometry/HeptagonGeometry.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/objects/Cross.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/objects/Heptagon3024.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/objects/Heptagon919.cpp"
@@ -114,6 +121,7 @@ target_include_directories(
     "$<BUILD_INTERFACE:${LIGHTGRAPH_CORE_GENERATED_INCLUDE_DIR}>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
   PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/host/include"
@@ -342,6 +350,16 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   add_test(NAME lightgraph_core_regression COMMAND lightgraph_core_regression)
 
   add_executable(
+    lightgraph_core_memory_admission
+    tests/memory_admission_test.cpp
+  )
+  target_link_libraries(lightgraph_core_memory_admission PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_memory_admission PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_memory_admission COMMAND lightgraph_core_memory_admission)
+
+  add_executable(
     lightgraph_core_public_api
     tests/public_api_test.cpp
   )
@@ -383,6 +401,13 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   endif()
   add_test(NAME lightgraph_core_remote_template_motion COMMAND lightgraph_core_remote_template_motion)
 
+  add_executable(lightgraph_topology_pixels_allocation tests/topology_pixels_allocation_test.cpp)
+  target_link_libraries(lightgraph_topology_pixels_allocation PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_topology_pixels_allocation PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_topology_pixels_allocation COMMAND lightgraph_topology_pixels_allocation)
+
   add_executable(
     lightgraph_core_topology_emit
     tests/core_topology_emit_test.cpp
@@ -392,6 +417,64 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
     target_compile_options(lightgraph_core_topology_emit PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
   endif()
   add_test(NAME lightgraph_core_topology_emit COMMAND lightgraph_core_topology_emit)
+
+  add_executable(
+    lightgraph_core_heptagon_geometry
+    tests/heptagon_geometry_test.cpp
+  )
+  target_link_libraries(lightgraph_core_heptagon_geometry PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_heptagon_geometry PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_heptagon_geometry COMMAND lightgraph_core_heptagon_geometry)
+
+  add_executable(
+    lightgraph_core_drawing_runtime
+    tests/drawing_runtime_test.cpp
+  )
+  target_link_libraries(lightgraph_core_drawing_runtime PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_runtime PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_runtime COMMAND lightgraph_core_drawing_runtime)
+
+  add_executable(
+    lightgraph_core_drawing_allocation
+    tests/drawing_allocation_test.cpp
+  )
+  target_link_libraries(lightgraph_core_drawing_allocation PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_allocation PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_allocation COMMAND lightgraph_core_drawing_allocation)
+
+  add_executable(lightgraph_core_builtin_drawing tests/builtin_drawing_test.cpp)
+  target_link_libraries(lightgraph_core_builtin_drawing PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_builtin_drawing PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_builtin_drawing COMMAND lightgraph_core_builtin_drawing)
+
+  add_executable(lightgraph_core_drawing_presentation tests/drawing_presentation_test.cpp)
+  target_link_libraries(lightgraph_core_drawing_presentation PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_presentation PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_presentation COMMAND lightgraph_core_drawing_presentation)
+
+  add_executable(lightgraph_core_drawing_recovery tests/drawing_recovery_test.cpp)
+  target_link_libraries(lightgraph_core_drawing_recovery PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_recovery PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_recovery COMMAND lightgraph_core_drawing_recovery)
+
+  add_executable(lightgraph_drawing_golden tests/drawing_golden_test.cpp)
+  target_link_libraries(lightgraph_drawing_golden PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_drawing_golden PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_drawing_golden COMMAND lightgraph_drawing_golden)
 
   add_test(
     NAME lightgraph_core_package_smoke

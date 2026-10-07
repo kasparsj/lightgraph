@@ -62,6 +62,27 @@ jobs:
       - name: Test warnings
         run: ctest --preset warnings --output-on-failure
 
+  msvc:
+    name: Build / Test (Windows, MSVC)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure warnings
+        run: cmake --preset warnings
+
+      - name: Build warnings
+        run: cmake --build --preset warnings --parallel
+
+      - name: Test warnings
+        run: ctest --preset warnings --output-on-failure
+
   sanitizers:
     name: Sanitizers (Ubuntu, clang)
     runs-on: ubuntu-latest

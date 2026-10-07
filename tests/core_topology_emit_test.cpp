@@ -149,6 +149,26 @@ class NoMirrorObject : public TopologyObject {
     uint16_t mirroredPixels_[2] = {0};
 };
 
+class FixedMirrorObject : public TopologyObject {
+  public:
+    explicit FixedMirrorObject(uint16_t pixelCount) : TopologyObject(pixelCount) {
+        addModel(new Model(0, pixelCount, GROUP1));
+    }
+
+    uint16_t* getMirroredPixels(uint16_t pixel, Owner*, bool) override {
+        mirroredPixels_[0] = 1;
+        mirroredPixels_[1] = static_cast<uint16_t>(pixelCount - pixel - 1);
+        return mirroredPixels_;
+    }
+
+    EmitParams getModelParams(int model) const override {
+        return EmitParams(model % 1, 0.0f);
+    }
+
+  private:
+    uint16_t mirroredPixels_[2] = {0};
+};
+
 class StaticOwner : public Owner {
   public:
     StaticOwner() : Owner(GROUP1) {}
@@ -726,6 +746,85 @@ int main() {
             !isApproxColor(state.getPixel(1), 0, 204, 0, 1) ||
             !isApproxColor(state.getPixel(2), 0, 51, 0, 1)) {
             return fail("Same-list fractional contributions should accumulate before BLEND_NORMAL compositing");
+        }
+    }
+
+    // Same-list scratch accumulation must saturate rather than wrap when repeated full-weight
+    // contributions exceed 255. Mirrored contributions use the same scratch path, and moving
+    // the lights on the next frame verifies that all touched scratch entries were cleared.
+    {
+        FixedMirrorObject object(4);
+        State state(object);
+        state.lightLists[0]->visible = false;
+
+        StaticOwner owner;
+        SolidRuntimeList* list = new SolidRuntimeList(ColorRGB(200, 180, 160));
+        list->model = object.getModel(0);
+        list->behaviour = new Behaviour(B_MIRROR_ROTATE);
+        list->setup(2, 255);
+        list->speed = 0.0f;
+        list->lifeMillis = INFINITE_DURATION;
+        state.lightLists[1] = list;
+        state.activateList(&owner, list);
+
+        list->numEmitted = list->numLights;
+        for (uint16_t i = 0; i < list->numLights; ++i) {
+            RuntimeLight* light = list->lights[i];
+            if (light == nullptr) {
+                return fail("Saturating mirrored-list fixture is incomplete");
+            }
+            light->owner = &owner;
+            light->setRenderedPixels(0, 0, 0);
+        }
+
+        gMillis = 0;
+        lightgraphResetFrameTiming();
+        state.update();
+        if (!isApproxColor(state.getPixel(0), 255, 255, 255, 0) ||
+            !isApproxColor(state.getPixel(3), 255, 255, 255, 0)) {
+            return fail("Repeated same-list mirrored contributions must saturate at 255");
+        }
+
+        for (uint16_t i = 0; i < list->numLights; ++i) {
+            list->lights[i]->setRenderedPixels(1, 1, 0);
+        }
+        state.update();
+        if (isNonBlack(state.getPixel(0)) || isNonBlack(state.getPixel(3)) ||
+            !isApproxColor(state.getPixel(1), 255, 255, 255, 0) ||
+            !isApproxColor(state.getPixel(2), 255, 255, 255, 0)) {
+            return fail("List scratch pixels must clear between consecutive frames");
+        }
+    }
+
+    // Frame accumulators must remain wider than the per-list 8-bit scratch buffers. Two normal
+    // lists contribute 200 each and should average back to 200, which would fail after 8-bit wrap.
+    {
+        NoMirrorObject object(2);
+        State state(object);
+        state.lightLists[0]->visible = false;
+
+        StaticOwner owner;
+        for (uint8_t slot = 1; slot <= 2; ++slot) {
+            SolidRuntimeList* list = new SolidRuntimeList(ColorRGB(200, 180, 160));
+            list->model = object.getModel(0);
+            list->setup(1, 255);
+            list->speed = 0.0f;
+            list->lifeMillis = INFINITE_DURATION;
+            state.lightLists[slot] = list;
+            state.activateList(&owner, list);
+            list->numEmitted = list->numLights;
+            if (list->lights[0] == nullptr) {
+                return fail("Wide frame-accumulator fixture is incomplete");
+            }
+            list->lights[0]->owner = &owner;
+            list->lights[0]->setRenderedPixels(0, 0, 0);
+        }
+
+        gMillis = 0;
+        lightgraphResetFrameTiming();
+        state.update();
+        if (!isApproxColor(state.getPixel(0), 200, 180, 160, 0)) {
+            return fail("Frame accumulators must preserve sums greater than 255 before averaging");
         }
     }
 #endif

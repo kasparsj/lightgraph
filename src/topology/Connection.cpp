@@ -16,11 +16,16 @@ bool isDestinationIntersectionFullyOwnedByPreviousLight(const RuntimeLight* ligh
   }
 
   const RuntimeLight* previous = light->getPrev();
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
   return previous != nullptr &&
          previous->owner == destination &&
          previous->pixel1 == static_cast<int16_t>(destination->topPixel) &&
          previous->pixel1Weight > 0 &&
          !previous->hasSecondaryPixel();
+#else
+  return previous != nullptr && previous->owner == destination &&
+         previous->pixel1 == static_cast<int16_t>(destination->topPixel);
+#endif
 }
 
 bool hasAvailablePortSlot(const Intersection* intersection) {

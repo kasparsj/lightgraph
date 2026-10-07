@@ -111,6 +111,7 @@ public:
     const std::vector<int64_t>& getColors() const;
     const std::vector<float>& getPositions() const;
     const std::vector<ColorRGB>& getRGBColors();
+    size_t getRGBColorsCapacity() const noexcept { return rgbColors.capacity(); }
     std::vector<ColorRGB> interpolate(uint16_t maxColors) {
         std::vector<ColorRGB> rgbColors = getRGBColors();
         if (interpolationMode < 0 || rgbColors.size() < 2) {

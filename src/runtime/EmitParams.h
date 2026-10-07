@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <optional>
+#include "lightgraph/types.hpp"
+#include "../core/MemoryAdmission.h"
 #include "../core/Types.h"
 #include "../core/Limits.h"
 #include "../Random.h"
@@ -39,6 +41,8 @@ enum EmitParam {
     P_EMIT_OFFSET = 21,
     P_COLOR_CHANGE_GROUPS = 22,
     P_COLOR_RULE = 23,
+    P_LENGTH_MODE = 24,
+    P_VISIBLE_LENGTH = 25,
 };
 
 class EmitParams {
@@ -58,6 +62,8 @@ class EmitParams {
     uint8_t fadeThresh = 0;
     uint8_t fadeEase = 0;
     std::optional<uint16_t> length;
+    lightgraph::LengthMode lengthMode = lightgraph::LengthMode::Legacy;
+    std::optional<float> visibleLength;
     uint16_t trail = 0;
     ListOrder order = LIST_ORDER_SEQUENTIAL;
     ListHead head = LIST_HEAD_FRONT;
@@ -170,11 +176,15 @@ class EmitParams {
     }
     
     uint16_t getSpeedTrail(float speed, uint16_t length) const {
-      uint16_t trail = 0;
-      if (order == LIST_ORDER_SEQUENTIAL && linked && !(behaviourFlags & B_RENDER_SEGMENT)) {
-        trail = min((int) (speed * max(1, length / 2)), Random::MAX_LENGTH - 1);
-      }
-      return trail;
+      return lightgraph::memory::resolveEmitSpan(
+          length,
+          0,
+          speed,
+          0,
+          false,
+          order == LIST_ORDER_SEQUENTIAL,
+          linked,
+          behaviourFlags).trail;
     }
     
     uint32_t getDuration() const {

@@ -4,10 +4,12 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 
 #include "../core/Types.h"
 #include "../core/Limits.h"
 #include "../Random.h"
+#include "../geometry/GeometryProvider.h"
 #include "../topology/TopologyObject.h"
 
 enum HeptagonStarModel {
@@ -26,16 +28,19 @@ class HeptagonStar : public TopologyObject {
 
   public:
   
-    HeptagonStar(uint16_t pixelCount) : TopologyObject(pixelCount) {
+    HeptagonStar(uint16_t pixelCount, uint16_t firstStripPixelCount)
+        : TopologyObject(pixelCount), firstStripPixelCount_(firstStripPixelCount) {
     }
     
-    ~HeptagonStar() override = default;
+    ~HeptagonStar() override;
     
     bool isMirrorSupported() override { return true; }
     uint16_t* getMirroredPixels(uint16_t pixel, Owner* mirrorFlipEmitter, bool mirrorRotate) override;
     uint8_t getStarSegmentIndex(uint16_t pixel) const;
     float getProgressOnStarSegment(uint8_t pathIndex, uint16_t pixel) const;
     uint16_t getPixelOnStarSegment(uint8_t pathIndex, float perc) const;
+    bool supportsGeometry() const override { return true; }
+    std::unique_ptr<lightgraph::geometry::GeometryProvider> createGeometry() override;
     // todo: implement getXYZ
     
     EmitParams getModelParams(int model) const override {
@@ -108,6 +113,7 @@ class HeptagonStar : public TopologyObject {
 
   private:
     uint16_t mirrorPixels[3];
+    uint16_t firstStripPixelCount_;
 
 };
 

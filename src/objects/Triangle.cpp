@@ -1,5 +1,18 @@
 #include "Triangle.h"
 
+#include "../geometry/BuiltinGeometry.h"
+
+std::unique_ptr<lightgraph::geometry::GeometryProvider> Triangle::createGeometry() {
+    lightgraph::geometry::GeometryResult result;
+    lightgraph::geometry::BuiltinGeometryRoles roles;
+    roles.intersectionIds = {geometryVertex1Id_, geometryVertex2Id_, geometryVertex3Id_};
+    roles.count = 3;
+    auto geometry = lightgraph::geometry::createBuiltinGeometry(
+        *this, lightgraph::geometry::BuiltinGeometryKind::Triangle, geometryPixelCount_, roles, result);
+    setGeometryCreationResult(result);
+    return geometry;
+}
+
 void Triangle::setup() {
     Model::maxWeights = 18;  // One for each physical connection and each bridge
 
@@ -12,6 +25,9 @@ void Triangle::setup() {
     Intersection* vertex1 = addIntersection(new Intersection(2, segment1Start, segment3End, GROUP1));
     Intersection* vertex2 = addIntersection(new Intersection(2, segment1End, segment2Start, GROUP1));
     Intersection* vertex3 = addIntersection(new Intersection(2, segment2End, segment3Start, GROUP1));
+    geometryVertex1Id_ = vertex1->id;
+    geometryVertex2Id_ = vertex2->id;
+    geometryVertex3Id_ = vertex3->id;
     
     // Add midpoints for side 1 (vertex1 to vertex2)
     Intersection* side1_mid1 = addIntersection(new Intersection(2, segment1Start + subSegmentSize, 0, GROUP1));

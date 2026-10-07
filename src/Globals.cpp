@@ -9,7 +9,6 @@ LightgraphRuntimeContext gLightgraphDefaultRuntimeContext;
 
 } // namespace
 
-FastNoise gPerlinNoise;
 unsigned long gMillis = 0;
 
 LightgraphRuntimeContext& lightgraphDefaultRuntimeContext() {

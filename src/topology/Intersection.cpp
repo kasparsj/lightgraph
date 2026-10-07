@@ -51,10 +51,15 @@ bool shouldCompensateHiddenIngressContinuity(const RuntimeLight* light,
     }
 
     const RuntimeLight* previous = light->getPrev();
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
     return previous != nullptr &&
            previous->owner == connection &&
            previous->pixel1 == static_cast<int16_t>(adjacentPixel) &&
            previous->pixel1Weight > 0;
+#else
+    return previous != nullptr && previous->owner == connection &&
+           previous->pixel1 == static_cast<int16_t>(adjacentPixel);
+#endif
 }
 
 }  // namespace

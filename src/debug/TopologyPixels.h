@@ -13,7 +13,8 @@ class TopologyPixels {
     explicit TopologyPixels(TopologyObject& object);
     virtual ~TopologyPixels();
 
-    void refresh();
+    bool refresh();
+    bool isValid() const;
 
     bool isModelWeight(uint8_t id, uint16_t i) const;
     bool isIntersection(uint16_t i) const;
@@ -26,12 +27,13 @@ class TopologyPixels {
 
   private:
     void freeBuffers();
-    void allocateBuffers();
+    bool allocateBuffers();
 
     bool** weightPixels = nullptr;
     bool* interPixels = nullptr;
     bool* connPixels = nullptr;
     size_t weightRows = 0;
+    bool valid = false;
 };
 
 #endif  // PACKAGES_LIGHTGRAPH_SRC_DEBUG_TOPOLOGYPIXELS_H_

@@ -55,10 +55,17 @@ std::string describeContributorsAtPixel(LightList* list, uint16_t pixel) {
             continue;
         }
 
-        const bool contributesPrimary =
-            light->pixel1 == static_cast<int16_t>(pixel) && light->pixel1Weight > 0;
+        const bool contributesPrimary = light->pixel1 == static_cast<int16_t>(pixel)
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+            && light->pixel1Weight > 0
+#endif
+            ;
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
         const bool contributesSecondary =
             light->pixel2 == static_cast<int16_t>(pixel) && light->pixel2Weight > 0;
+#else
+        const bool contributesSecondary = false;
+#endif
         if (!contributesPrimary && !contributesSecondary) {
             continue;
         }
@@ -76,8 +83,11 @@ std::string describeContributorsAtPixel(LightList* list, uint16_t pixel) {
             Owner* owner = const_cast<Owner*>(light->owner);
             out << (owner->getType() == Owner::TYPE_INTERSECTION ? "I" : "C");
         }
-        out << " p1=" << light->pixel1 << "/" << static_cast<int>(light->pixel1Weight)
+        out << " p1=" << light->pixel1;
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+        out << "/" << static_cast<int>(light->pixel1Weight)
             << " p2=" << light->pixel2 << "/" << static_cast<int>(light->pixel2Weight);
+#endif
     }
 
     return found ? out.str() : "none";
@@ -204,6 +214,7 @@ bool findAccumulatedContributionAtPixel(LightList* list, uint16_t pixel, ColorRG
     }
 
     bool found = false;
+    [[maybe_unused]] uint16_t contributors = 0;
     ColorRGB total(0, 0, 0);
     for (uint16_t i = 0; i < list->numLights; ++i) {
         RuntimeLight* light = (*list)[i];
@@ -218,6 +229,7 @@ bool findAccumulatedContributionAtPixel(LightList* list, uint16_t pixel, ColorRG
 #endif
             total = accumulateColor(total, contribution);
             found = true;
+            contributors++;
         }
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
         if (light->pixel2 == static_cast<int16_t>(pixel) && light->pixel2Weight > 0) {
@@ -225,11 +237,19 @@ bool findAccumulatedContributionAtPixel(LightList* list, uint16_t pixel, ColorRG
             contribution = scaleColor(contribution, light->pixel2Weight);
             total = accumulateColor(total, contribution);
             found = true;
+            contributors++;
         }
 #endif
     }
 
     if (found) {
+#if !LIGHTGRAPH_FRACTIONAL_RENDERING
+        if (contributors > 1) {
+            total = ColorRGB(static_cast<uint8_t>(total.R / contributors),
+                             static_cast<uint8_t>(total.G / contributors),
+                             static_cast<uint8_t>(total.B / contributors));
+        }
+#endif
         contributionOut = total;
     }
     return found;
@@ -244,6 +264,7 @@ bool findRemoteIngressExpectedContributionAtPixel(LightList* list,
     }
 
     bool found = false;
+    [[maybe_unused]] uint16_t contributors = 0;
     ColorRGB total(0, 0, 0);
     for (uint16_t i = 0; i < list->numLights; ++i) {
         RuntimeLight* light = (*list)[i];
@@ -269,6 +290,7 @@ bool findRemoteIngressExpectedContributionAtPixel(LightList* list,
 #endif
             total = accumulateColor(total, contribution);
             found = true;
+            contributors++;
         }
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
         if (light->pixel2 == static_cast<int16_t>(pixel) && light->pixel2Weight > 0) {
@@ -276,11 +298,19 @@ bool findRemoteIngressExpectedContributionAtPixel(LightList* list,
             contribution = scaleColor(contribution, light->pixel2Weight);
             total = accumulateColor(total, contribution);
             found = true;
+            contributors++;
         }
 #endif
     }
 
     if (found) {
+#if !LIGHTGRAPH_FRACTIONAL_RENDERING
+        if (contributors > 1) {
+            total = ColorRGB(static_cast<uint8_t>(total.R / contributors),
+                             static_cast<uint8_t>(total.G / contributors),
+                             static_cast<uint8_t>(total.B / contributors));
+        }
+#endif
         contributionOut = total;
     }
     return found;
@@ -792,6 +822,7 @@ int main() {
             gMillis += EmitParams::frameMs();
             slowSender->state.update();
             slowRemote->state.update();
+            slowSenderList = slowSender->state.lightLists[slowListIndex];
 
             if (!sawSlowTemplateSend && slowTransport.templateSendCount == 1) {
                 sawSlowTemplateSend = true;
@@ -970,6 +1001,7 @@ int main() {
         for (size_t frame = 0; frame < internalMaxFrames; ++frame) {
             gMillis += EmitParams::frameMs();
             internal->state.update();
+            internalList = internal->state.lightLists[internalListIndex];
 
             const ColorRGB incomingActual = internal->state.getPixel(incomingPixel);
             const ColorRGB intersectionActual = internal->state.getPixel(intersectionPixel);

@@ -1,8 +1,10 @@
 #include "State.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <new>
+#include <memory>
 
 #include "../core/Platform.h"
 #include "../topology/TopologyObject.h"
@@ -14,14 +16,24 @@
 #include "LightList.h"
 #include "../rendering/Palettes.h"
 #include "../Globals.h"
+#include "../drawing/DrawingRuntime.h"
 
-#ifdef HD_OSC_REPLY
-#include <ArduinoOSC.h>
-#endif
 
 EmitParams State::autoParams(EmitParams::DEFAULT_MODEL, RANDOM_SPEED);
 
+State::AllocationCheckpoint State::allocationCheckpoint = nullptr;
+
 namespace {
+
+size_t checkpointAllocation(bool admitted,
+                            const char* stage,
+                            size_t count,
+                            size_t elementSize) {
+    if (State::allocationCheckpoint != nullptr) {
+        State::allocationCheckpoint(stage, count * elementSize);
+    }
+    return admitted ? count : 0;
+}
 
 uint8_t clampReservedTailSlots(uint8_t slots) {
     if (MAX_LIGHT_LISTS <= 1) {
@@ -40,35 +52,116 @@ ColorRGB scaleColorByWeight(const ColorRGB& color, uint8_t weight) {
         static_cast<uint8_t>((static_cast<uint16_t>(color.B) * weight + 127u) / 255u));
 }
 
+bool expiredForLengthControl(const LightList* list) {
+    if (list == nullptr) {
+        return true;
+    }
+    if (list->lengthMode == lightgraph::LengthMode::Centered) {
+        return list->lifeMillis < INFINITE_DURATION &&
+               list->runtimeContext().nowMillis >= list->lifeMillis;
+    }
+    for (uint16_t i = 0; i < list->numLights; ++i) {
+        const RuntimeLight* light = list->lights[i];
+        if (light == nullptr) {
+            continue;
+        }
+        if (!light->isExpired) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
-State::State(TopologyObject& obj)
-    : object(obj),
-      pixelValuesR(obj.pixelCount, 0),
-      pixelValuesG(obj.pixelCount, 0),
-      pixelValuesB(obj.pixelCount, 0),
-      pixelDiv(obj.pixelCount, 0),
-      renderPixelScratch(static_cast<size_t>(obj.pixelCount) + 3u, 0)
-#if LIGHTGRAPH_FRACTIONAL_RENDERING
-      ,
-      listPixelValuesR(obj.pixelCount, 0),
-      listPixelValuesG(obj.pixelCount, 0),
-      listPixelValuesB(obj.pixelCount, 0)
+State::State(TopologyObject& obj) : object(obj) {
+    const auto estimate = lightgraph::memory::estimateStateInitialization(
+        obj.pixelCount, LIGHTGRAPH_FRACTIONAL_RENDERING != 0);
+    initializationAdmitted = lightgraph::memory::admitted(
+        obj.runtimeContext().memoryAdmission, lightgraph::memory::Operation::RuntimeState, estimate);
+    if (!initializationAdmitted) {
+        initializationResult = InitializationResult::AdmissionDenied;
+        checkpointAllocation(false, "state.complete", 0, 0);
+        return;
+    }
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    try {
 #endif
-{
+    pixelValuesR.assign(checkpointAllocation(true, "state.pixelValuesR", obj.pixelCount, sizeof(uint16_t)), 0);
+    pixelValuesG.assign(checkpointAllocation(true, "state.pixelValuesG", obj.pixelCount, sizeof(uint16_t)), 0);
+    pixelValuesB.assign(checkpointAllocation(true, "state.pixelValuesB", obj.pixelCount, sizeof(uint16_t)), 0);
+    pixelDiv.assign(checkpointAllocation(true, "state.pixelDiv", obj.pixelCount, sizeof(uint8_t)), 0);
+    geometricOccupancy.assign(checkpointAllocation(
+        true, "state.geometricOccupancy", (static_cast<size_t>(obj.pixelCount) + 7u) / 8u,
+        sizeof(uint8_t)), 0);
+    renderPixelScratch.assign(checkpointAllocation(
+        true, "state.renderPixelScratch", static_cast<size_t>(obj.pixelCount) + 3u,
+        sizeof(uint16_t)), 0);
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
-    listTouchedPixels.reserve(obj.pixelCount);
+    listPixelValuesR.assign(checkpointAllocation(true, "state.listPixelValuesR", obj.pixelCount, sizeof(uint8_t)), 0);
+    listPixelValuesG.assign(checkpointAllocation(true, "state.listPixelValuesG", obj.pixelCount, sizeof(uint8_t)), 0);
+    listPixelValuesB.assign(checkpointAllocation(true, "state.listPixelValuesB", obj.pixelCount, sizeof(uint8_t)), 0);
+    listTouchedPixels.reserve(checkpointAllocation(
+        true, "state.listTouchedPixels", obj.pixelCount, sizeof(uint16_t)));
 #endif
-    setupBg(0);
+    checkpointAllocation(true, "state.beforeBackground", 0, 0);
+    if (!constructBackground(0) || !hasRequiredFrameBuffers()) {
+        failInitializationAllocation();
+        checkpointAllocation(false, "state.complete", 0, 0);
+        return;
+    }
+    BgLight* background = lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr;
+    if (background != nullptr) {
+        drawingRuntime_.initialize(object, *background);
+    }
+    initializationResult = InitializationResult::Ready;
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    } catch (const std::bad_alloc&) {
+        failInitializationAllocation();
+    }
+#endif
+    checkpointAllocation(ready(), "state.complete", 0, 0);
+}
+
+void State::failInitializationAllocation() noexcept {
+    drawingRuntime_.shutdown();
+    for (LightList*& list : lightLists) {
+        delete list;
+        list = nullptr;
+    }
+    totalLights = 0;
+    totalLightLists = 0;
+    pixelValuesR.clear(); pixelValuesG.clear(); pixelValuesB.clear(); pixelDiv.clear();
+    geometricOccupancy.clear(); renderPixelScratch.clear();
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    listPixelValuesR.clear(); listPixelValuesG.clear(); listPixelValuesB.clear();
+    listTouchedPixels.clear();
+#endif
+    initializationResult = InitializationResult::AllocationFailed;
+    lightgraphReportAllocationFailure(
+        object.runtimeContext(), LightgraphAllocationFailureSite::StateSetupException, 0, 0);
 }
 
 State::~State() {
+    drawingRuntime_.shutdown();
     for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
         if (lightLists[i] != NULL) {
             delete lightLists[i];
             lightLists[i] = NULL;
         }
     }
+}
+
+lightgraph::drawing::DrawingRuntime& State::drawing() {
+    drawingRuntime_.synchronize(object,
+        ready() && lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr);
+    return drawingRuntime_;
+}
+
+const lightgraph::drawing::DrawingRuntime& State::drawing() const {
+    drawingRuntime_.synchronize(object,
+        ready() && lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr);
+    return drawingRuntime_;
 }
 
 uint8_t State::randomModel() {
@@ -81,16 +174,123 @@ ColorRGB State::paletteColor(uint8_t index, uint8_t /*maxBrightness*/) {
 }
 
 void State::autoEmit(unsigned long ms) {
-    if (autoEnabled && nextEmit <= ms) {
+    if (ready() && autoEnabled && nextEmit <= ms) {
         emit(autoParams);
         nextEmit = ms + Random::randomNextEmit();
     }
 }
 
+bool State::admitMemory(lightgraph::memory::Operation operation,
+                        const lightgraph::memory::Estimate& estimate) {
+    if (lightgraph::memory::admitted(object.runtimeContext().memoryAdmission, operation, estimate)) {
+        return true;
+    }
+    recordMemoryRejection(operation, estimate, MemoryRejectionReason::Admission);
+    LG_LOGF("emit rejected: memory admission failed (%u bytes, largest %u)\n",
+            static_cast<unsigned>(estimate.peakBytes),
+            static_cast<unsigned>(estimate.largestBlock));
+    return false;
+}
+
+void State::recordMemoryRejection(lightgraph::memory::Operation operation,
+                                  const lightgraph::memory::Estimate& estimate,
+                                  MemoryRejectionReason reason) noexcept {
+    if (emitMemoryRejections < std::numeric_limits<uint32_t>::max()) {
+        ++emitMemoryRejections;
+    }
+    lastEmitRejection.operation = operation;
+    lastEmitRejection.peakBytes = estimate.peakBytes;
+    lastEmitRejection.largestBlock = estimate.largestBlock;
+    lastEmitRejection.reason = reason;
+}
+
+void State::recordEmitAllocationFailure(
+    lightgraph::memory::Operation operation,
+    const lightgraph::memory::Estimate& estimate) noexcept {
+    recordMemoryRejection(operation, estimate, MemoryRejectionReason::AllocationFailure);
+}
+
 int8_t State::emit(EmitParams &params) {
+    lastEmitFailure = EmitFailure::None;
+    if (!ready()) {
+        lastEmitFailure = EmitFailure::NotReady;
+        return -1;
+    }
+    if (!std::isfinite(params.speed) ||
+        (params.visibleLength.has_value() && !std::isfinite(*params.visibleLength))) {
+        lastEmitFailure = EmitFailure::InvalidArgument;
+        LG_LOGLN("emit failed: numeric inputs must be finite");
+        return -1;
+    }
+    if (params.lengthMode != lightgraph::LengthMode::Legacy &&
+        params.lengthMode != lightgraph::LengthMode::Centered) {
+        lastEmitFailure = EmitFailure::InvalidArgument;
+        LG_LOGLN("emit failed: invalid length mode");
+        return -1;
+    }
+    if (params.lengthMode == lightgraph::LengthMode::Centered &&
+        (!params.length.has_value() || *params.length == 0)) {
+        lastEmitFailure = EmitFailure::InvalidArgument;
+        LG_LOGLN("emit failed: centered length requires explicit capacity");
+        return -1;
+    }
+
+    const size_t paletteStops = params.palette.size();
+    const bool hasColorRule = params.palette.getColorRule() >= 0;
+    const lightgraph::memory::Estimate parameterEstimate =
+        lightgraph::memory::estimateEmitParameters(paletteStops, hasColorRule);
+    if (!admitMemory(lightgraph::memory::Operation::EmitParameters, parameterEstimate)) {
+        lastEmitFailure = EmitFailure::AdmissionDenied;
+        return -1;
+    }
+
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    try {
+#endif
+        EmitParams resolved(params);
+        if (resolved.speed < 0.0f) {
+            resolved.speed = resolved.getSpeed();
+        }
+        if (!resolved.length.has_value()) {
+            resolved.length = resolved.getLength();
+        }
+        if (resolved.duration == 0) {
+            resolved.duration = resolved.getDuration();
+        }
+        if (resolved.model < 0) {
+            resolved.model = static_cast<int8_t>(randomModel());
+        }
+        return emitResolved(resolved);
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    } catch (const std::bad_alloc&) {
+        lastEmitFailure = EmitFailure::AllocationFailed;
+        recordEmitAllocationFailure(lightgraph::memory::Operation::EmitParameters, parameterEstimate);
+        lightgraphReportAllocationFailure(
+            object.runtimeContext(), LightgraphAllocationFailureSite::StateSetupException, 0, 0);
+        return -1;
+    }
+#endif
+}
+
+int8_t State::emitResolved(EmitParams &params) {
+    if (params.lengthMode == lightgraph::LengthMode::Centered) {
+        const uint16_t capacity = *params.length;
+        const float visibleLength = params.visibleLength.value_or(static_cast<float>(capacity));
+        if (params.noteId == 0 || params.order != LIST_ORDER_SEQUENTIAL || !params.linked ||
+            (params.behaviourFlags & (B_RENDER_SEGMENT | B_FILL_EASE | B_EMIT_FROM_CONN)) != 0 ||
+            !std::isfinite(visibleLength) || visibleLength < 0.0f ||
+            visibleLength > static_cast<float>(capacity) || object.hasExternalPorts()) {
+            lastEmitFailure = EmitFailure::InvalidArgument;
+            LG_LOGLN("emit failed: invalid centered-length configuration");
+            return -1;
+        }
+        params.trail = 0;
+        params.visibleLength = visibleLength;
+    }
     uint8_t which = params.model >= 0 ? params.model : randomModel();
     Model *model = object.getModel(which);
     if (model == NULL) {
+        lastEmitFailure = EmitFailure::InvalidModel;
         LG_LOGF("emit failed, model %d not found\n", which);
         return -1;
     }
@@ -108,6 +308,7 @@ int8_t State::emit(EmitParams &params) {
         replacement->model = model;
         Owner *emitter = getEmitter(model, replacement->behaviour, params);
         if (emitter == NULL) {
+            lastEmitFailure = EmitFailure::NoEmitterAvailable;
             LG_LOGF("emit failed, no free emitter %d %d.\n", params.getEmit(), params.getEmitGroups(model->emitGroups));
             delete replacement;
             return -1;
@@ -135,6 +336,10 @@ int8_t State::emit(EmitParams &params) {
 }
 
 int8_t State::getOrCreateList(EmitParams &params) {
+    if (!ready()) {
+        lastEmitFailure = EmitFailure::NotReady;
+        return -1;
+    }
     if (params.noteId > 0) {
         int8_t listIndex = findList(params.noteId);
         if (listIndex > -1) {
@@ -150,31 +355,83 @@ int8_t State::getOrCreateList(EmitParams &params) {
     LG_LOGF("emit failed: no free local light lists (%d, reserved tail=%d)\n",
             localSlotsEndExclusive,
             clampReservedTailSlots(reservedTailSlots));
+    lastEmitFailure = EmitFailure::NoFreeLightList;
     return -1;
 }
 
 LightList* State::setupListFrom(uint8_t i, EmitParams &params) {
+    if (!ready()) {
+        lastEmitFailure = EmitFailure::NotReady;
+        return nullptr;
+    }
     LightList* lightList = lightLists[i];
     uint16_t oldLen = (lightList != NULL ? lightList->length : 0);
     uint16_t oldLights = (lightList != NULL ? lightList->numLights : 0);
     const bool hadCountedList = (lightList != NULL && lightList->emitter != NULL);
     const uint16_t countedOldLights = hadCountedList ? oldLights : 0;
-    uint16_t newLen = params.getLength();
-    Behaviour smoothProbe(params);
-    if (oldLen > 0 && smoothProbe.smoothChanges()) {
-        newLen = oldLen + (int) round((float)(newLen - oldLen) * 0.1f);
+    const float resolvedSpeed = params.getSpeed();
+    const lightgraph::memory::EmitSpan span = lightgraph::memory::resolveEmitSpan(
+        params.getLength(),
+        oldLen,
+        resolvedSpeed,
+        params.trail,
+        params.lengthMode == lightgraph::LengthMode::Centered,
+        params.order == LIST_ORDER_SEQUENTIAL,
+        params.linked,
+        params.behaviourFlags);
+    const uint16_t newLen = span.length;
+    const uint32_t candidateLightsWide = span.lightCount;
+    if (candidateLightsWide > std::numeric_limits<uint16_t>::max()) {
+        lastEmitFailure = EmitFailure::CapacityExceeded;
+        LG_LOGF("emit failed, candidate light count overflow (%u)\n",
+                static_cast<unsigned>(candidateLightsWide));
+        return nullptr;
     }
+    const uint16_t candidateLights = static_cast<uint16_t>(candidateLightsWide);
     const uint32_t retainedLights = (totalLights >= countedOldLights)
                                         ? static_cast<uint32_t>(totalLights - countedOldLights)
                                         : 0U;
-    if (retainedLights + newLen > MAX_TOTAL_LIGHTS) {
-        // todo: if it's a change, maybe emit max possible?
-        LG_LOGF("emit failed, %d is over max %d lights\n", totalLights + newLen, MAX_TOTAL_LIGHTS);
-        return NULL;
+    if (retainedLights + candidateLights > MAX_TOTAL_LIGHTS) {
+        lastEmitFailure = EmitFailure::CapacityExceeded;
+        LG_LOGF("emit failed, %u is over max %d lights\n",
+                static_cast<unsigned>(retainedLights + candidateLights), MAX_TOTAL_LIGHTS);
+        return nullptr;
+    }
+    const bool contiguous = params.lengthMode == lightgraph::LengthMode::Centered;
+    const lightgraph::memory::Estimate estimate = lightgraph::memory::estimateEmitCandidate(
+        candidateLights,
+        params.palette.size(),
+        params.palette.getColorRule() >= 0,
+        contiguous);
+    if (!admitMemory(lightgraph::memory::Operation::Emit, estimate)) {
+        lastEmitFailure = EmitFailure::AdmissionDenied;
+        return nullptr;
     }
 
-    const lightlist_build::Spec spec = lightlist_build::makeSpecFromEmitParams(params, newLen);
-    return lightlist_build::buildLightList(spec, lightlist_build::makeStateEmitPolicy());
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    try {
+#endif
+        const lightlist_build::Spec spec = lightlist_build::makeSpecFromEmitParams(params, newLen);
+        const lightlist_build::AllocationMode allocation = contiguous
+            ? lightlist_build::AllocationMode::ContiguousLights
+            : lightlist_build::AllocationMode::DefaultHeap;
+        LightList* candidate =
+            lightlist_build::buildLightList(spec, lightlist_build::makeStateEmitPolicy(allocation),
+                                            &object.runtimeContext());
+        if (candidate == nullptr) {
+            lastEmitFailure = EmitFailure::AllocationFailed;
+            recordEmitAllocationFailure(lightgraph::memory::Operation::Emit, estimate);
+        }
+        return candidate;
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    } catch (const std::bad_alloc&) {
+        lastEmitFailure = EmitFailure::AllocationFailed;
+        recordEmitAllocationFailure(lightgraph::memory::Operation::Emit, estimate);
+        lightgraphReportAllocationFailure(
+            object.runtimeContext(), LightgraphAllocationFailureSite::StateSetupException, candidateLights, newLen);
+        return nullptr;
+    }
+#endif
 }
 
 Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params) {
@@ -205,7 +462,7 @@ Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params)
 }
 
 void State::activateList(Owner* from, LightList *lightList, uint8_t emitOffset, bool countTotals) {
-    if (lightList == NULL) {
+    if (!ready() || lightList == NULL) {
         return;
     }
     lightList->bindRuntimeContext(object.runtimeContext());
@@ -236,6 +493,11 @@ void State::doEmit(Owner* from, LightList *lightList, EmitParams& params) {
 }
 
 void State::update() {
+  if (!ready()) return;
+  BgLight* background = lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr;
+  if (background != nullptr && drawing().mode() == lightgraph::drawing::DrawingMode::Drawing) {
+    drawing().refreshGeometry();
+  }
   lightgraphAdvanceFrameTiming(object.runtimeContext(), object.nowMillis());
   const uint8_t substeps = lightgraphSimulationSubsteps(object.runtimeContext());
   for (uint8_t step = 0; step < substeps; step++) {
@@ -250,6 +512,7 @@ void State::updatePass(bool renderStep) {
     std::fill(pixelValuesG.begin(), pixelValuesG.end(), 0);
     std::fill(pixelValuesB.begin(), pixelValuesB.end(), 0);
     std::fill(pixelDiv.begin(), pixelDiv.end(), 0);
+    std::fill(geometricOccupancy.begin(), geometricOccupancy.end(), 0);
   }
 
   for (uint8_t i=0; i<MAX_LIGHT_LISTS; i++) {
@@ -266,6 +529,12 @@ void State::updatePass(bool renderStep) {
           clearListSlot(i);
         }
         else if (lightList->visible) {
+      BgLight* editableBackground = lightList->asBgLight();
+      if (i == 0 && editableBackground != nullptr &&
+          drawing().mode() == lightgraph::drawing::DrawingMode::Drawing &&
+          drawing().placement() == lightgraph::drawing::DrawingPlacement::Overlay) {
+        continue;
+      }
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
       if (renderStep) {
         beginListRender(lightList);
@@ -275,7 +544,7 @@ void State::updatePass(bool renderStep) {
       if (lightList->editable && lightList->numLights == 0) {
         if (renderStep) {
           for (uint16_t p = 0; p < object.pixelCount; p++) {
-              ColorRGB color = lightList->getColor(p);
+              ColorRGB color = i == 0 && editableBackground != nullptr ? drawing().layerColor(p) : lightList->getColor(p);
               setPixel(p, color, lightList);
           }
         }
@@ -286,7 +555,7 @@ void State::updatePass(bool renderStep) {
             RuntimeLight* light = lightList->lights[j];
             if (light == NULL) continue;
             if (renderStep) {
-              updateLight(light);
+              updateLight(light, j);
             } else {
               light->nextFrame();
             }
@@ -299,12 +568,21 @@ void State::updatePass(bool renderStep) {
 #endif
     }
   }
+  if (renderStep) {
+    renderDrawingOverlay();
+  }
 }
 
-void State::updateLight(RuntimeLight* light) {
+void State::updateLight(RuntimeLight* light, uint16_t listSlot) {
+    if (!ready() || light == nullptr) return;
+    const uint8_t centeredCoverage = light->list->centeredCoverage(listSlot);
+    if (centeredCoverage == 0) {
+        light->nextFrame();
+        return;
+    }
     // todo: perhaps it's OK to always retrieve pixels
     if (light->list->behaviour != NULL && (light->list->behaviour->renderSegment() || light->list->behaviour->fillEase())) {
-      ColorRGB color = light->getPixelColor();
+      ColorRGB color = light->getPixelColor().dim(centeredCoverage);
       uint16_t numPixels = light->writePixels(renderPixelScratch.data(), renderPixelScratch.size());
       if (numPixels > 0) {
         for (uint16_t k=1; k<numPixels+1; k++) {
@@ -318,25 +596,66 @@ void State::updateLight(RuntimeLight* light) {
           static_cast<uint16_t>(light->pixel1),
           light->getPixelColorAt(light->pixel1),
           light->list,
-          light->getPrimaryPixelWeight());
+          static_cast<uint8_t>((static_cast<uint16_t>(light->getPrimaryPixelWeight()) *
+                                centeredCoverage + 127u) / 255u));
       if (light->hasSecondaryPixel()) {
         setPixelsWeighted(
             static_cast<uint16_t>(light->pixel2),
             light->getPixelColorAt(light->pixel2),
             light->list,
-            light->pixel2Weight);
+            static_cast<uint8_t>((static_cast<uint16_t>(light->pixel2Weight) *
+                                  centeredCoverage + 127u) / 255u));
       }
 #else
-      ColorRGB color = light->getPixelColor();
+      ColorRGB color = light->getPixelColor().dim(centeredCoverage);
       setPixels(static_cast<uint16_t>(light->pixel1), color, light->list);
 #endif
     }
     light->nextFrame();
 }
 
+bool State::setListLengths(const lightgraph::ListLengthUpdate* updates, size_t count) {
+    if (!ready()) return false;
+    if (count > 19 || (count > 0 && updates == nullptr)) {
+        return false;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        const auto& update = updates[i];
+        if (update.note_id == 0 || !std::isfinite(update.visible_length) ||
+            update.visible_length < 0.0f) {
+            return false;
+        }
+        for (size_t j = 0; j < i; ++j) {
+            if (updates[j].note_id == update.note_id) {
+                return false;
+            }
+        }
+        const int8_t index = findList(update.note_id);
+        if (index < 0) {
+            continue;
+        }
+        const LightList* list = lightLists[index];
+        if (expiredForLengthControl(list)) {
+            continue;
+        }
+        if (list == nullptr || list->lengthMode != lightgraph::LengthMode::Centered ||
+            update.visible_length < 0.0f ||
+            update.visible_length > static_cast<float>(list->numLights)) {
+            return false;
+        }
+    }
+    for (size_t i = 0; i < count; ++i) {
+        const int8_t index = findList(updates[i].note_id);
+        if (index >= 0 && !expiredForLengthControl(lightLists[index])) {
+            lightLists[index]->setVisibleLength(updates[i].visible_length);
+        }
+    }
+    return true;
+}
+
 ColorRGB State::getPixel(uint16_t i, uint8_t maxBrightness) {
   ColorRGB color = ColorRGB(0, 0, 0);
-  if (i >= pixelDiv.size()) {
+  if (!ready() || i >= pixelDiv.size()) {
     return color;
   }
   const uint8_t div = pixelDiv[i];
@@ -363,6 +682,7 @@ void State::setPixelsWeighted(uint16_t pixel,
     if (weight == 0) {
         return;
     }
+    markOccupancy(pixel, lightList);
     if (weight == FULL_BRIGHTNESS) {
         ColorRGB fullColor = color;
         setPixels(pixel, fullColor, lightList);
@@ -387,6 +707,7 @@ void State::setPixels(uint16_t pixel, ColorRGB &color, const LightList* const li
 }
 
 void State::setFramePixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+    markOccupancy(pixel, lightList);
     setFramePixel(pixel, color, lightList);
     if (lightList != NULL && lightList->behaviour != NULL &&
         (lightList->behaviour->mirrorFlip() || lightList->behaviour->mirrorRotate())) {
@@ -427,6 +748,7 @@ void State::endListRender(const LightList* lightList) {
 }
 
 void State::setListPixels(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+    markOccupancy(pixel, lightList);
     setListPixel(pixel, color);
     if (lightList != NULL && lightList->behaviour != NULL &&
         (lightList->behaviour->mirrorFlip() || lightList->behaviour->mirrorRotate())) {
@@ -466,6 +788,7 @@ void State::setListPixel(uint16_t pixel, ColorRGB &color) {
 #endif
 
 void State::setPixel(uint16_t pixel, ColorRGB &color, const LightList* const lightList) {
+    markOccupancy(pixel, lightList);
 #if LIGHTGRAPH_FRACTIONAL_RENDERING
     if (renderingList != nullptr) {
         setListPixel(pixel, color);
@@ -625,8 +948,75 @@ void State::setFramePixel(uint16_t pixel, ColorRGB &color, const LightList* cons
     pixelValuesB[pixel] = b * 255.0f * pixelDiv[pixel];
 }
 
+void State::markOccupancy(uint16_t pixel, const LightList* lightList) {
+    if (lightList == nullptr || lightList == lightLists[0] || pixel >= object.pixelCount) {
+        return;
+    }
+    geometricOccupancy[pixel >> 3u] |= static_cast<uint8_t>(1u << (pixel & 7u));
+    if (lightList->behaviour != nullptr &&
+        (lightList->behaviour->mirrorFlip() || lightList->behaviour->mirrorRotate())) {
+        uint16_t* mirrors = object.getMirroredPixels(
+            pixel,
+            lightList->behaviour->mirrorFlip() ? lightList->emitter : nullptr,
+            lightList->behaviour->mirrorRotate());
+        if (mirrors != nullptr) {
+            for (uint16_t i = 1; i <= mirrors[0]; ++i) {
+                const uint16_t mirror = mirrors[i];
+                if (mirror < object.pixelCount) {
+                    geometricOccupancy[mirror >> 3u] |=
+                        static_cast<uint8_t>(1u << (mirror & 7u));
+                }
+            }
+        }
+    }
+}
+
+bool State::isOccupied(uint16_t pixel) const {
+    return pixel < object.pixelCount &&
+           (geometricOccupancy[pixel >> 3u] & static_cast<uint8_t>(1u << (pixel & 7u))) != 0;
+}
+
+void State::renderDrawingOverlay() {
+    BgLight* background = lightLists[0] != nullptr ? lightLists[0]->asBgLight() : nullptr;
+    if (background == nullptr || !background->visible ||
+        drawing().mode() != lightgraph::drawing::DrawingMode::Drawing ||
+        drawing().placement() != lightgraph::drawing::DrawingPlacement::Overlay) {
+        return;
+    }
+    for (uint16_t pixel = 0; pixel < object.pixelCount; ++pixel) {
+        const bool occupied = isOccupied(pixel);
+        if (drawing().clipToContent() && !occupied) {
+            continue;
+        }
+        if (occupied || pixelDiv[pixel] != 0 || pixelValuesR[pixel] != 0 ||
+            pixelValuesG[pixel] != 0 || pixelValuesB[pixel] != 0) {
+            const uint16_t divisor = pixelDiv[pixel] != 0 ? pixelDiv[pixel] : 1;
+            pixelValuesR[pixel] = std::min<uint16_t>(
+                FULL_BRIGHTNESS, static_cast<uint16_t>(pixelValuesR[pixel] / divisor));
+            pixelValuesG[pixel] = std::min<uint16_t>(
+                FULL_BRIGHTNESS, static_cast<uint16_t>(pixelValuesG[pixel] / divisor));
+            pixelValuesB[pixel] = std::min<uint16_t>(
+                FULL_BRIGHTNESS, static_cast<uint16_t>(pixelValuesB[pixel] / divisor));
+            pixelDiv[pixel] = 1;
+        }
+        ColorRGB color = drawing().layerColor(pixel);
+        setFramePixel(pixel, color, background);
+    }
+}
+
 void State::setupBg(uint8_t i) {
-    BgLight* bgLight = new (std::nothrow) BgLight();
+    setupBgChecked(i);
+}
+
+bool State::setupBgChecked(uint8_t i) {
+    if (!ready() || i >= MAX_LIGHT_LISTS) {
+        return false;
+    }
+    return constructBackground(i);
+}
+
+bool State::constructBackground(uint8_t i) {
+    std::unique_ptr<BgLight> bgLight(new (std::nothrow) BgLight());
     if (bgLight == nullptr) {
         LG_LOGLN("setupBg failed: OOM creating background layer");
         lightgraphReportAllocationFailure(
@@ -634,11 +1024,9 @@ void State::setupBg(uint8_t i) {
             LightgraphAllocationFailureSite::SetupBgAllocation,
             static_cast<uint16_t>(i),
             0);
-        return;
+        return false;
     }
     bgLight->bindRuntimeContext(object.runtimeContext());
-    lightLists[i] = bgLight;
-
     // Configure the BgLight
     bgLight->model = object.getModel(0); // Use first model
     bgLight->setDuration(INFINITE_DURATION);
@@ -647,11 +1035,33 @@ void State::setupBg(uint8_t i) {
 
     // Use the palette directly, colorRule is now managed by the Palette
     bgLight->setPalette(Palette({0xFF0000}, {0.0f}));
-
+    if (lightLists[i] != nullptr) {
+        return replaceListSlot(i, bgLight.release());
+    }
+    lightLists[i] = bgLight.release();
     totalLightLists++;
+    return true;
+}
+
+bool State::hasRequiredFrameBuffers() const {
+    const size_t pixels = object.pixelCount;
+    if (pixelValuesR.size() != pixels || pixelValuesG.size() != pixels ||
+        pixelValuesB.size() != pixels || pixelDiv.size() != pixels ||
+        geometricOccupancy.size() != (pixels + 7u) / 8u ||
+        renderPixelScratch.size() < pixels + 3u || lightLists[0] == nullptr) {
+        return false;
+    }
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
+    if (listPixelValuesR.size() != pixels || listPixelValuesG.size() != pixels ||
+        listPixelValuesB.size() != pixels || listTouchedPixels.capacity() < pixels) {
+        return false;
+    }
+#endif
+    return true;
 }
 
 void State::setReservedTailSlots(uint8_t slots) {
+    if (!ready()) return;
     reservedTailSlots = clampReservedTailSlots(slots);
 }
 
@@ -665,6 +1075,7 @@ uint8_t State::getLocalSlotEndExclusive() const {
 }
 
 bool State::clearListSlot(uint8_t slot) {
+    if (!ready()) return false;
     if (slot >= MAX_LIGHT_LISTS) {
         return false;
     }
@@ -675,7 +1086,9 @@ bool State::clearListSlot(uint8_t slot) {
     }
 
     if (slot == 0) {
-        existing->visible = false;
+        if (drawing().setVisible(false) == lightgraph::drawing::DrawingResult::Busy) {
+            existing->visible = false;
+        }
         return true;
     }
 
@@ -695,6 +1108,10 @@ bool State::clearListSlot(uint8_t slot) {
 }
 
 bool State::replaceListSlot(uint8_t slot, LightList* replacement) {
+    if (!ready()) {
+        delete replacement;
+        return false;
+    }
     if (slot >= MAX_LIGHT_LISTS) {
         delete replacement;
         return false;
@@ -702,12 +1119,15 @@ bool State::replaceListSlot(uint8_t slot, LightList* replacement) {
 
     if (slot == 0 && replacement == nullptr) {
         if (lightLists[0] != nullptr) {
-            lightLists[0]->visible = false;
+            if (drawing().setVisible(false) == lightgraph::drawing::DrawingResult::Busy) {
+                lightLists[0]->visible = false;
+            }
         }
         return true;
     }
 
     if (slot == 0 && lightLists[0] != nullptr) {
+        drawingRuntime_.shutdown();
         LightList* existing = lightLists[0];
         if (totalLights >= existing->numLights) {
             totalLights = static_cast<uint16_t>(totalLights - existing->numLights);
@@ -737,6 +1157,7 @@ bool State::replaceListSlot(uint8_t slot, LightList* replacement) {
 }
 
 void State::colorAll() {
+    if (!ready()) return;
     ColorRGB color;
     color.setRandom();
     for (uint8_t i=0; i<MAX_LIGHT_LISTS; i++) {
@@ -748,6 +1169,7 @@ void State::colorAll() {
 }
 
 void State::splitAll() {
+    if (!ready()) return;
   for (uint8_t i=0; i<MAX_LIGHT_LISTS; i++) {
     if (lightLists[i] == NULL) continue;
     lightLists[i]->split();
@@ -755,6 +1177,7 @@ void State::splitAll() {
 }
 
 void State::stopAll() {
+    if (!ready()) return;
   for (uint8_t i=0; i<MAX_LIGHT_LISTS; i++) {
     if (lightLists[i] == NULL) continue;
     lightLists[i]->setDuration(0);
@@ -762,6 +1185,7 @@ void State::stopAll() {
 }
 
 bool State::isOn() {
+    if (!ready()) return false;
     for (uint8_t i = 0; i < MAX_LIGHT_LISTS; i++) {
         if (lightLists[i] != NULL && lightLists[i]->visible) {
             return true;
@@ -771,8 +1195,11 @@ bool State::isOn() {
 }
 
 void State::setOn(bool newState) {
+    if (!ready()) return;
     if (lightLists[0]) {
-        lightLists[0]->visible = newState;
+        if (drawing().setVisible(newState) == lightgraph::drawing::DrawingResult::Busy) {
+            lightLists[0]->visible = newState;
+        }
     }
     if (!newState) {
         autoEnabled = false;
@@ -799,6 +1226,7 @@ LightList* State::findListById(uint16_t id) {
 }
 
 void State::stopNote(uint16_t noteId) {
+    if (!ready()) return;
     int8_t index = findList(noteId);
     if (index > -1) {
         lightLists[index]->setDuration(0);

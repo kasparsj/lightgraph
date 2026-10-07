@@ -1,7 +1,9 @@
 #include "TopologyPixels.h"
 
+#include <algorithm>
 #include <array>
 #include <limits>
+#include <new>
 
 #include "../core/Platform.h"
 #include "../topology/TopologyObject.h"
@@ -15,6 +17,7 @@ TopologyPixels::~TopologyPixels() {
 }
 
 void TopologyPixels::freeBuffers() {
+  valid = false;
   if (weightPixels != nullptr) {
     for (size_t i = 0; i < weightRows; i++) {
       delete[] weightPixels[i];
@@ -30,23 +33,56 @@ void TopologyPixels::freeBuffers() {
   weightRows = 0;
 }
 
-void TopologyPixels::allocateBuffers() {
+bool TopologyPixels::allocateBuffers() {
   const uint16_t pixelCount = object.pixelCount;
   const size_t modelCount = object.models.size();
 
-  interPixels = new bool[pixelCount]{false};
-  connPixels = new bool[pixelCount]{false};
+  if (pixelCount > 0) {
+    interPixels = new (std::nothrow) bool[pixelCount]{};
+    connPixels = new (std::nothrow) bool[pixelCount]{};
+    if (interPixels == nullptr || connPixels == nullptr) {
+      freeBuffers();
+      lightgraphReportAllocationFailure(
+          object.runtimeContext(), LightgraphAllocationFailureSite::TopologyPixelsAllocation,
+          1, pixelCount);
+      return false;
+    }
+  }
 
   weightRows = modelCount;
-  weightPixels = new bool*[modelCount];
-  for (size_t i = 0; i < modelCount; i++) {
-    weightPixels[i] = new bool[pixelCount]{false};
+  if (modelCount == 0) {
+    return true;
   }
+
+  weightPixels = new (std::nothrow) bool*[modelCount]{};
+  if (weightPixels == nullptr) {
+    freeBuffers();
+    lightgraphReportAllocationFailure(
+        object.runtimeContext(), LightgraphAllocationFailureSite::TopologyPixelsAllocation,
+        2, static_cast<uint16_t>(std::min<size_t>(modelCount, UINT16_MAX)));
+    return false;
+  }
+  for (size_t i = 0; i < modelCount; i++) {
+    if (pixelCount == 0) {
+      continue;
+    }
+    weightPixels[i] = new (std::nothrow) bool[pixelCount]{};
+    if (weightPixels[i] == nullptr) {
+      freeBuffers();
+      lightgraphReportAllocationFailure(
+          object.runtimeContext(), LightgraphAllocationFailureSite::TopologyPixelsAllocation,
+          3, static_cast<uint16_t>(std::min<size_t>(i, UINT16_MAX)));
+      return false;
+    }
+  }
+  return true;
 }
 
-void TopologyPixels::refresh() {
+bool TopologyPixels::refresh() {
   freeBuffers();
-  allocateBuffers();
+  if (!allocateBuffers()) {
+    return false;
+  }
 
   const uint16_t pixelCount = object.pixelCount;
   constexpr size_t kPortIdCount = static_cast<size_t>(std::numeric_limits<uint8_t>::max()) + 1u;
@@ -112,24 +148,32 @@ void TopologyPixels::refresh() {
       weightPixels[model->id][pixel] = true;
     }
   }
+
+  valid = true;
+  return true;
+}
+
+bool TopologyPixels::isValid() const {
+  return valid;
 }
 
 bool TopologyPixels::isModelWeight(uint8_t id, uint16_t i) const {
-  if (id >= weightRows || i >= object.pixelCount || weightPixels[id] == nullptr) {
+  if (!valid || weightPixels == nullptr || id >= weightRows || i >= object.pixelCount ||
+      weightPixels[id] == nullptr) {
     return false;
   }
   return weightPixels[id][i];
 }
 
 bool TopologyPixels::isIntersection(uint16_t i) const {
-  if (i >= object.pixelCount || interPixels == nullptr) {
+  if (!valid || i >= object.pixelCount || interPixels == nullptr) {
     return false;
   }
   return interPixels[i];
 }
 
 bool TopologyPixels::isConnection(uint16_t i) const {
-  if (i >= object.pixelCount || connPixels == nullptr) {
+  if (!valid || i >= object.pixelCount || connPixels == nullptr) {
     return false;
   }
   return connPixels[i];

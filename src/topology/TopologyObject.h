@@ -13,6 +13,7 @@
 #include "Connection.h"
 #include "Model.h"
 #include "../Globals.h"
+#include "../geometry/GeometryProvider.h"
 #include "../runtime/EmitParams.h"
 
 struct PixelGap {
@@ -109,6 +110,12 @@ class TopologyObject {
     TopologyObject(uint16_t pixelCount);
     virtual ~TopologyObject();
 
+    virtual bool supportsGeometry() const { return false; }
+    virtual std::unique_ptr<lightgraph::geometry::GeometryProvider> createGeometry();
+    lightgraph::geometry::GeometryResult geometryCreationResult() const noexcept {
+        return geometryCreationResult_;
+    }
+
     static constexpr uint8_t groupMaskForIndex(uint8_t index) {
         return static_cast<uint8_t>(1u << index);
     }
@@ -151,9 +158,11 @@ class TopologyObject {
     unsigned long nowMillis() const {
         return runtimeContext_.hasExplicitNowMillis ? runtimeContext_.nowMillis : gMillis;
     }
+    uint32_t topologyRevision() const { return topologyRevision_; }
     void setExternalSendHook(LightgraphExternalSendHook hook) { runtimeContext_.externalSendHook = hook; }
     LightgraphExternalSendHook externalSendHook() const { return runtimeContext_.externalSendHook; }
     size_t portCount() const { return portRegistry_.size(); }
+    bool hasExternalPorts() const;
     Model* getModel(int i) {
       return i >= 0 && static_cast<size_t>(i) < models.size() ? models[i] : nullptr;
     }
@@ -230,6 +239,9 @@ class TopologyObject {
     virtual EmitParams getModelParams(int model) const = 0;
 
   protected:
+    void setGeometryCreationResult(lightgraph::geometry::GeometryResult result) noexcept {
+        geometryCreationResult_ = result;
+    }
     void releaseOwnership(Connection* connection);
     void releaseOwnership(Intersection* intersection);
     void releaseOwnership(Port* port);
@@ -239,6 +251,9 @@ class TopologyObject {
     void resetPortRegistry();
 
   private:
+    void markTopologyChanged() { ++topologyRevision_; }
+
+    uint32_t topologyRevision_ = 0;
     void removePortFromModels(const Port* port);
     void trimTrailingEmptyPortSlots(Intersection* intersection, uint8_t minPorts = 2);
     uint16_t allocatePortId() const;
@@ -249,6 +264,8 @@ class TopologyObject {
     std::unordered_map<uint16_t, Port*> portRegistry_;
     mutable uint16_t nextPortId_ = 0;
     LightgraphRuntimeContext runtimeContext_;
+    lightgraph::geometry::GeometryResult geometryCreationResult_ =
+        lightgraph::geometry::GeometryResult::Unsupported;
 
     friend class Port;
 };

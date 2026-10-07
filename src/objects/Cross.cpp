@@ -1,5 +1,19 @@
 #include "Cross.h"
 
+#include "../geometry/BuiltinGeometry.h"
+
+std::unique_ptr<lightgraph::geometry::GeometryProvider> Cross::createGeometry() {
+    lightgraph::geometry::GeometryResult result;
+    lightgraph::geometry::BuiltinGeometryRoles roles;
+    roles.intersectionIds = {geometryHorizontalStartId_, geometryHorizontalEndId_,
+                             geometryVerticalStartId_, geometryVerticalEndId_, geometryCenterId_};
+    roles.count = 5;
+    auto geometry = lightgraph::geometry::createBuiltinGeometry(
+        *this, lightgraph::geometry::BuiltinGeometryKind::Cross, geometryPixelCount_, roles, result);
+    setGeometryCreationResult(result);
+    return geometry;
+}
+
 void Cross::setup() {
     Model::maxWeights = 6;  // One for each connection
 
@@ -11,11 +25,16 @@ void Cross::setup() {
     
     Connection* hBridge = addBridge(horizontalLineEnd, horizontalLineStart, GROUP1, 3); // inter[0,1]
     Connection* vBridge = addBridge(verticalLineEnd, verticalLineStart, GROUP1, 3); // inter[2,3]
+    geometryHorizontalStartId_ = hBridge->to->id;
+    geometryHorizontalEndId_ = hBridge->from->id;
+    geometryVerticalStartId_ = vBridge->to->id;
+    geometryVerticalEndId_ = vBridge->from->id;
     Connection* d1Bridge = addConnection(new Connection(vBridge->from, hBridge->from, GROUP1, 0));
     Connection* d2Bridge = addConnection(new Connection(hBridge->to, vBridge->to, GROUP1, 0));
 
     // Create intersection for the crossing point
     Intersection* center = addIntersection(new Intersection(4, horizontalCross, verticalCross, GROUP1)); // inter[4]
+    geometryCenterId_ = center->id;
     
     // Create connections for horizontal line
     Connection* hConn1 = addConnection(new Connection(hBridge->to, center, GROUP1, pixelCount/4-3));

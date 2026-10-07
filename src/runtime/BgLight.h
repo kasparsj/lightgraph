@@ -15,6 +15,8 @@
  */
 class BgLight : public LightList {
 public:
+    BgLight* asBgLight() override { return this; }
+
     float offset = 0.0f;
     float position;
     
@@ -108,10 +110,10 @@ public:
             randomColor.setRandom();
             return randomColor;
         }
-        
         if (colors.empty()) {
             return Palette::noColor;
         }
+
         ColorRGB color = getLightColor(uint32_t(position + pixel) % length);
         if (maxBri < 255) {
             return color.dim(maxBri);
@@ -136,6 +138,7 @@ public:
     void setOffset(float newPosition) override {
         offset = newPosition;
     }
+
 };
 
 #endif  // PACKAGES_LIGHTGRAPH_SRC_RUNTIME_BGLIGHT_H_
