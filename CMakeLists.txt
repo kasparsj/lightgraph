@@ -247,6 +247,13 @@ if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
       /external:W0
     )
     target_compile_options(lightgraph PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+    # FastNoise is vendored legacy code. MSVC's optimizer reports C4701 for
+    # switch-assigned interpolation variables despite exhaustive enum cases.
+    set_source_files_properties(
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/FastNoise.cpp"
+      PROPERTIES
+        COMPILE_OPTIONS "/wd4701"
+    )
   else()
     message(WARNING "LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS is not configured for this compiler")
   endif()

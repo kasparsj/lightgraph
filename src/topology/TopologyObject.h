@@ -172,7 +172,7 @@ class TopologyObject {
         uint8_t count = 0;
         for (uint8_t i=0; i<MAX_GROUPS; i++) {
             if (groups == 0 || (groups & groupMaskForIndex(i))) {
-                count += inter[i].size();
+                count += static_cast<uint8_t>(inter[i].size());
             }
         }
         return count;
@@ -196,7 +196,7 @@ class TopologyObject {
         uint8_t count = 0;
         for (uint8_t i=0; i<MAX_GROUPS; i++) {
             if (groups == 0 || (groups & groupMaskForIndex(i))) {
-                count += conn[i].size();
+                count += static_cast<uint8_t>(conn[i].size());
             }
         }
         return count;

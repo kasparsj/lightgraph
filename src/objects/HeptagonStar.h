@@ -45,7 +45,7 @@ class HeptagonStar : public TopologyObject {
     
     EmitParams getModelParams(int model) const override {
         if (model <= HeptagonStarModel::M_LAST) {
-            return EmitParams(model, Random::randomSpeed());
+            return EmitParams(static_cast<int8_t>(model), Random::randomSpeed());
         }
         else { // key '8' and up
             EmitParams params(M_STAR);
@@ -77,7 +77,7 @@ class HeptagonStar : public TopologyObject {
                 return params;
             }
             case 'd': {
-                EmitParams params(M_STAR, 0.5);
+                EmitParams params(M_STAR, 0.5f);
                 params.setLength(3);
                 params.from = 1;
                 params.duration = INFINITE_DURATION;
