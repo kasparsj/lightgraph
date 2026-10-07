@@ -9,6 +9,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -210,6 +211,19 @@ void checkUnsupportedObject() {
 bool denyGeometry(lightgraph::memory::Operation operation,
                   const lightgraph::memory::Estimate&, void* user) noexcept {
     return operation != lightgraph::memory::Operation::Geometry || !*static_cast<bool*>(user);
+}
+
+struct StagedAdmission {
+    std::size_t denyAt = 0;
+    std::size_t checks = 0;
+};
+
+bool denyStagedGeometry(lightgraph::memory::Operation operation,
+                        const lightgraph::memory::Estimate&, void* user) noexcept {
+    if (operation != lightgraph::memory::Operation::Geometry)
+        return true;
+    auto& staged = *static_cast<StagedAdmission*>(user);
+    return staged.checks++ != staged.denyAt;
 }
 
 template <typename Object>
@@ -490,6 +504,7 @@ void checkAdmissionRecoveryAndTransactionalRefresh() {
     CHECK(geometry.points().empty());
     deny = false;
     CHECK(geometry.refresh() == GeometryResult::Ready);
+    object.runtimeContext().memoryAdmission = {};
     const auto before = geometry.points();
     CHECK_EQ(before.size(), object.pixelCount);
 
@@ -499,6 +514,141 @@ void checkAdmissionRecoveryAndTransactionalRefresh() {
     CHECK(object.importSnapshot(incompatible));
     CHECK(geometry.refresh() == GeometryResult::Unsupported);
     CHECK_EQ(geometry.points().size(), before.size());
+}
+
+template <typename Heptagon>
+void checkWarmRefreshReusesCoordinates(Heptagon& object, std::uint16_t firstStripPixelCount) {
+    HeptagonGeometry geometry(object, firstStripPixelCount);
+    CHECK(geometry.refresh() == GeometryResult::Ready);
+    const auto initial = geometry.points();
+    const auto* const initialData = initial.data();
+    std::vector<HeptagonGeometry::Point> initialCopy(initial.begin(), initial.end());
+    const auto initialOrphans = geometry.orphanAssignments();
+    std::vector<HeptagonGeometry::OrphanAssignment> orphanCopy(initialOrphans.begin(),
+                                                               initialOrphans.end());
+    const std::uint32_t initialRevision = geometry.topologyRevision();
+
+    Intersection* changed = object.inter[1][0];
+    TopologyIntersectionUpdate update;
+    update.numPorts = changed->numPorts;
+    update.topPixel = static_cast<std::uint16_t>(changed->topPixel + 1);
+    update.bottomPixel = changed->bottomPixel;
+    update.group = changed->group;
+    update.allowEndOfLife = changed->allowEndOfLife;
+    update.allowEmit = changed->allowEmit;
+    CHECK(object.updateIntersection(changed, update));
+
+    bool deny = true;
+    object.runtimeContext().memoryAdmission = {denyGeometry, &deny};
+    CHECK(geometry.refresh() == GeometryResult::AdmissionDenied);
+    object.runtimeContext().memoryAdmission = {};
+    CHECK_EQ(geometry.topologyRevision(), initialRevision);
+    CHECK_EQ(geometry.points().data(), initialData);
+    CHECK_EQ(geometry.points().size(), initialCopy.size());
+    for (std::size_t index = 0; index < initialCopy.size(); ++index) {
+        checkPoint(geometry.points()[index], initialCopy[index]);
+    }
+    CHECK_EQ(geometry.orphanAssignments().size(), orphanCopy.size());
+    for (std::size_t index = 0; index < orphanCopy.size(); ++index) {
+        CHECK_EQ(geometry.orphanAssignments()[index].pixel, orphanCopy[index].pixel);
+        CHECK_EQ(geometry.orphanAssignments()[index].neighbor, orphanCopy[index].neighbor);
+    }
+
+    deny = false;
+    CHECK(geometry.refresh() == GeometryResult::Ready);
+    CHECK_EQ(geometry.points().data(), initialData);
+    CHECK_EQ(geometry.topologyRevision(), object.topologyRevision());
+    if (!orphanCopy.empty()) {
+        const auto refreshedOrphans = geometry.orphanAssignments();
+        bool changedOrphans = refreshedOrphans.size() != orphanCopy.size();
+        for (std::size_t index = 0; !changedOrphans && index < orphanCopy.size(); ++index) {
+            changedOrphans = refreshedOrphans[index].pixel != orphanCopy[index].pixel ||
+                             refreshedOrphans[index].neighbor != orphanCopy[index].neighbor;
+        }
+        CHECK(changedOrphans);
+    }
+}
+
+void checkLateAdmissionDenialIsTransactional() {
+    Heptagon919 object;
+    HeptagonGeometry geometry(object, HEPTAGON919_PIXEL_COUNT1);
+    CHECK(geometry.refresh() == GeometryResult::Ready);
+
+    Intersection* changed = object.inter[1][0];
+    TopologyIntersectionUpdate update;
+    update.numPorts = changed->numPorts;
+    update.topPixel = static_cast<std::uint16_t>(changed->topPixel + 1);
+    update.bottomPixel = changed->bottomPixel;
+    update.group = changed->group;
+    update.allowEndOfLife = changed->allowEndOfLife;
+    update.allowEmit = changed->allowEmit;
+    CHECK(object.updateIntersection(changed, update));
+
+    const auto beforePoints = geometry.points();
+    const auto* const beforeData = beforePoints.data();
+    std::vector<HeptagonGeometry::Point> pointCopy(beforePoints.begin(), beforePoints.end());
+    const auto beforeOrphans = geometry.orphanAssignments();
+    std::vector<HeptagonGeometry::OrphanAssignment> orphanCopy(beforeOrphans.begin(),
+                                                               beforeOrphans.end());
+    const std::uint32_t beforeRevision = geometry.topologyRevision();
+
+    StagedAdmission admission{2, 0};
+    object.runtimeContext().memoryAdmission = {denyStagedGeometry, &admission};
+    CHECK(geometry.refresh() == GeometryResult::AdmissionDenied);
+    CHECK_EQ(admission.checks, 3u);
+    CHECK_EQ(geometry.topologyRevision(), beforeRevision);
+    CHECK_EQ(geometry.points().data(), beforeData);
+    CHECK_EQ(geometry.points().size(), pointCopy.size());
+    for (std::size_t index = 0; index < pointCopy.size(); ++index) {
+        checkPoint(geometry.points()[index], pointCopy[index]);
+    }
+    CHECK_EQ(geometry.orphanAssignments().size(), orphanCopy.size());
+    for (std::size_t index = 0; index < orphanCopy.size(); ++index) {
+        CHECK_EQ(geometry.orphanAssignments()[index].pixel, orphanCopy[index].pixel);
+        CHECK_EQ(geometry.orphanAssignments()[index].neighbor, orphanCopy[index].neighbor);
+    }
+}
+
+void checkCountChangeAllocatesCoordinates() {
+    Heptagon919 object;
+    HeptagonGeometry geometry(object, HEPTAGON919_PIXEL_COUNT1);
+    CHECK(geometry.refresh() == GeometryResult::Ready);
+    const auto* const initialData = geometry.points().data();
+    const auto before = geometry.points();
+    const std::vector<HeptagonGeometry::Point> pointCopy(before.begin(), before.end());
+    const auto orphansBefore = geometry.orphanAssignments();
+    const std::vector<HeptagonGeometry::OrphanAssignment> orphanCopy(orphansBefore.begin(),
+                                                                     orphansBefore.end());
+    const auto revision = geometry.topologyRevision();
+
+    object.pixelCount = static_cast<std::uint16_t>(object.pixelCount + 1);
+    Intersection* changed = object.inter[1][0];
+    TopologyIntersectionUpdate update;
+    update.numPorts = changed->numPorts;
+    update.topPixel = static_cast<std::uint16_t>(changed->topPixel + 1);
+    update.bottomPixel = changed->bottomPixel;
+    update.group = changed->group;
+    update.allowEndOfLife = changed->allowEndOfLife;
+    update.allowEmit = changed->allowEmit;
+    CHECK(object.updateIntersection(changed, update));
+    StagedAdmission admission{2, 0};
+    object.runtimeContext().memoryAdmission = {denyStagedGeometry, &admission};
+    CHECK(geometry.refresh() == GeometryResult::AdmissionDenied);
+    object.runtimeContext().memoryAdmission = {};
+    CHECK_EQ(admission.checks, 3u);
+    CHECK_EQ(geometry.points().data(), initialData);
+    CHECK_EQ(geometry.topologyRevision(), revision);
+    CHECK_EQ(geometry.points().size(), pointCopy.size());
+    for (std::size_t i = 0; i < pointCopy.size(); ++i)
+        checkPoint(geometry.points()[i], pointCopy[i]);
+    CHECK_EQ(geometry.orphanAssignments().size(), orphanCopy.size());
+    for (std::size_t i = 0; i < orphanCopy.size(); ++i) {
+        CHECK_EQ(geometry.orphanAssignments()[i].pixel, orphanCopy[i].pixel);
+        CHECK_EQ(geometry.orphanAssignments()[i].neighbor, orphanCopy[i].neighbor);
+    }
+    CHECK(geometry.refresh() == GeometryResult::Ready);
+    CHECK_EQ(geometry.points().size(), object.pixelCount);
+    CHECK(geometry.points().data() != initialData);
 }
 
 class CustomGeometry final : public GeometryProvider {
@@ -570,6 +720,16 @@ int main() {
     checkBuiltinGeometry();
     checkBuiltinRoleValidation();
     checkAdmissionRecoveryAndTransactionalRefresh();
+    {
+        Heptagon919 object;
+        checkWarmRefreshReusesCoordinates(object, HEPTAGON919_PIXEL_COUNT1);
+    }
+    {
+        Heptagon3024 object;
+        checkWarmRefreshReusesCoordinates(object, HEPTAGON3024_PHYSICAL_PIXEL_COUNT1);
+    }
+    checkCountChangeAllocatesCoordinates();
+    checkLateAdmissionDenialIsTransactional();
     checkCustomProvider();
     checkKnown3024OutputMismatch();
 

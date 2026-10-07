@@ -1,7 +1,9 @@
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <new>
 #include <cstring>
+#include <vector>
 
 #include "lightgraph/integration.hpp"
 #include "lightgraph/integration/observability.hpp"
@@ -38,18 +40,21 @@ void* scalarTracked[16]{};
 std::size_t scalarOutstanding = 0;
 LightgraphAllocationFailureSite observedSite = LightgraphAllocationFailureSite::Unknown;
 std::uint16_t observedStage = 0;
+std::uint16_t observedDetail1 = 0;
 std::size_t observerCalls = 0;
 
 void observeAllocationFailure(LightgraphAllocationFailureSite site, std::uint16_t detail0,
-                              std::uint16_t) {
+                              std::uint16_t detail1) {
     observedSite = site;
     observedStage = detail0;
+    observedDetail1 = detail1;
     ++observerCalls;
 }
 
 void resetObservedFailure() {
     observedSite = LightgraphAllocationFailureSite::Unknown;
     observedStage = 0;
+    observedDetail1 = 0;
     observerCalls = 0;
 }
 
@@ -202,6 +207,56 @@ bool checkPersistentDrawingAllocationFailure(std::size_t failurePeriod) {
 } // namespace
 
 int main() {
+    // Count changes retain the old coordinate and orphan storage on every allocation failure.
+    for (std::size_t failure = 0; failure < 3; ++failure) {
+        {
+            Heptagon919 object;
+            HeptagonGeometry geometry(object, HEPTAGON919_PIXEL_COUNT1);
+            if (geometry.refresh() != lightgraph::geometry::GeometryResult::Ready)
+                return 80;
+            const auto beforePoints = geometry.points();
+            const auto* const beforeData = beforePoints.data();
+            const std::vector<HeptagonGeometry::Point> points(beforePoints.begin(),
+                                                              beforePoints.end());
+            const auto beforeOrphans = geometry.orphanAssignments();
+            const std::vector<HeptagonGeometry::OrphanAssignment> orphans(beforeOrphans.begin(),
+                                                                          beforeOrphans.end());
+            const auto revision = geometry.topologyRevision();
+            object.pixelCount = static_cast<std::uint16_t>(object.pixelCount + 1);
+            auto* changed = object.inter[1][0];
+            TopologyIntersectionUpdate update;
+            update.numPorts = changed->numPorts;
+            update.topPixel = static_cast<std::uint16_t>(changed->topPixel + 1);
+            update.bottomPixel = changed->bottomPixel;
+            update.group = changed->group;
+            update.allowEndOfLife = changed->allowEndOfLife;
+            update.allowEmit = changed->allowEmit;
+            if (!object.updateIntersection(changed, update))
+                return 81;
+            begin(failure);
+            const auto result = geometry.refresh();
+            tracking = false;
+            if (result != lightgraph::geometry::GeometryResult::AllocationFailed ||
+                attempts != failure + 1 || geometry.points().data() != beforeData ||
+                geometry.points().size() != points.size() ||
+                geometry.topologyRevision() != revision ||
+                std::memcmp(geometry.points().data(), points.data(),
+                            points.size() * sizeof(points[0])) != 0 ||
+                geometry.orphanAssignments().size() != orphans.size())
+                return 82;
+            for (std::size_t i = 0; i < orphans.size(); ++i) {
+                if (geometry.orphanAssignments()[i].pixel != orphans[i].pixel ||
+                    geometry.orphanAssignments()[i].neighbor != orphans[i].neighbor)
+                    return 83;
+            }
+            if (geometry.refresh() != lightgraph::geometry::GeometryResult::Ready ||
+                geometry.points().data() == beforeData ||
+                geometry.points().size() != object.pixelCount)
+                return 84;
+        }
+        if (outstanding != 0 || liveBytes != 0)
+            return 85;
+    }
     if (!checkPersistentDrawingAllocationFailure(1) ||
         !checkPersistentDrawingAllocationFailure(2))
         return 60;
@@ -235,6 +290,9 @@ int main() {
     std::size_t activationPeak = 0;
     std::size_t retained919 = 0;
     std::size_t rebuild919Peak = 0;
+    std::size_t rebuild919Allocations = 0;
+    std::size_t rebuild919Bytes = 0;
+    std::size_t rebuild919Orphans = 0;
     {
         Heptagon919 object;
         RuntimeState state(object);
@@ -258,7 +316,13 @@ int main() {
         begin();
         if (state.drawing().setFill(0x203040) != DrawingResult::Applied)
             return 12;
+        rebuild919Allocations = attempts;
+        rebuild919Bytes = requestedBytes;
         rebuild919Peak = peakBytes;
+        const auto* geometry = dynamic_cast<const HeptagonGeometry*>(state.drawing().geometry());
+        if (geometry == nullptr)
+            return 70;
+        rebuild919Orphans = geometry->orphanAssignments().size();
         tracking = false;
     }
     if (outstanding != 0 || activationAllocations != 4)
@@ -287,38 +351,89 @@ int main() {
     if (outstanding != 0)
         return 17;
 
-    {
-        Heptagon919 object;
-        RuntimeState state(object);
-        if (state.drawing().setFill(0x102030) != DrawingResult::Applied)
-            return 29;
-        if (state.drawing().setEnabled(true) != DrawingResult::Applied)
-            return 30;
-        Intersection* changed = object.inter[1][0];
-        TopologyIntersectionUpdate update;
-        update.numPorts = changed->numPorts;
-        update.topPixel = static_cast<std::uint16_t>(changed->topPixel + 1);
-        update.bottomPixel = changed->bottomPixel;
-        update.group = changed->group;
-        update.allowEndOfLife = changed->allowEndOfLife;
-        update.allowEmit = changed->allowEmit;
-        if (!object.updateIntersection(changed, update))
-            return 31;
-        const std::uint64_t before = state.drawing().status().revision;
-        begin(0);
-        state.update();
-        if (attempts != 1)
-            return 32;
-        tracking = false;
-        const DrawingStatus afterFailure = state.drawing().status();
-        if (afterFailure.mode != DrawingMode::Drawing || afterFailure.revision != before)
-            return 33;
-        state.update();
-        if (state.drawing().status().revision != before + 1)
-            return 34;
+    for (std::size_t failure = 0; failure < 2; ++failure) {
+        {
+            Heptagon919 object;
+            setAllocationFailureObserver(object, observeAllocationFailure);
+            RuntimeState state(object);
+            if (state.drawing().setFill(0x102030) != DrawingResult::Applied)
+                return 29;
+            if (state.drawing().setEnabled(true) != DrawingResult::Applied)
+                return 30;
+            DrawingRuntime::ImageLease lease;
+            if (state.drawing().leaseImage(91, 1, 1, lease) != DrawingResult::Applied)
+                return 72;
+            const auto* geometry =
+                dynamic_cast<const HeptagonGeometry*>(state.drawing().geometry());
+            if (geometry == nullptr)
+                return 73;
+            const auto beforePoints = geometry->points();
+            const auto* const beforeData = beforePoints.data();
+            std::vector<HeptagonGeometry::Point> pointCopy(beforePoints.begin(),
+                                                           beforePoints.end());
+            const auto beforeOrphans = geometry->orphanAssignments();
+            std::vector<HeptagonGeometry::OrphanAssignment> orphanCopy(beforeOrphans.begin(),
+                                                                       beforeOrphans.end());
+            const std::uint32_t geometryRevision = geometry->topologyRevision();
+
+            Intersection* changed = object.inter[1][0];
+            TopologyIntersectionUpdate update;
+            update.numPorts = changed->numPorts;
+            update.topPixel = static_cast<std::uint16_t>(changed->topPixel + 1);
+            update.bottomPixel = changed->bottomPixel;
+            update.group = changed->group;
+            update.allowEndOfLife = changed->allowEndOfLife;
+            update.allowEmit = changed->allowEmit;
+            if (!object.updateIntersection(changed, update))
+                return 31;
+            const std::uint64_t before = state.drawing().status().revision;
+            resetObservedFailure();
+            begin(failure);
+            state.update();
+            if (attempts != failure + 1)
+                return 32;
+            tracking = false;
+            const DrawingStatus afterFailure = state.drawing().status();
+            if (afterFailure.mode != DrawingMode::Drawing || afterFailure.revision != before ||
+                observerCalls != 1 ||
+                observedSite != LightgraphAllocationFailureSite::HeptagonGeometryAllocation ||
+                observedStage != object.pixelCount || observedDetail1 != failure + 3 ||
+                !state.drawing().validImageLease(lease) ||
+                state.drawing().layerColor(0).get() != 0x102030) {
+                std::cerr << "Geometry failure=" << failure << ", attempts=" << attempts
+                          << ", observerCalls=" << observerCalls << ", detail0=" << observedStage
+                          << ", detail1=" << observedDetail1
+                          << ", lease=" << state.drawing().validImageLease(lease)
+                          << ", color=" << state.drawing().layerColor(0).get() << '\n';
+                return 33;
+            }
+            if (geometry->topologyRevision() != geometryRevision ||
+                geometry->points().data() != beforeData ||
+                geometry->points().size() != pointCopy.size() ||
+                geometry->orphanAssignments().size() != orphanCopy.size())
+                return 74;
+            for (std::size_t index = 0; index < pointCopy.size(); ++index) {
+                const auto same = [](float left, float right) {
+                    return left == right || (std::isnan(left) && std::isnan(right));
+                };
+                if (!same(geometry->points()[index].x, pointCopy[index].x) ||
+                    !same(geometry->points()[index].y, pointCopy[index].y))
+                    return 75;
+            }
+            for (std::size_t index = 0; index < orphanCopy.size(); ++index) {
+                if (geometry->orphanAssignments()[index].pixel != orphanCopy[index].pixel ||
+                    geometry->orphanAssignments()[index].neighbor != orphanCopy[index].neighbor)
+                    return 76;
+            }
+            state.update();
+            if (state.drawing().status().revision != before + 1 ||
+                geometry->topologyRevision() != object.topologyRevision() ||
+                !state.drawing().validImageLease(lease))
+                return 34;
+        }
+        if (outstanding != 0)
+            return 35;
     }
-    if (outstanding != 0)
-        return 35;
 
     for (std::size_t failure = 0; failure < activationAllocations; ++failure) {
         {
@@ -364,6 +479,9 @@ int main() {
     std::size_t activation3024Peak = 0;
     std::size_t retained3024 = 0;
     std::size_t rebuild3024Peak = 0;
+    std::size_t rebuild3024Allocations = 0;
+    std::size_t rebuild3024Bytes = 0;
+    std::size_t rebuild3024Orphans = 0;
     {
         Heptagon3024 object;
         RuntimeState state(object);
@@ -385,11 +503,35 @@ int main() {
         begin();
         if (state.drawing().setFill(0x102030) != DrawingResult::Applied)
             return 20;
+        rebuild3024Allocations = attempts;
+        rebuild3024Bytes = requestedBytes;
         rebuild3024Peak = peakBytes;
+        const auto* geometry = dynamic_cast<const HeptagonGeometry*>(state.drawing().geometry());
+        if (geometry == nullptr)
+            return 71;
+        rebuild3024Orphans = geometry->orphanAssignments().size();
         tracking = false;
     }
     if (outstanding != 0 || liveBytes != 0)
         return 21;
+    if (rebuild919Allocations != 2 ||
+        rebuild919Bytes != HEPTAGON919_PIXEL_COUNT +
+                               rebuild919Orphans * sizeof(HeptagonGeometry::OrphanAssignment) ||
+        rebuild919Peak != retained919 + rebuild919Bytes) {
+        std::cerr << "919 warm geometry allocations=" << rebuild919Allocations
+                  << ", bytes=" << rebuild919Bytes << ", retained=" << retained919
+                  << ", peak=" << rebuild919Peak << '\n';
+        return 68;
+    }
+    if (rebuild3024Allocations != 1 + (rebuild3024Orphans == 0 ? 0 : 1) ||
+        rebuild3024Bytes != HEPTAGON3024_PIXEL_COUNT +
+                                rebuild3024Orphans * sizeof(HeptagonGeometry::OrphanAssignment) ||
+        rebuild3024Peak != retained3024 + rebuild3024Bytes) {
+        std::cerr << "3024 warm geometry allocations=" << rebuild3024Allocations
+                  << ", bytes=" << rebuild3024Bytes << ", retained=" << retained3024
+                  << ", peak=" << rebuild3024Peak << '\n';
+        return 69;
+    }
 
     for (auto operation :
          {lightgraph::memory::Operation::DrawingCache, lightgraph::memory::Operation::DrawingImages,
@@ -604,8 +746,11 @@ int main() {
     std::cout << "Drawing activation arrays: " << activationAllocations
               << ", bytes: " << activationBytes << ", 919 activation peak: " << activationPeak
               << ", retained: " << retained919 << ", rebuild peak: " << rebuild919Peak
+              << ", rebuild allocations: " << rebuild919Allocations
               << ", 3024 activation peak: " << activation3024Peak << ", retained: " << retained3024
-              << ", rebuild peak: " << rebuild3024Peak << ", sizeof scene: " << sizeof(DrawingScene)
-              << ", shape: " << sizeof(DrawingShape) << '\n';
+              << ", rebuild peak: " << rebuild3024Peak
+              << ", rebuild allocations: " << rebuild3024Allocations
+              << ", sizeof scene: " << sizeof(DrawingScene) << ", shape: " << sizeof(DrawingShape)
+              << '\n';
     return 0;
 }

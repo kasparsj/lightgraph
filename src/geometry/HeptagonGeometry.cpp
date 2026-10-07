@@ -117,17 +117,24 @@ lightgraph::geometry::GeometryResult HeptagonGeometry::refresh() noexcept {
     }
 
     const size_t coordinateCount = object_.pixelCount;
+    const bool reuseCoordinates =
+        initialized_ && coordinates_ && coordinateCount_ == coordinateCount;
     lightgraph::memory::Estimate estimate;
-    estimate.addAllocation(coordinateCount * sizeof(Point));
+    if (!reuseCoordinates) {
+        estimate.addAllocation(coordinateCount * sizeof(Point));
+    }
     estimate.addAllocation(coordinateCount * sizeof(uint8_t));
     if (!lightgraph::memory::admitted(object_.runtimeContext().memoryAdmission,
             lightgraph::memory::Operation::Geometry, estimate)) {
         return lastResult_ = GeometryResult::AdmissionDenied;
     }
-    std::unique_ptr<Point[]> coordinates(new (std::nothrow) Point[coordinateCount]);
-    if (!coordinates) {
-        reportAllocationFailure(2);
-        return lastResult_ = GeometryResult::AllocationFailed;
+    std::unique_ptr<Point[]> candidateCoordinates;
+    if (!reuseCoordinates) {
+        candidateCoordinates.reset(new (std::nothrow) Point[coordinateCount]);
+        if (!candidateCoordinates) {
+            reportAllocationFailure(2);
+            return lastResult_ = GeometryResult::AllocationFailed;
+        }
     }
     lightgraph::memory::Estimate mappedEstimate;
     mappedEstimate.addAllocation(coordinateCount * sizeof(uint8_t));
@@ -140,94 +147,120 @@ lightgraph::geometry::GeometryResult HeptagonGeometry::refresh() noexcept {
         reportAllocationFailure(3);
         return lastResult_ = GeometryResult::AllocationFailed;
     }
+
+    const auto markMapped = [&mapped, coordinateCount](uint16_t pixel) {
+        if (pixel < coordinateCount) {
+            mapped[pixel] = 1;
+        }
+    };
+    for (unsigned group = 0; group < MAX_GROUPS; ++group) {
+        for (const Connection* connection : object_.conn[group]) {
+            for (uint16_t pixel = 0; pixel < connection->numLeds; ++pixel) {
+                markMapped(connection->getPixel(pixel));
+            }
+        }
+    }
+    for (unsigned group = 0; group < 3; ++group) {
+        for (const Intersection* intersection : object_.inter[group]) {
+            markMapped(intersection->topPixel);
+            if (intersection->bottomPixel >= 0) {
+                markMapped(static_cast<uint16_t>(intersection->bottomPixel));
+            }
+        }
+    }
+
+    size_t orphanCount = 0;
+    for (uint16_t real = 0; real < object_.realPixelCount; ++real) {
+        const uint16_t logical = object_.translateToLogicalPixel(real);
+        if (logical >= coordinateCount || mapped[logical] != 0) {
+            continue;
+        }
+        uint16_t best = logical;
+        if (findNearestAnchor(real, logical, mapped.get(), coordinateCount, best)) {
+            ++orphanCount;
+        }
+    }
+
+    std::unique_ptr<OrphanAssignment[]> candidateOrphans;
+    if (orphanCount > 0) {
+        lightgraph::memory::Estimate orphanEstimate;
+        orphanEstimate.addAllocation(orphanCount * sizeof(OrphanAssignment));
+        if (!lightgraph::memory::admitted(object_.runtimeContext().memoryAdmission,
+                                          lightgraph::memory::Operation::Geometry,
+                                          orphanEstimate)) {
+            return lastResult_ = GeometryResult::AdmissionDenied;
+        }
+        candidateOrphans.reset(new (std::nothrow) OrphanAssignment[orphanCount]);
+        if (!candidateOrphans) {
+            reportAllocationFailure(4);
+            return lastResult_ = GeometryResult::AllocationFailed;
+        }
+    }
+    size_t orphanIndex = 0;
+    for (uint16_t real = 0; real < object_.realPixelCount; ++real) {
+        const uint16_t logical = object_.translateToLogicalPixel(real);
+        if (logical >= coordinateCount || mapped[logical] != 0) {
+            continue;
+        }
+        uint16_t best = logical;
+        if (findNearestAnchor(real, logical, mapped.get(), coordinateCount, best)) {
+            candidateOrphans[orphanIndex++] = {logical, best};
+        }
+    }
+
+    // All fallible preparation is complete. Keep this commit allocation- and callback-free.
+    Point* const coordinates = reuseCoordinates ? coordinates_.get() : candidateCoordinates.get();
     for (size_t pixel = 0; pixel < coordinateCount; ++pixel) {
         coordinates[pixel] = {NAN, NAN};
     }
-
-    const auto put = [&coordinates, &mapped, coordinateCount](uint16_t pixel, Point point) {
-            if (pixel < coordinateCount) {
-                coordinates[pixel] = point;
-                mapped[pixel] = 1;
-            }
-        };
-        const auto position = [this](Intersection* intersection) {
-            for (unsigned group = 0; group < 3; ++group) {
-                for (unsigned index = 0; index < object_.inter[group].size(); ++index) {
-                    if (object_.inter[group][index] == intersection) {
-                        return intersectionPosition(group, index);
-                    }
-                }
-            }
-            return Point{NAN, NAN};
-        };
-
-        for (unsigned group = 0; group < MAX_GROUPS; ++group) {
-            for (Connection* connection : object_.conn[group]) {
-                const Point from = position(connection->from);
-                const Point to = position(connection->to);
-                for (uint16_t pixel = 0; pixel < connection->numLeds; ++pixel) {
-                    const float progress = static_cast<float>(pixel + 1) / (connection->numLeds + 1);
-                    put(connection->getPixel(pixel), {
-                        from.x + (to.x - from.x) * progress,
-                        from.y + (to.y - from.y) * progress,
-                    });
-                }
-            }
+    const auto put = [coordinates, coordinateCount](uint16_t pixel, Point point) {
+        if (pixel < coordinateCount) {
+            coordinates[pixel] = point;
         }
-
+    };
+    const auto position = [this](const Intersection* intersection) {
         for (unsigned group = 0; group < 3; ++group) {
             for (unsigned index = 0; index < object_.inter[group].size(); ++index) {
-                Intersection* intersection = object_.inter[group][index];
-                const Point point = intersectionPosition(group, index);
-                put(intersection->topPixel, point);
-                if (intersection->bottomPixel >= 0) {
-                    put(static_cast<uint16_t>(intersection->bottomPixel), point);
+                if (object_.inter[group][index] == intersection) {
+                    return intersectionPosition(group, index);
                 }
             }
         }
-
-        size_t orphanCount = 0;
-        for (uint16_t real = 0; real < object_.realPixelCount; ++real) {
-            const uint16_t logical = object_.translateToLogicalPixel(real);
-            if (logical >= coordinateCount || mapped[logical] != 0) {
-                continue;
-            }
-            uint16_t best = logical;
-            if (findNearestAnchor(real, logical, mapped.get(), coordinateCount, best)) {
-                coordinates[logical] = coordinates[best];
-                orphanCount++;
-            }
-        }
-
-        std::unique_ptr<OrphanAssignment[]> orphans;
-        if (orphanCount > 0) {
-            lightgraph::memory::Estimate orphanEstimate;
-            orphanEstimate.addAllocation(orphanCount * sizeof(OrphanAssignment));
-            if (!lightgraph::memory::admitted(object_.runtimeContext().memoryAdmission,
-                    lightgraph::memory::Operation::Geometry, orphanEstimate)) {
-                return lastResult_ = GeometryResult::AdmissionDenied;
-            }
-            orphans.reset(new (std::nothrow) OrphanAssignment[orphanCount]);
-            if (!orphans) {
-                reportAllocationFailure(4);
-                return lastResult_ = GeometryResult::AllocationFailed;
+        return Point{NAN, NAN};
+    };
+    for (unsigned group = 0; group < MAX_GROUPS; ++group) {
+        for (const Connection* connection : object_.conn[group]) {
+            const Point from = position(connection->from);
+            const Point to = position(connection->to);
+            for (uint16_t pixel = 0; pixel < connection->numLeds; ++pixel) {
+                const float progress = static_cast<float>(pixel + 1) / (connection->numLeds + 1);
+                put(connection->getPixel(pixel), {
+                                                     from.x + (to.x - from.x) * progress,
+                                                     from.y + (to.y - from.y) * progress,
+                                                 });
             }
         }
-        size_t orphanIndex = 0;
-        for (uint16_t real = 0; real < object_.realPixelCount; ++real) {
-            const uint16_t logical = object_.translateToLogicalPixel(real);
-            if (logical >= coordinateCount || mapped[logical] != 0) {
-                continue;
-            }
-            uint16_t best = logical;
-            if (findNearestAnchor(real, logical, mapped.get(), coordinateCount, best)) {
-                orphans[orphanIndex++] = {logical, best};
+    }
+    for (unsigned group = 0; group < 3; ++group) {
+        for (unsigned index = 0; index < object_.inter[group].size(); ++index) {
+            const Intersection* intersection = object_.inter[group][index];
+            const Point point = intersectionPosition(group, index);
+            put(intersection->topPixel, point);
+            if (intersection->bottomPixel >= 0) {
+                put(static_cast<uint16_t>(intersection->bottomPixel), point);
             }
         }
+    }
+    for (size_t index = 0; index < orphanCount; ++index) {
+        const OrphanAssignment assignment = candidateOrphans[index];
+        coordinates[assignment.pixel] = coordinates[assignment.neighbor];
+    }
 
-    coordinates_ = std::move(coordinates);
+    if (!reuseCoordinates) {
+        coordinates_ = std::move(candidateCoordinates);
+    }
     coordinateCount_ = coordinateCount;
-    orphans_ = std::move(orphans);
+    orphans_ = std::move(candidateOrphans);
     orphanCount_ = orphanCount;
     geometryRevision_ = requestedRevision;
     initialized_ = true;
