@@ -63,7 +63,7 @@ public:
             if (wrapMode == WRAP_CLAMP_TO_EDGE && normalizedSegmentation >= 2.0f && segmentNum >= 1) {
                 colorIndex = numColors - 1;
             } else if (wrapMode > WRAP_NOWRAP || segmentNum < 1) {
-                colorIndex = segmentFrac * numColors;
+                colorIndex = static_cast<size_t>(segmentFrac * static_cast<float>(numColors));
                 
                 if (wrapMode == WRAP_REPEAT_MIRROR && (int) segmentNum % 2 == 1) {
                     colorIndex = numColors - 1 - colorIndex;
@@ -111,12 +111,13 @@ public:
     const std::vector<int64_t>& getColors() const;
     const std::vector<float>& getPositions() const;
     const std::vector<ColorRGB>& getRGBColors();
+    size_t getRGBColorsCapacity() const noexcept { return rgbColors.capacity(); }
     std::vector<ColorRGB> interpolate(uint16_t maxColors) {
-        std::vector<ColorRGB> rgbColors = getRGBColors();
-        if (interpolationMode < 0 || rgbColors.size() < 2) {
-            return rgbColors;
+        std::vector<ColorRGB> interpolatedColors = getRGBColors();
+        if (interpolationMode < 0 || interpolatedColors.size() < 2) {
+            return interpolatedColors;
         }
-        ofxColorTheory::ColorScheme_<ColorRGB> basicScheme(rgbColors);
+        ofxColorTheory::ColorScheme_<ColorRGB> basicScheme(interpolatedColors);
         return basicScheme.interpolate(maxColors, interpolationMode, &positions);
     }
     

@@ -23,9 +23,13 @@ class Line : public TopologyObject {
   
     Line(uint16_t pixelCount) : TopologyObject(pixelCount) {
         setup();
+        geometryPixelCount_ = pixelCount;
     }
     
     ~Line() override = default;
+
+    bool supportsGeometry() const override { return true; }
+    std::unique_ptr<lightgraph::geometry::GeometryProvider> createGeometry() override;
     
     bool isMirrorSupported() override { return true; }
     uint16_t* getMirroredPixels(uint16_t pixel, Owner* mirrorFlipEmitter, bool mirrorRotate) override;
@@ -40,6 +44,9 @@ class Line : public TopologyObject {
     void setup();
     
     uint16_t mirrorPixels[2];
+    uint16_t geometryPixelCount_ = 0;
+    uint8_t geometryStartId_ = 0;
+    uint8_t geometryEndId_ = 0;
 
 };
 

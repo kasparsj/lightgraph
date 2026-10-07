@@ -60,7 +60,7 @@ struct ColorRGB {
         const float vf = v / 255.0f;
 
         const float c = vf * sf;
-        const float x = c * (1 - std::fabs(std::fmod(hf / 60.0f, 2) - 1));
+        const float x = c * (1.0f - std::fabs(std::fmod(hf / 60.0f, 2.0f) - 1.0f));
         const float m = vf - c;
 
         float rf;
@@ -219,8 +219,8 @@ struct ColorRGB {
 
     void setSaturation(float saturation) {
         const float h = getHue();
-        const float b = getBrightness();
-        setHsb(h, saturation, b);
+        const float brightness = getBrightness();
+        setHsb(h, saturation, brightness);
     }
 
     void setBrightness(float brightness) {

@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <vector>
 #include "TopologyObject.h"
+
+#include "../geometry/GeometryProvider.h"
 #include "Port.h"
 
 namespace {
@@ -99,6 +101,11 @@ TopologyObject::TopologyObject(uint16_t pixelCount) : pixelCount(pixelCount), re
     lightgraphResetFrameTiming(runtimeContext_);
 }
 
+std::unique_ptr<lightgraph::geometry::GeometryProvider> TopologyObject::createGeometry() {
+    setGeometryCreationResult(lightgraph::geometry::GeometryResult::Unsupported);
+    return nullptr;
+}
+
 uint8_t TopologyObject::groupIndexForMask(uint8_t groupMask) {
     for (uint8_t i = 0; i < MAX_GROUPS; i++) {
         if (groupMask & groupMaskForIndex(i)) {
@@ -188,6 +195,16 @@ void TopologyObject::resetPortRegistry() {
     nextPortId_ = 0;
 }
 
+bool TopologyObject::hasExternalPorts() const {
+    for (const auto& entry : portRegistry_) {
+        const Port* const port = entry.second;
+        if (port != nullptr && port->isExternal()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Initialization methods removed - vectors handle dynamic sizing
 
 Model* TopologyObject::addModel(Model *model) {
@@ -217,6 +234,7 @@ Intersection* TopologyObject::addIntersection(Intersection *intersection) {
             break;
         }
     }
+    markTopologyChanged();
     return intersection;
 }
 
@@ -240,6 +258,7 @@ Connection* TopologyObject::addConnection(Connection *connection) {
             break;
         }
     }
+    markTopologyChanged();
     return connection;
 }
 
@@ -353,7 +372,11 @@ bool TopologyObject::removeIntersection(Intersection* intersection) {
         releaseOwnership(intersection);
     }
 
-    return removedFromView || owned;
+    const bool removed = removedFromView || owned;
+    if (removed) {
+        markTopologyChanged();
+    }
+    return removed;
 }
 
 bool TopologyObject::removeConnection(uint8_t groupIndex, size_t index) {
@@ -367,6 +390,7 @@ bool TopologyObject::removeConnection(uint8_t groupIndex, size_t index) {
         removePortFromModels(connection->toPort);
     }
     releaseOwnership(connection);
+    markTopologyChanged();
     return true;
 }
 
@@ -381,6 +405,7 @@ bool TopologyObject::removeConnection(Connection* connection) {
             removePortFromModels(connection->fromPort);
             removePortFromModels(connection->toPort);
             releaseOwnership(connection);
+            markTopologyChanged();
             return true;
         }
     }
@@ -464,6 +489,7 @@ bool TopologyObject::updateIntersection(Intersection* intersection, const Topolo
         }
 
         recalculateConnections(true);
+        markTopologyChanged();
     }
 
     intersection->allowEndOfLife = update.allowEndOfLife;
@@ -1161,6 +1187,7 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
         object.nextPortId_ = hasPorts ? static_cast<uint16_t>(maxPortId + 1) : 0;
     };
 
+    const uint32_t previousTopologyRevision = topologyRevision_;
     std::swap(pixelCount, candidate.pixelCount);
     std::swap(realPixelCount, candidate.realPixelCount);
     std::swap(inter, candidate.inter);
@@ -1176,6 +1203,7 @@ bool TopologyObject::importSnapshot(const TopologySnapshot& snapshot, bool repla
     std::swap(runtimeContext_, candidate.runtimeContext_);
     rebindImportedState(*this);
     runtimeContext_ = candidate.runtimeContext_;
+    topologyRevision_ = previousTopologyRevision + 1;
     Intersection::nextId = importedNextIntersectionId;
     return true;
 }
@@ -1257,6 +1285,7 @@ void TopologyObject::addGap(uint16_t fromPixel, uint16_t toPixel) {
         gapPixels += (gap.toPixel - gap.fromPixel + 1);
     }
     realPixelCount = pixelCount - gapPixels;
+    markTopologyChanged();
 }
 
 Connection* TopologyObject::addBridge(uint16_t fromPixel, uint16_t toPixel, uint8_t group, uint8_t numPorts) {
@@ -1273,7 +1302,7 @@ Intersection* TopologyObject::getIntersection(uint8_t i, uint8_t groups) {
             if (i < inter[j].size()) {
                 return inter[j][i];
             }
-            i -= inter[j].size();
+            i = static_cast<uint8_t>(i - inter[j].size());
         }
     }
     return nullptr;
@@ -1303,7 +1332,7 @@ Connection* TopologyObject::getConnection(uint8_t i, uint8_t groups) {
             if (i < conn[j].size()) {
                 return conn[j][i];
             }
-            i -= conn[j].size();
+            i = static_cast<uint8_t>(i - conn[j].size());
         }
     }
     return nullptr;

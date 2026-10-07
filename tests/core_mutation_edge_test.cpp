@@ -295,7 +295,8 @@ int main() {
             return fail("removeExternalPort failed for valid external port");
         }
         if (model->weightCount() != 0) {
-            return fail("removeExternalPort should clear routing weights for removed external ports");
+            return fail(
+                "removeExternalPort should clear routing weights for removed external ports");
         }
         if (owner->numPorts != 2 || owner->ports.size() != 2) {
             return fail("removeExternalPort should trim trailing empty intersection slots");
@@ -305,10 +306,8 @@ int main() {
     // updateIntersection should own topology mutation, group migration, and port-group sync.
     {
         MinimalObject updateObject;
-        Intersection* moved =
-            updateObject.addIntersection(new Intersection(4, 360, -1, GROUP1));
-        Intersection* peer =
-            updateObject.addIntersection(new Intersection(4, 380, -1, GROUP1));
+        Intersection* moved = updateObject.addIntersection(new Intersection(4, 360, -1, GROUP1));
+        Intersection* peer = updateObject.addIntersection(new Intersection(4, 380, -1, GROUP1));
         Connection* attached = updateObject.addConnection(new Connection(moved, peer, GROUP1, 19));
         if (attached == nullptr) {
             return fail("Failed to create connection fixture for updateIntersection");
@@ -333,12 +332,14 @@ int main() {
         if (!updateObject.updateIntersection(moved, update)) {
             return fail("updateIntersection should succeed for valid topology mutation");
         }
-        if (updateObject.countConnections(GROUP1) != 0 || updateObject.countConnections(GROUP2) != 0) {
-            return fail("updateIntersection should drop incompatible connections after group change");
+        if (updateObject.countConnections(GROUP1) != 0 ||
+            updateObject.countConnections(GROUP2) != 0) {
+            return fail(
+                "updateIntersection should drop incompatible connections after group change");
         }
         if (model->weightCount() != 1) {
-            return fail(
-                "updateIntersection should clear removed connection-port weights while preserving surviving external-port weights");
+            return fail("updateIntersection should clear removed connection-port weights while "
+                        "preserving surviving external-port weights");
         }
         if (moved->group != GROUP2 || moved->topPixel != 365 || moved->bottomPixel != 366) {
             return fail("updateIntersection did not apply the requested topology fields");
@@ -581,12 +582,60 @@ int main() {
              }},
         };
         device154Snapshot.ports = {
-            {0, 0, 0, TopologyPortType::Internal, false, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
-            {4, 0, 1, TopologyPortType::Internal, false, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
-            {1, 1, 0, TopologyPortType::Internal, true, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
-            {6, 1, 1, TopologyPortType::Internal, false, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
-            {5, 2, 0, TopologyPortType::Internal, true, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
-            {7, 2, 1, TopologyPortType::Internal, true, GROUP1, {}, 0, TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {0,
+             0,
+             0,
+             TopologyPortType::Internal,
+             false,
+             GROUP1,
+             {},
+             0,
+             TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {4,
+             0,
+             1,
+             TopologyPortType::Internal,
+             false,
+             GROUP1,
+             {},
+             0,
+             TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {1,
+             1,
+             0,
+             TopologyPortType::Internal,
+             true,
+             GROUP1,
+             {},
+             0,
+             TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {6,
+             1,
+             1,
+             TopologyPortType::Internal,
+             false,
+             GROUP1,
+             {},
+             0,
+             TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {5,
+             2,
+             0,
+             TopologyPortType::Internal,
+             true,
+             GROUP1,
+             {},
+             0,
+             TOPOLOGY_TARGET_INTERSECTION_UNSET},
+            {7,
+             2,
+             1,
+             TopologyPortType::Internal,
+             true,
+             GROUP1,
+             {},
+             0,
+             TOPOLOGY_TARGET_INTERSECTION_UNSET},
             {8,
              2,
              2,
@@ -625,7 +674,8 @@ int main() {
         if (!imported154Object.exportSnapshot(cleaned154Snapshot)) {
             return fail("Exact 154 export should remain exportable after import");
         }
-        if (cleaned154Snapshot.models.size() < 2 || cleaned154Snapshot.models[1].weights.size() != 2) {
+        if (cleaned154Snapshot.models.size() < 2 ||
+            cleaned154Snapshot.models[1].weights.size() != 2) {
             return fail("Exact 154 export did not prune stale weights on re-export");
         }
         for (const TopologyPortWeightSnapshot& weight : cleaned154Snapshot.models[1].weights) {
@@ -638,9 +688,12 @@ int main() {
     // Unsupported v3 exports should fail explicitly instead of returning an invalid snapshot.
     {
         MinimalObject overflowObject;
-        Intersection* overflowA = overflowObject.addIntersection(new Intersection(2, 1, -1, GROUP1));
-        Intersection* overflowB = overflowObject.addIntersection(new Intersection(2, 7, -1, GROUP1));
-        Connection* overflowConnection = overflowObject.addConnection(new Connection(overflowA, overflowB, GROUP1, 5));
+        Intersection* overflowA =
+            overflowObject.addIntersection(new Intersection(2, 1, -1, GROUP1));
+        Intersection* overflowB =
+            overflowObject.addIntersection(new Intersection(2, 7, -1, GROUP1));
+        Connection* overflowConnection =
+            overflowObject.addConnection(new Connection(overflowA, overflowB, GROUP1, 5));
         if (overflowConnection == nullptr || overflowConnection->fromPort == nullptr) {
             return fail("Failed to create overflow export fixture");
         }
@@ -657,7 +710,8 @@ int main() {
         MinimalObject sourceObject;
         Intersection* sourceA = sourceObject.addIntersection(new Intersection(2, 2, -1, GROUP1));
         Intersection* sourceB = sourceObject.addIntersection(new Intersection(2, 8, -1, GROUP1));
-        Connection* sourceConnection = sourceObject.addConnection(new Connection(sourceA, sourceB, GROUP1, 5));
+        Connection* sourceConnection =
+            sourceObject.addConnection(new Connection(sourceA, sourceB, GROUP1, 5));
         Model* sourceModel =
             sourceObject.addModel(new Model(0, 7, GROUP1, 16, RoutingStrategy::Deterministic));
         if (sourceConnection == nullptr || sourceModel == nullptr) {
@@ -673,7 +727,8 @@ int main() {
         MinimalObject destinationObject;
         Intersection* destA = destinationObject.addIntersection(new Intersection(2, 2, -1, GROUP1));
         Intersection* destB = destinationObject.addIntersection(new Intersection(2, 8, -1, GROUP1));
-        Connection* destConnection = destinationObject.addConnection(new Connection(destA, destB, GROUP1, 5));
+        Connection* destConnection =
+            destinationObject.addConnection(new Connection(destA, destB, GROUP1, 5));
         Model* destinationModel =
             destinationObject.addModel(new Model(0, 9, GROUP1, 24, RoutingStrategy::Deterministic));
         if (destConnection == nullptr || destinationModel == nullptr) {
@@ -912,7 +967,8 @@ int main() {
             lightgraph::integration::summarizeTopology(summaryObject);
         if (summary.intersections.size() != 2 || summary.connections.size() != 1 ||
             summary.gaps.size() != 1) {
-            return fail("summarizeTopology should capture topology intersections, connections, and gaps");
+            return fail(
+                "summarizeTopology should capture topology intersections, connections, and gaps");
         }
 
         lightgraph::integration::remote_ingress::EmitIntentDescriptor descriptor;
@@ -933,26 +989,30 @@ int main() {
             ingressObject.addIntersection(new Intersection(2, 4, -1, GROUP1));
         if (ingressEmitter == nullptr) {
             delete materialized;
-            return fail("remote ingress helper regression fixture should create an emitter intersection");
+            return fail(
+                "remote ingress helper regression fixture should create an emitter intersection");
         }
 
         materialized->compensateHiddenIngressContinuity = true;
-        if (!lightgraph::integration::remote_ingress::activateList(
-                ingressState, *ingressEmitter, materialized, 0, true)) {
+        if (!lightgraph::integration::remote_ingress::activateList(ingressState, *ingressEmitter,
+                                                                   materialized, 0, true)) {
             delete materialized;
             return fail("remote ingress helper should activate a normalized list");
         }
         if (materialized->emitOffset != 0) {
             delete materialized;
-            return fail("remote ingress helper should preserve explicit emitOffset semantics when normalizing");
+            return fail("remote ingress helper should preserve explicit emitOffset semantics when "
+                        "normalizing");
         }
         if (materialized->compensateHiddenIngressContinuity) {
             delete materialized;
-            return fail("remote ingress helper should not enable template-only ingress compensation");
+            return fail(
+                "remote ingress helper should not enable template-only ingress compensation");
         }
         if ((*materialized)[0] == nullptr || std::abs((*materialized)[0]->position) > 0.0001f) {
             delete materialized;
-            return fail("remote ingress helper should not seed normalized emit-intent lists forward by one pixel");
+            return fail("remote ingress helper should not seed normalized emit-intent lists "
+                        "forward by one pixel");
         }
 
         remote_snapshot::TemplateSnapshotDescriptor templateDescriptor = {};
@@ -969,11 +1029,12 @@ int main() {
 
         const std::vector<int64_t> templateColors = {0x00FF00, 0xFF0000};
         const std::vector<float> templatePositions = {0.0f, 1.0f};
-        LightList* templateReplay =
-            remote_snapshot::buildTemplateSnapshot(templateDescriptor, templateColors, templatePositions);
+        LightList* templateReplay = remote_snapshot::buildTemplateSnapshot(
+            templateDescriptor, templateColors, templatePositions);
         if (templateReplay == nullptr) {
             delete materialized;
-            return fail("remote template replay regression fixture should materialize a snapshot list");
+            return fail(
+                "remote template replay regression fixture should materialize a snapshot list");
         }
 
         RuntimeLight* templateLight = (*templateReplay)[0];
@@ -994,22 +1055,27 @@ int main() {
         if (templateReplay->emitOffset != 1) {
             delete templateReplay;
             delete materialized;
-            return fail("remote template replay helper should auto-advance the replay offset by one pixel");
+            return fail(
+                "remote template replay helper should auto-advance the replay offset by one pixel");
         }
         if (!templateReplay->compensateHiddenIngressContinuity) {
             delete templateReplay;
             delete materialized;
-            return fail("remote template replay helper should enable hidden-ingress continuity compensation");
+            return fail("remote template replay helper should enable hidden-ingress continuity "
+                        "compensation");
         }
-        if (templateLight->owner != nullptr || templateLight->lifeMillis != templateReplay->lifeMillis) {
+        if (templateLight->owner != nullptr ||
+            templateLight->lifeMillis != templateReplay->lifeMillis) {
             delete templateReplay;
             delete materialized;
-            return fail("remote template replay helper should normalize light ownership and life timing");
+            return fail(
+                "remote template replay helper should normalize light ownership and life timing");
         }
         if (std::abs(templateLight->position - 1.0f) > 0.0001f) {
             delete templateReplay;
             delete materialized;
-            return fail("remote template replay helper should seed the first light one pixel forward");
+            return fail(
+                "remote template replay helper should seed the first light one pixel forward");
         }
         delete templateReplay;
 

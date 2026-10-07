@@ -57,6 +57,8 @@ struct StyleSpec {
   uint16_t behaviourFlags = 0;
   uint8_t colorChangeGroups = 0;
   Palette palette;
+  lightgraph::LengthMode lengthMode = lightgraph::LengthMode::Legacy;
+  float visibleLength = 0.0f;
 };
 
 struct Spec {
@@ -98,12 +100,12 @@ inline Policy makePolicy(AllocationMode allocation,
   return policy;
 }
 
-inline Policy makeStateEmitPolicy() {
-  return makePolicy(AllocationMode::DefaultHeap,
+inline Policy makeStateEmitPolicy(AllocationMode allocation = AllocationMode::DefaultHeap) {
+  return makePolicy(allocation,
                     true,
                     LightgraphAllocationFailureSite::StateBehaviourAllocation,
                     LightgraphAllocationFailureSite::StateListAllocation,
-                    LightgraphAllocationFailureSite::Unknown,
+                    LightgraphAllocationFailureSite::LightListLightAllocation,
                     LightgraphAllocationFailureSite::StateSetupException);
 }
 
@@ -298,13 +300,21 @@ inline StyleSpec makeStyleSpecFromEmitParams(const EmitParams& params) {
   style.behaviourFlags = params.behaviourFlags;
   style.colorChangeGroups = params.colorChangeGroups;
   style.palette = params.palette;
+  style.lengthMode = params.lengthMode;
+  style.visibleLength = params.visibleLength.value_or(
+      static_cast<float>(params.length.value_or(0)));
   return style;
 }
 
 inline Spec makeSpecFromEmitParams(const EmitParams& params, uint16_t resolvedLength) {
   StyleSpec style = makeStyleSpecFromEmitParams(params);
-  const uint16_t trail =
-      (params.speed == 0) ? params.trail : params.getSpeedTrail(style.speed, resolvedLength);
+  if (params.lengthMode == lightgraph::LengthMode::Centered) {
+    style.visibleLength = params.visibleLength.value_or(static_cast<float>(resolvedLength));
+  }
+  const uint16_t trail = params.lengthMode == lightgraph::LengthMode::Centered
+      ? static_cast<uint16_t>(0)
+      : ((params.speed == 0) ? params.trail
+                             : params.getSpeedTrail(style.speed, resolvedLength));
   return makeDerivedFromLengthSpec(style, resolvedLength, trail, params.getDuration());
 }
 
@@ -336,6 +346,8 @@ inline void applyStyle(LightList* list, const Spec& spec) {
   list->visible = spec.style.visible;
   list->editable = spec.style.editable;
   list->blendMode = spec.style.blendMode;
+  list->lengthMode = spec.style.lengthMode;
+  list->visibleLength = spec.style.visibleLength;
   list->emitter = nullptr;
   list->model = spec.style.model;
   list->clearExternalBatchForwardState();
@@ -365,17 +377,32 @@ inline Light* allocateExplicitLight(LightList* list,
   return light;
 }
 
-inline bool buildDerivedFromLength(LightList* list, const Spec& spec) {
+inline bool buildDerivedFromLength(LightList* list, const Spec& spec, const Policy& policy) {
   const uint16_t bodyLights =
       (spec.length > spec.trail) ? static_cast<uint16_t>(spec.length - spec.trail) : static_cast<uint16_t>(1);
   list->length = spec.length;
+  if (list->lengthMode == lightgraph::LengthMode::Centered) {
+    list->visibleLength = spec.style.visibleLength;
+  }
   list->numLights = bodyLights;
   list->duration = spec.durationMillis;
   list->palette = spec.style.palette;
   list->setLeadTrail(spec.trail);
+  const uint16_t allocatedLights = static_cast<uint16_t>(
+      static_cast<uint32_t>(bodyLights) + list->lead + list->trail);
   list->numEmitted = 0;
   list->numSplits = 0;
-  list->setup(bodyLights, spec.style.maxBri);
+  const bool initialized = policy.allocation == AllocationMode::ContiguousLights
+      ? list->setupContiguous(bodyLights, spec.style.maxBri, policy.lightFailureSite)
+      : (list->setup(bodyLights, spec.style.maxBri), true);
+  if (!initialized || list->numLights != allocatedLights || list->lights == nullptr) {
+    return false;
+  }
+  for (uint16_t i = 0; i < allocatedLights; ++i) {
+    if (list->lights[i] == nullptr) {
+      return false;
+    }
+  }
   list->setDuration(spec.durationMillis);
   list->setPalette(spec.style.palette);
   return true;
@@ -513,7 +540,8 @@ inline bool buildSingleLight(LightList* list, const Spec& spec, const Policy& po
   return true;
 }
 
-inline LightList* buildLightList(const Spec& spec, const Policy& policy) {
+inline LightList* buildLightList(const Spec& spec, const Policy& policy,
+                                 LightgraphRuntimeContext* runtimeContext = nullptr) {
   LightList* list = nullptr;
 #if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
   try {
@@ -522,6 +550,9 @@ inline LightList* buildLightList(const Spec& spec, const Policy& policy) {
     if (list == nullptr) {
       reportAllocationFailure(policy.listFailureSite, spec.numLights, spec.length);
       return nullptr;
+    }
+    if (runtimeContext != nullptr) {
+      list->bindRuntimeContext(*runtimeContext);
     }
 
     applyStyle(list, spec);
@@ -533,7 +564,7 @@ inline LightList* buildLightList(const Spec& spec, const Policy& policy) {
     bool built = false;
     switch (spec.population) {
       case PopulationKind::DerivedFromLength:
-        built = buildDerivedFromLength(list, spec);
+        built = buildDerivedFromLength(list, spec, policy);
         break;
       case PopulationKind::DenseSnapshot:
         built = buildDenseSnapshot(list, spec, policy);
@@ -560,8 +591,7 @@ inline LightList* buildLightList(const Spec& spec, const Policy& policy) {
     return nullptr;
   } catch (...) {
     delete list;
-    reportAllocationFailure(policy.exceptionFailureSite, spec.numLights, spec.length);
-    return nullptr;
+    throw;
   }
 #endif
 }

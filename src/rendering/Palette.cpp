@@ -256,7 +256,7 @@ inline ColorRGB toRGB(int64_t hex) {
     if (hex == RANDOM_COLOR)
         rgb.setRandom();
     else
-        rgb.set(hex);
+        rgb.set(static_cast<uint32_t>(hex));
     return rgb;
 }
 

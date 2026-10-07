@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <memory>
 
 #include "status.hpp"
@@ -38,6 +39,9 @@ class Engine {
      * @return list index on success, otherwise an error code/message.
      */
     Result<int8_t> emit(const EmitCommand& command);
+
+    /** Atomically update visible spans of up to 19 centered lists. */
+    Status setListLengths(const ListLengthUpdate* updates, size_t count);
 
     /**
      * @brief Advance runtime to an absolute timestamp (milliseconds).

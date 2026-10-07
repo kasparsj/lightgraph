@@ -12,7 +12,7 @@
 class Heptagon919 : public HeptagonStar {
     
 public:
-    Heptagon919() : HeptagonStar(HEPTAGON919_PIXEL_COUNT) {
+    Heptagon919() : HeptagonStar(HEPTAGON919_PIXEL_COUNT, HEPTAGON919_PIXEL_COUNT1) {
         Heptagon919::setup();
     }
     

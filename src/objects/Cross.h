@@ -32,9 +32,13 @@ class Cross : public TopologyObject {
         verticalCross = pixelCount / 4 * 3;
         
         setup();
+        geometryPixelCount_ = pixelCount;
     }
     
     ~Cross() override = default;
+
+    bool supportsGeometry() const override { return true; }
+    std::unique_ptr<lightgraph::geometry::GeometryProvider> createGeometry() override;
     
     bool isMirrorSupported() override { return true; }
     uint16_t* getMirroredPixels(uint16_t pixel, Owner* mirrorFlipEmitter, bool mirrorRotate) override;
@@ -55,6 +59,12 @@ class Cross : public TopologyObject {
     uint16_t verticalLineEnd;
     uint16_t horizontalCross;
     uint16_t verticalCross;
+    uint16_t geometryPixelCount_ = 0;
+    uint8_t geometryHorizontalStartId_ = 0;
+    uint8_t geometryHorizontalEndId_ = 0;
+    uint8_t geometryVerticalStartId_ = 0;
+    uint8_t geometryVerticalEndId_ = 0;
+    uint8_t geometryCenterId_ = 0;
 };
 
 #endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_CROSS_H_

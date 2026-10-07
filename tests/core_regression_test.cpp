@@ -729,6 +729,290 @@ int main() {
         }
     }
 
+    // Centered lists reserve stable slots and update only their symmetric coverage window.
+    {
+        Line line(64);
+        line.setNowMillis(0);
+        State state(line);
+        EmitParams params(0, 0.5f, 0xFFFFFF);
+        params.setLength(4);
+        params.noteId = 42;
+        params.duration = 100;
+        params.lengthMode = lightgraph::LengthMode::Centered;
+        params.visibleLength = 2.0f;
+        const int8_t index = state.emit(params);
+        if (index < 1) {
+            return fail("Centered list emit should succeed on a local sequential topology");
+        }
+        LightList* list = state.lightLists[index];
+        if (list == nullptr || list->numLights != 4 || list->trail != 0 ||
+            list->lengthMode != lightgraph::LengthMode::Centered) {
+            return fail("Centered list should reserve its full capacity without an automatic trail");
+        }
+        if (list->centeredCoverage(0) != 0 || list->centeredCoverage(1) != 255 ||
+            list->centeredCoverage(2) != 255 || list->centeredCoverage(3) != 0) {
+            return fail("Centered even-length coverage should be symmetric");
+        }
+        LightList oddWindow;
+        oddWindow.lengthMode = lightgraph::LengthMode::Centered;
+        oddWindow.numLights = 5;
+        oddWindow.visibleLength = 3.0f;
+        if (oddWindow.centeredCoverage(0) != 0 || oddWindow.centeredCoverage(1) != 255 ||
+            oddWindow.centeredCoverage(2) != 255 || oddWindow.centeredCoverage(3) != 255 ||
+            oddWindow.centeredCoverage(4) != 0) {
+            return fail("Centered odd-length coverage should remain symmetric");
+        }
+        std::vector<RuntimeLight*> stableLights(list->lights, list->lights + list->numLights);
+        for (uint16_t lightIndex = 0; lightIndex < list->numLights; ++lightIndex) {
+            if (list->lights[lightIndex] == nullptr ||
+                list->lights[lightIndex]->getLife() != list->lifeMillis) {
+                return fail("Centered list lights should share one expiration deadline");
+            }
+        }
+
+        const lightgraph::ListLengthUpdate half[] = {{42, 1.0f}};
+        if (!state.setListLengths(half, 1) || list->visibleLength != 1.0f ||
+            list->centeredCoverage(1) < 127 || list->centeredCoverage(1) > 128 ||
+            list->centeredCoverage(2) < 127 || list->centeredCoverage(2) > 128) {
+            return fail("Fractional centered-length updates should split coverage symmetrically");
+        }
+        for (uint16_t lightIndex = 0; lightIndex < list->numLights; ++lightIndex) {
+            if (list->lights[lightIndex] != stableLights[lightIndex]) {
+                return fail("Centered resize must not allocate or replace reserved light slots");
+            }
+        }
+        const lightgraph::ListLengthUpdate unknown[] = {{65000, 3.0f}};
+        if (!state.setListLengths(unknown, 1)) {
+            return fail("Valid unknown list IDs should be ignored");
+        }
+        const lightgraph::ListLengthUpdate negativeUnknown[] = {{65000, -1.0f}};
+        if (state.setListLengths(negativeUnknown, 1)) {
+            return fail("Invalid lengths must reject the whole batch even for unknown IDs");
+        }
+        const lightgraph::ListLengthUpdate duplicate[] = {{42, 0.0f}, {42, 2.0f}};
+        if (state.setListLengths(duplicate, 2) || list->visibleLength != 1.0f) {
+            return fail("Duplicate IDs must reject atomically without changing visible length");
+        }
+
+        EmitParams legacy(0, 0.0f, 0xFFFFFF);
+        legacy.setLength(1);
+        legacy.noteId = 44;
+        legacy.duration = 10;
+        const int8_t legacyIndex = state.emit(legacy);
+        if (legacyIndex < 0) {
+            return fail("Legacy expiry fixture should emit successfully");
+        }
+        line.setNowMillis(10);
+        const lightgraph::ListLengthUpdate expiredAndLiving[] = {{44, 1.0f}, {42, 2.0f}};
+        if (state.setListLengths(expiredAndLiving, 2) || list->visibleLength != 1.0f) {
+            return fail("A deadline-passed legacy list must remain incompatible until route-aware expiry");
+        }
+        LightList* const expiredLegacy = state.lightLists[legacyIndex];
+        for (uint16_t i = 0; i < expiredLegacy->numLights; ++i) {
+            if (expiredLegacy->lights[i] != nullptr) {
+                expiredLegacy->lights[i]->isExpired = true;
+            }
+        }
+        if (!state.setListLengths(expiredAndLiving, 2) || list->visibleLength != 2.0f) {
+            return fail("Actually expired pre-sweep IDs should be ignored without rejecting living updates");
+        }
+
+        line.setNowMillis(100);
+        state.update();
+        if (state.findList(42) >= 0) {
+            return fail("Centered lists should expire as a whole at their common deadline");
+        }
+
+        EmitParams unsupported(0, 0.5f, 0xFFFFFF);
+        unsupported.setLength(4);
+        unsupported.noteId = 43;
+        unsupported.lengthMode = lightgraph::LengthMode::Centered;
+        unsupported.order = LIST_ORDER_RANDOM;
+        if (state.emit(unsupported) >= 0) {
+            return fail("Centered lists should reject random ordering");
+        }
+    }
+
+    // Centered lists keep moving through graph junctions while fully hidden, then grow in place.
+    {
+        Cross cross(CROSS_PIXEL_COUNT);
+        cross.setNowMillis(0);
+        State state(cross);
+        state.lightLists[0]->visible = false;
+
+        int8_t leftIndex = -1;
+        for (uint8_t i = 0; i < cross.countIntersections(GROUP1); ++i) {
+            const Intersection* const intersection = cross.getIntersection(i, GROUP1);
+            if (intersection != nullptr && intersection->topPixel == 0) {
+                leftIndex = static_cast<int8_t>(i);
+                break;
+            }
+        }
+        if (leftIndex < 0) {
+            return fail("Centered hidden-motion fixture could not resolve the left intersection");
+        }
+
+        EmitParams params(C_HORIZONTAL, 1.0f, 0x44CC88);
+        params.setLength(4);
+        params.noteId = 45;
+        params.from = leftIndex;
+        params.duration = 10000;
+        params.lengthMode = lightgraph::LengthMode::Centered;
+        params.visibleLength = 0.0f;
+        const int8_t index = state.emit(params);
+        if (index < 1) {
+            return fail("Centered zero-length list should emit on the cross topology");
+        }
+        LightList* const list = state.lightLists[index];
+        const uint32_t deadline = list->lifeMillis;
+
+        RuntimeLight* routedLight = nullptr;
+        for (uint16_t frame = 1; frame <= 160 && routedLight == nullptr; ++frame) {
+            cross.setNowMillis(static_cast<unsigned long>(frame) * 16UL);
+            state.update();
+            for (uint16_t slot = 1; slot <= 2; ++slot) {
+                RuntimeLight* const candidate = list->lights[slot];
+                if (candidate != nullptr && candidate->owner != nullptr && candidate->pixel1 > 72 &&
+                    candidate->pixel1 < 143) {
+                    routedLight = candidate;
+                    break;
+                }
+            }
+        }
+        if (routedLight == nullptr) {
+            return fail("A hidden centered list should cross the center junction and retain its route");
+        }
+
+        RuntimeLight* const stableLight = routedLight;
+        const Owner* const stableOwner = routedLight->owner;
+        Port* const stableInPort = routedLight->inPort;
+        Port* const stableOutPort = routedLight->outPort;
+        const float stablePosition = routedLight->position;
+        const lightgraph::ListLengthUpdate grow[] = {{45, 2.0f}};
+        if (!state.setListLengths(grow, 1) || list->lights[routedLight->idx] != stableLight ||
+            routedLight->owner != stableOwner || routedLight->inPort != stableInPort ||
+            routedLight->outPort != stableOutPort || routedLight->position != stablePosition ||
+            list->lifeMillis != deadline) {
+            return fail("Growing a hidden centered list must preserve identity, route, position, and deadline");
+        }
+
+        cross.setNowMillis(cross.nowMillis() + 16UL);
+        state.update();
+        if (routedLight->pixel1 < 0 ||
+            !isNonBlack(state.getPixel(static_cast<uint16_t>(routedLight->pixel1)))) {
+            return fail("A centered list should become visible at its retained post-junction route");
+        }
+    }
+
+    // A centered re-emit reserves the requested maximum exactly, even with legacy smoothing enabled.
+    {
+        Line line(32);
+        State state(line);
+        state.lightLists[0]->visible = false;
+        EmitParams params(0, 0.0f, 0xFFFFFF);
+        params.setLength(4);
+        params.noteId = 54;
+        params.lengthMode = lightgraph::LengthMode::Centered;
+        params.visibleLength = 0.0f;
+        if (state.emit(params) < 1) {
+            return fail("Initial centered capacity fixture should emit");
+        }
+        params.setLength(8);
+        params.behaviourFlags = B_SMOOTH_CHANGES;
+        const int8_t resizedIndex = state.emit(params);
+        if (resizedIndex < 1 || state.lightLists[resizedIndex]->numLights != 8 ||
+            state.lightLists[resizedIndex]->length != 8 || state.totalLights != 8) {
+            return fail("Centered re-emit should bypass legacy length smoothing for reserved capacity");
+        }
+    }
+
+    // Centered mode rejects configurations that cannot preserve stable path capacity.
+    {
+        Line line(32);
+        if (line.hasExternalPorts()) {
+            return fail("Local topology should not report external ports");
+        }
+        State state(line);
+        state.lightLists[0]->visible = false;
+
+        const auto rejected = [&](uint16_t noteId, bool linked, uint16_t flags) {
+            EmitParams params(0, 0.0f, 0xFFFFFF);
+            params.setLength(4);
+            params.noteId = noteId;
+            params.linked = linked;
+            params.behaviourFlags = flags;
+            params.lengthMode = lightgraph::LengthMode::Centered;
+            return state.emit(params) < 0;
+        };
+        if (!rejected(46, false, 0) || !rejected(47, true, B_RENDER_SEGMENT) ||
+            !rejected(48, true, B_FILL_EASE)) {
+            return fail("Centered lists should reject unlinked, segment-render, and fill configurations");
+        }
+
+        SinglePixelObject externalObject;
+        Intersection* const ingress = externalObject.addIntersection(
+            new Intersection(2, 0, -1, GROUP1));
+        const uint8_t remoteDevice[6] = {1, 2, 3, 4, 5, 6};
+        if (ingress == nullptr ||
+            externalObject.addExternalPort(ingress, 0, false, GROUP1, remoteDevice, 9) == nullptr) {
+            return fail("Centered cross-device rejection fixture could not create an external port");
+        }
+        if (!externalObject.hasExternalPorts()) {
+            return fail("Topology should report registered external ports without snapshot allocation");
+        }
+        State externalState(externalObject);
+        EmitParams external(0, 0.0f, 0xFFFFFF);
+        external.setLength(4);
+        external.noteId = 49;
+        external.lengthMode = lightgraph::LengthMode::Centered;
+        if (externalState.emit(external) >= 0) {
+            return fail("Centered lists should reject topologies with external device ports");
+        }
+    }
+
+    // Reserved centered capacity counts against both the light and list limits.
+    {
+        Line line(32);
+        State state(line);
+        state.lightLists[0]->visible = false;
+        EmitParams capacity(0, 0.0f, 0xFFFFFF);
+        capacity.setLength(MAX_TOTAL_LIGHTS);
+        capacity.noteId = 50;
+        capacity.lengthMode = lightgraph::LengthMode::Centered;
+        capacity.visibleLength = 0.0f;
+        if (state.emit(capacity) < 1 || state.totalLights != MAX_TOTAL_LIGHTS) {
+            return fail("Centered capacity should reserve and count every hidden light slot");
+        }
+        EmitParams overflow = capacity;
+        overflow.setLength(1);
+        overflow.noteId = 51;
+        if (state.emit(overflow) >= 0 || state.totalLights != MAX_TOTAL_LIGHTS) {
+            return fail("Centered capacity should respect the total-light resource limit atomically");
+        }
+    }
+    {
+        Line line(32);
+        State state(line);
+        state.lightLists[0]->visible = false;
+        for (uint16_t i = 1; i < MAX_LIGHT_LISTS; ++i) {
+            EmitParams params(0, 0.0f, 0xFFFFFF);
+            params.setLength(1);
+            params.noteId = static_cast<uint16_t>(100 + i);
+            params.lengthMode = lightgraph::LengthMode::Centered;
+            params.visibleLength = 0.0f;
+            if (state.emit(params) < 1) {
+                return fail("Centered list-limit fixture should fill every available local list slot");
+            }
+        }
+        EmitParams overflow(0, 0.0f, 0xFFFFFF);
+        overflow.setLength(1);
+        overflow.noteId = 200;
+        overflow.lengthMode = lightgraph::LengthMode::Centered;
+        if (state.emit(overflow) >= 0 || state.totalLightLists != MAX_LIGHT_LISTS) {
+            return fail("Centered lists should respect the reserved list-slot limit");
+        }
+    }
+
     // Blend-mode regressions: deterministic 1-pixel compositing across all modes.
     {
         struct BlendExpectation {
@@ -790,6 +1074,122 @@ int main() {
         light.bri = 255;
         if (light.getBrightness() != 0) {
             return fail("Light::getBrightness should be zero when fadeThresh is 255");
+        }
+    }
+
+    // Noise brightness must follow the list's bound runtime context, never shared process state.
+    {
+        LightgraphRuntimeContext firstContext;
+        LightgraphRuntimeContext secondContext;
+        firstContext.perlinNoise.SetSeed(101);
+        secondContext.perlinNoise.SetSeed(202);
+
+        LightList list;
+        RuntimeLight light(&list);
+        Behaviour noiseBehaviour(B_BRI_CONST_NOISE);
+
+        int16_t sampledPixel = -1;
+        uint16_t firstExpected = 0;
+        uint16_t secondExpected = 0;
+        for (int16_t pixel = 0; pixel < 128; ++pixel) {
+            const float firstValue = firstContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), static_cast<FN_DECIMAL>(pixel * 100));
+            const float secondValue = secondContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), static_cast<FN_DECIMAL>(pixel * 100));
+            if (firstValue >= 0.0f && secondValue >= 0.0f) {
+                const uint16_t firstCandidate = static_cast<uint16_t>(firstValue * 255);
+                const uint16_t secondCandidate = static_cast<uint16_t>(secondValue * 255);
+                if (firstCandidate != secondCandidate) {
+                    sampledPixel = pixel;
+                    firstExpected = firstCandidate;
+                    secondExpected = secondCandidate;
+                    break;
+                }
+            }
+        }
+        if (sampledPixel < 0) {
+            return fail("Noise context regression fixture should find distinct seeded samples");
+        }
+
+        light.pixel1 = sampledPixel;
+        list.bindRuntimeContext(firstContext);
+        if (noiseBehaviour.getBri(&light) != firstExpected) {
+            return fail("B_BRI_CONST_NOISE should sample the list's first runtime context");
+        }
+        list.bindRuntimeContext(secondContext);
+        if (noiseBehaviour.getBri(&light) != secondExpected) {
+            return fail("B_BRI_CONST_NOISE should follow a newly bound runtime context");
+        }
+    }
+
+    // LIST_ORDER_NOISE must use its bound context and preserve the default-context fallback.
+    {
+        LightList list;
+        LightgraphRuntimeContext firstContext;
+        LightgraphRuntimeContext secondContext;
+        uint16_t firstExpected = 0;
+        uint16_t secondExpected = 0;
+        bool foundDistinctSample = false;
+        for (int firstSeed = 1; firstSeed < 64 && !foundDistinctSample; ++firstSeed) {
+            firstContext.perlinNoise.SetSeed(firstSeed);
+            const float firstValue = firstContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), 0);
+            if (firstValue < 0.0f) {
+                continue;
+            }
+            for (int secondSeed = firstSeed + 1; secondSeed < 64; ++secondSeed) {
+                secondContext.perlinNoise.SetSeed(secondSeed);
+                const float secondValue = secondContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), 0);
+                const uint16_t firstCandidate = static_cast<uint16_t>(firstValue * FULL_BRIGHTNESS);
+                if (secondValue >= 0.0f) {
+                    const uint16_t secondCandidate =
+                        static_cast<uint16_t>(secondValue * FULL_BRIGHTNESS);
+                    if (firstCandidate != secondCandidate) {
+                        firstExpected = firstCandidate;
+                        secondExpected = secondCandidate;
+                        foundDistinctSample = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!foundDistinctSample) {
+            return fail("List noise regression fixture should find distinct seeded samples");
+        }
+
+        list.order = LIST_ORDER_NOISE;
+        list.setup(1);
+        list.bindRuntimeContext(firstContext);
+        list.initEmit();
+        if (list[0] == nullptr || list[0]->bri != firstExpected) {
+            return fail("LIST_ORDER_NOISE should sample the list's first runtime context");
+        }
+        list.bindRuntimeContext(secondContext);
+        list.initEmit();
+        if (list[0] == nullptr || list[0]->bri != secondExpected) {
+            return fail("LIST_ORDER_NOISE should follow a newly bound runtime context");
+        }
+
+        LightgraphRuntimeContext& defaultContext = lightgraphDefaultRuntimeContext();
+        const int originalDefaultSeed = defaultContext.perlinNoise.GetSeed();
+
+        LightList fallbackList;
+        float fallbackValue = -1.0f;
+        for (int fallbackSeed = 1; fallbackSeed < 128 && fallbackValue < 0.0f; ++fallbackSeed) {
+            defaultContext.perlinNoise.SetSeed(fallbackSeed);
+            fallbackValue = defaultContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(fallbackList.id * 10), 0);
+        }
+        if (fallbackValue < 0.0f) {
+            defaultContext.perlinNoise.SetSeed(originalDefaultSeed);
+            return fail("Default noise regression fixture should find a non-negative sample");
+        }
+        fallbackList.order = LIST_ORDER_NOISE;
+        fallbackList.setup(1);
+        fallbackList.initEmit();
+        const uint16_t fallbackExpected =
+            static_cast<uint16_t>(fallbackValue * FULL_BRIGHTNESS);
+        const bool fallbackMatches =
+            fallbackList[0] != nullptr && fallbackList[0]->bri == fallbackExpected;
+        defaultContext.perlinNoise.SetSeed(originalDefaultSeed);
+        if (!fallbackMatches) {
+            return fail("Unbound LIST_ORDER_NOISE should sample the default runtime context");
         }
     }
 

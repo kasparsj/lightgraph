@@ -48,6 +48,13 @@ Key fields:
 - `note_id`, `min_brightness`, `max_brightness`
 - `behaviour_flags`, `emit_groups`, `emit_offset`
 - `duration_ms`, `from`, `linked`
+- `length_mode`, `visible_length`
+
+`LengthMode::Legacy` preserves the existing moving-list behavior.
+`LengthMode::Centered` reserves the explicit `length` as one contiguous list and
+uses `visible_length` as its centered, fractional visible span. A centered emit
+requires a non-zero `note_id`, an explicit non-zero `length`, linked lights, and
+behavior flags compatible with fixed contiguous allocation.
 
 ### `lightgraph::ErrorCode`, `lightgraph::Status`, `lightgraph::Result<T>`
 
@@ -68,6 +75,7 @@ Version and deprecation surface:
 Thread-safe runtime facade:
 
 - `Result<int8_t> emit(const EmitCommand&)`
+- `Status setListLengths(const ListLengthUpdate* updates, size_t count)`
 - `void update(uint64_t millis)`
 - `void tick(uint64_t delta_millis)`
 - `void stopAll()`
@@ -83,6 +91,8 @@ Thread-safe runtime facade:
 - `lightgraph::Engine` is safe for concurrent calls on the same instance.
 - No additional external locking is required for `emit/update/tick/pixel/...` on one instance.
 - Source-integration types (`lightgraph::integration::*`) are not thread-safe by default.
+- Drawing mutation, topology mutation, transfer-session work, and rendering must be
+  serialized on the same owner thread or by the same recursive lock.
 
 ### Determinism
 
@@ -141,6 +151,61 @@ Namespace aliases:
 - `lightgraph::integration::LightList`
 - `lightgraph::integration::BgLight`
 - `lightgraph::integration::RuntimeState`
+
+`RuntimeState::initializationResult` distinguishes `Ready`, `AdmissionDenied`,
+and `AllocationFailed`. A state that is not ready is permanently inert: it
+rejects emissions, ignores updates, and returns black pixels. Construct a fresh
+candidate to recover, and publish it only after `ready()` succeeds.
+
+Drawing initialization is optional: failure to allocate or admit drawing resources
+keeps a ready runtime's palette background and moving lights available. Rendering
+retries drawing initialization at most once per `RuntimeState::update()`, before
+simulation substeps and pixel loops. Explicit `drawing()` access retains lazy
+initialization, allowing drawing commands to recover when resources return.
+
+### Drawing and geometry source integration
+
+- `lightgraph/integration/drawing.hpp` re-exports core-owned drawing scene,
+  control, status, handle, result, and runtime types.
+- `lightgraph/integration/geometry.hpp` exposes `GeometryProvider`,
+  `GeometryResult`, coordinate/view types, and the heptagon provider.
+- `lightgraph/integration/drawing_codec.hpp` exposes `DrawingSceneCodec` for the
+  existing binary scene representation.
+- `lightgraph/integration/drawing_session.hpp` owns producer arbitration,
+  chunk assembly, timeout handling, frame ordering, and transfer counters. It
+  uses the drawing runtime's inactive image slot rather than allocating a third
+  full image buffer.
+
+Drawing and geometry are source-integration APIs. They are compiled into the
+library for in-tree consumers but are not installed as stable package headers.
+All five built-in topology objects provide drawing geometry. Geometry uses one
+finite coordinate per logical pixel in `[-1, 1]`, with positive Y downward.
+
+`lightgraph/integration/drawing_presentation.hpp` exposes
+`PendingDrawingPresentation` for owner-loop consumers. Bind it to the runtime,
+enqueue accepted handles, and call `poll()` before processing input each iteration.
+Enqueue attempts immediate presentation until a handle returns `Busy`, preserving
+ordering with subsequent drawing commands in the normal path. It retains FIFO
+ownership on `Busy`, holds at most three handles, and releases terminal failures.
+`DrawingRuntime::validQueued()` checks handle ownership without presenting it;
+the helper uses it to discard retired slots before capacity checks.
+Binding a replacement runtime or changing the drawing generation clears old
+ownership through the lifetime guard. It allocates no scene or image storage.
+
+`DrawingStatus::lastRejection` owns a null-terminated `std::array<char, 64>`;
+use `.data()` for C-string serialization. Status copies survive runtime
+replacement and destruction. `reject(nullptr)` records `"none"`; longer reasons
+are truncated to 63 bytes. Existing transport rejection names are unchanged.
+
+Custom geometry factory `std::bad_alloc` failures report `Busy` and can be retried;
+unrelated exceptions propagate in exception-enabled builds. Incompatible geometry
+switches the entire next composed frame to the palette and retires queued drawing
+submissions. Resource failures retain the last valid frame and mapping.
+
+Contiguous allocation callbacks form a pair: supply both allocator and
+deallocator, or leave both null for `malloc/free`. An incomplete pair rejects the
+allocation before invoking either callback. Each allocation retains its original
+deallocator and user context even when the runtime policy later changes.
 
 ### `lightgraph/integration/rendering.hpp`
 
@@ -203,6 +268,14 @@ Namespace aliases/constants:
 - Stable engine API never returns raw owning pointers.
 - `Engine::pixel(...)` returns `ErrorCode::OutOfRange` for invalid indices.
 - `EmitCommand::max_brightness` must be `>= min_brightness` (`InvalidArgument` otherwise).
+- New fields remain appended to `EmitCommand`, preserving existing aggregate
+  initialization order.
+- Centered-list update batches contain at most 19 unique, non-zero note IDs and
+  finite non-negative spans. Validation is atomic: one invalid live target
+  rejects the whole batch. Missing or expired notes are successful no-ops.
+- A centered visible span cannot exceed that list's reserved length.
+- Runtime allocation/admission failure maps to `ErrorCode::ResourceUnavailable`;
+  calls against an incompletely initialized runtime map to `ErrorCode::NotReady`.
 - Runtime update and output access in `Engine` are mutex-protected.
 
 ## 6) Internal Layout (Non-API)
@@ -210,6 +283,8 @@ Namespace aliases/constants:
 - `src/topology`
 - `src/runtime`
 - `src/rendering`
+- `src/drawing`
+- `src/geometry`
 - `src/objects`
 - `src/debug`
 

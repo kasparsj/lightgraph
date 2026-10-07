@@ -33,10 +33,33 @@ resolve_to_absolute(source_dir)
 resolve_to_absolute(binary_dir)
 resolve_to_absolute(install_dir)
 
+# Direct callers may supply only paths; recover the toolchain from the parent.
+load_cache("${main_build_dir}" READ_WITH_PREFIX main_
+  CMAKE_GENERATOR CMAKE_CXX_COMPILER CMAKE_BUILD_TYPE CMAKE_CONFIGURATION_TYPES)
+if(NOT DEFINED generator)
+  set(generator "${main_CMAKE_GENERATOR}")
+endif()
+if(NOT DEFINED cxx_compiler)
+  set(cxx_compiler "${main_CMAKE_CXX_COMPILER}")
+endif()
+if(NOT DEFINED multi_config)
+  set(multi_config FALSE)
+  if(main_CMAKE_CONFIGURATION_TYPES)
+    set(multi_config TRUE)
+  endif()
+endif()
+if(NOT DEFINED build_config)
+  set(build_config "${main_CMAKE_BUILD_TYPE}")
+  if(multi_config)
+    set(build_config Release)
+  endif()
+endif()
+
 file(REMOVE_RECURSE "${binary_dir}" "${install_dir}")
 
 execute_process(
-  COMMAND "${cmake_command}" --install "${main_build_dir}" --prefix "${install_dir}"
+  COMMAND "${cmake_command}" --install "${main_build_dir}"
+    --config "${build_config}" --prefix "${install_dir}"
   RESULT_VARIABLE install_result
 )
 if(NOT install_result EQUAL 0)
@@ -48,6 +71,9 @@ execute_process(
     "${cmake_command}"
     -S "${source_dir}"
     -B "${binary_dir}"
+    -G "${generator}"
+    "-DCMAKE_CXX_COMPILER=${cxx_compiler}"
+    "-DCMAKE_BUILD_TYPE=${build_config}"
     "-DCMAKE_PREFIX_PATH=${install_dir}"
   RESULT_VARIABLE configure_result
 )
@@ -56,17 +82,21 @@ if(NOT configure_result EQUAL 0)
 endif()
 
 execute_process(
-  COMMAND "${cmake_command}" --build "${binary_dir}" --parallel
+  COMMAND "${cmake_command}" --build "${binary_dir}"
+    --config "${build_config}" --parallel
   RESULT_VARIABLE build_result
 )
 if(NOT build_result EQUAL 0)
   message(FATAL_ERROR "Package smoke build failed with code ${build_result}")
 endif()
 
+set(smoke_exe_dir "${binary_dir}")
+if(multi_config)
+  string(APPEND smoke_exe_dir "/${build_config}")
+endif()
+set(smoke_exe "${smoke_exe_dir}/lightgraph_package_smoke")
 if(WIN32)
-  set(smoke_exe "${binary_dir}/lightgraph_package_smoke.exe")
-else()
-  set(smoke_exe "${binary_dir}/lightgraph_package_smoke")
+  string(APPEND smoke_exe ".exe")
 endif()
 
 execute_process(

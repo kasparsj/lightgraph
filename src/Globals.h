@@ -4,7 +4,9 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include "FastNoise.h"
+#include "core/MemoryAdmission.h"
 #include "runtime/EmitParams.h"
 
 #ifndef LIGHTGRAPH_ALLOCATION_FAILURE_HOOK_ENABLED
@@ -30,54 +32,61 @@
 class RuntimeLight;
 
 enum class LightgraphAllocationFailureSite : uint8_t {
-  Unknown = 0,
-  StateBehaviourAllocation = 1,
-  StateListAllocation = 2,
-  StateSetupException = 3,
-  SetupBgAllocation = 4,
-  LightListArrayAllocation = 5,
-  LightListLightAllocation = 6,
-  RemoteBehaviourAllocation = 7,
-  RemoteListAllocation = 8,
-  RemoteLightAllocation = 9,
+    Unknown = 0,
+    StateBehaviourAllocation = 1,
+    StateListAllocation = 2,
+    StateSetupException = 3,
+    SetupBgAllocation = 4,
+    LightListArrayAllocation = 5,
+    LightListLightAllocation = 6,
+    RemoteBehaviourAllocation = 7,
+    RemoteListAllocation = 8,
+    RemoteLightAllocation = 9,
+    HeptagonGeometryAllocation = 10,
+    TopologyPixelsAllocation = 11,
+    DrawingRuntimeAllocation = 12,
 };
 
-using LightgraphAllocationFailureObserver =
-    void (*)(LightgraphAllocationFailureSite site, uint16_t detail0, uint16_t detail1);
+using LightgraphAllocationFailureObserver = void (*)(LightgraphAllocationFailureSite site,
+                                                     uint16_t detail0, uint16_t detail1);
 
-using LightgraphExternalSendHook =
-    bool (*)(const uint8_t* mac, uint8_t id, RuntimeLight* const light, bool sendList);
+using LightgraphExternalSendHook = bool (*)(const uint8_t* mac, uint8_t id,
+                                            RuntimeLight* const light, bool sendList);
+using LightgraphContiguousAllocator = void* (*)(size_t bytes, void* user) noexcept;
+using LightgraphContiguousDeallocator = void (*)(void* pointer, void* user) noexcept;
+
+struct LightgraphContiguousAllocationPolicy {
+    LightgraphContiguousAllocator allocate = nullptr;
+    LightgraphContiguousDeallocator deallocate = nullptr;
+    void* user = nullptr;
+};
 
 struct LightgraphRuntimeContext {
-  FastNoise perlinNoise;
-  unsigned long nowMillis = 0;
-  bool hasExplicitNowMillis = false;
-  LightgraphAllocationFailureObserver allocationFailureObserver = nullptr;
-  bool hasFrameTiming = false;
-  unsigned long lastFrameMillis = 0;
-  float frameElapsedMillis = static_cast<float>(EmitParams::frameMs());
-  float currentStepMillis = static_cast<float>(EmitParams::frameMs());
-  LightgraphExternalSendHook externalSendHook = nullptr;
+    FastNoise perlinNoise;
+    unsigned long nowMillis = 0;
+    bool hasExplicitNowMillis = false;
+    LightgraphAllocationFailureObserver allocationFailureObserver = nullptr;
+    lightgraph::memory::Policy memoryAdmission{};
+    bool hasFrameTiming = false;
+    unsigned long lastFrameMillis = 0;
+    float frameElapsedMillis = static_cast<float>(EmitParams::frameMs());
+    float currentStepMillis = static_cast<float>(EmitParams::frameMs());
+    LightgraphExternalSendHook externalSendHook = nullptr;
+    LightgraphContiguousAllocationPolicy contiguousAllocation{};
 };
 
-extern FastNoise gPerlinNoise;
 extern unsigned long gMillis;
 
 LightgraphRuntimeContext& lightgraphDefaultRuntimeContext();
 
 void lightgraphSetAllocationFailureObserver(LightgraphAllocationFailureObserver observer);
-void lightgraphSetAllocationFailureObserver(
-    LightgraphRuntimeContext& context,
-    LightgraphAllocationFailureObserver observer);
-void lightgraphReportAllocationFailure(
-    LightgraphAllocationFailureSite site,
-    uint16_t detail0 = 0,
-    uint16_t detail1 = 0);
-void lightgraphReportAllocationFailure(
-    const LightgraphRuntimeContext& context,
-    LightgraphAllocationFailureSite site,
-    uint16_t detail0 = 0,
-    uint16_t detail1 = 0);
+void lightgraphSetAllocationFailureObserver(LightgraphRuntimeContext& context,
+                                            LightgraphAllocationFailureObserver observer);
+void lightgraphReportAllocationFailure(LightgraphAllocationFailureSite site, uint16_t detail0 = 0,
+                                       uint16_t detail1 = 0);
+void lightgraphReportAllocationFailure(const LightgraphRuntimeContext& context,
+                                       LightgraphAllocationFailureSite site, uint16_t detail0 = 0,
+                                       uint16_t detail1 = 0);
 
 void lightgraphAdvanceFrameTiming(unsigned long nowMillis);
 void lightgraphAdvanceFrameTiming(LightgraphRuntimeContext& context, unsigned long nowMillis);
@@ -88,10 +97,11 @@ uint8_t lightgraphSimulationSubsteps(const LightgraphRuntimeContext& context);
 void lightgraphSetSimulationSubstep(uint8_t stepCount);
 void lightgraphSetSimulationSubstep(LightgraphRuntimeContext& context, uint8_t stepCount);
 float lightgraphConfiguredSpeedPixelsPerSecond(float speed);
-float lightgraphConfiguredSpeedPixelsPerSecond(const LightgraphRuntimeContext& context, float speed);
+float lightgraphConfiguredSpeedPixelsPerSecond(const LightgraphRuntimeContext& context,
+                                               float speed);
 float lightgraphMotionDistance(float speed);
 float lightgraphMotionDistance(const LightgraphRuntimeContext& context, float speed);
 void lightgraphSetNowMillis(unsigned long nowMillis);
 void lightgraphSetNowMillis(LightgraphRuntimeContext& context, unsigned long nowMillis);
 
-#endif  // PACKAGES_LIGHTGRAPH_SRC_GLOBALS_H_
+#endif // PACKAGES_LIGHTGRAPH_SRC_GLOBALS_H_

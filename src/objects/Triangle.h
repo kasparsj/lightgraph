@@ -35,9 +35,13 @@ class Triangle : public TopologyObject {
         segment3End = pixelCount - 1;
         
         setup();
+        geometryPixelCount_ = pixelCount;
     }
     
     ~Triangle() override = default;
+
+    bool supportsGeometry() const override { return true; }
+    std::unique_ptr<lightgraph::geometry::GeometryProvider> createGeometry() override;
     
     bool isMirrorSupported() override { return true; }
     uint16_t* getMirroredPixels(uint16_t pixel, Owner* mirrorFlipEmitter, bool mirrorRotate) override;
@@ -63,6 +67,10 @@ class Triangle : public TopologyObject {
     uint16_t segment2End;
     uint16_t segment3Start;
     uint16_t segment3End;
+    uint16_t geometryPixelCount_ = 0;
+    uint8_t geometryVertex1Id_ = 0;
+    uint8_t geometryVertex2Id_ = 0;
+    uint8_t geometryVertex3Id_ = 0;
 };
 
 #endif  // PACKAGES_LIGHTGRAPH_SRC_OBJECTS_TRIANGLE_H_

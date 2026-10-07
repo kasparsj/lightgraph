@@ -54,6 +54,13 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/api/Engine.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/debug/TopologyPixels.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/debug/Debugger.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/MemoryAdmission.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/drawing/DrawingRuntime.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/integration/DrawingSceneCodec.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/integration/DrawingSession.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/geometry/GeometryProvider.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/geometry/BuiltinGeometry.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/geometry/HeptagonGeometry.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/objects/Cross.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/objects/Heptagon3024.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/objects/Heptagon919.cpp"
@@ -95,6 +102,11 @@ target_include_directories(
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxColorTheory/src"
 )
 
+if(MSVC)
+  # ofxColorTheory relies on the opt-in MSVC math constants (including M_PI).
+  target_compile_definitions(lightgraph_vendor_colortheory PRIVATE _USE_MATH_DEFINES)
+endif()
+
 add_library(lightgraph STATIC ${LIGHTGRAPH_CORE_SOURCES} $<TARGET_OBJECTS:lightgraph_vendor_colortheory>)
 add_library(lightgraph::lightgraph ALIAS lightgraph)
 # Source-tree compatibility alias.
@@ -114,6 +126,7 @@ target_include_directories(
     "$<BUILD_INTERFACE:${LIGHTGRAPH_CORE_GENERATED_INCLUDE_DIR}>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
   PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/host/include"
@@ -226,8 +239,22 @@ if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
         ${LIGHTGRAPH_CORE_VENDOR_WARNING_SUPPRESSIONS}
     )
   elseif(MSVC)
-    set(LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS /W4 /WX)
-    target_compile_options(lightgraph PRIVATE /W4 /WX)
+    set(
+      LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS
+      /W4
+      /WX
+      "/external:I${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxColorTheory/src"
+      "/external:I${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxEasing"
+      /external:W0
+    )
+    target_compile_options(lightgraph PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+    # FastNoise is vendored legacy code. MSVC's optimizer reports C4701 for
+    # switch-assigned interpolation variables despite exhaustive enum cases.
+    set_source_files_properties(
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/FastNoise.cpp"
+      PROPERTIES
+        COMPILE_OPTIONS "/wd4701"
+    )
   else()
     message(WARNING "LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS is not configured for this compiler")
   endif()
@@ -342,6 +369,16 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   add_test(NAME lightgraph_core_regression COMMAND lightgraph_core_regression)
 
   add_executable(
+    lightgraph_core_memory_admission
+    tests/memory_admission_test.cpp
+  )
+  target_link_libraries(lightgraph_core_memory_admission PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_memory_admission PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_memory_admission COMMAND lightgraph_core_memory_admission)
+
+  add_executable(
     lightgraph_core_public_api
     tests/public_api_test.cpp
   )
@@ -383,6 +420,13 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   endif()
   add_test(NAME lightgraph_core_remote_template_motion COMMAND lightgraph_core_remote_template_motion)
 
+  add_executable(lightgraph_topology_pixels_allocation tests/topology_pixels_allocation_test.cpp)
+  target_link_libraries(lightgraph_topology_pixels_allocation PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_topology_pixels_allocation PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_topology_pixels_allocation COMMAND lightgraph_topology_pixels_allocation)
+
   add_executable(
     lightgraph_core_topology_emit
     tests/core_topology_emit_test.cpp
@@ -393,6 +437,65 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   endif()
   add_test(NAME lightgraph_core_topology_emit COMMAND lightgraph_core_topology_emit)
 
+  add_executable(
+    lightgraph_core_heptagon_geometry
+    tests/heptagon_geometry_test.cpp
+  )
+  target_link_libraries(lightgraph_core_heptagon_geometry PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_heptagon_geometry PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_heptagon_geometry COMMAND lightgraph_core_heptagon_geometry)
+
+  add_executable(
+    lightgraph_core_drawing_runtime
+    tests/drawing_runtime_test.cpp
+  )
+  target_link_libraries(lightgraph_core_drawing_runtime PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_runtime PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_runtime COMMAND lightgraph_core_drawing_runtime)
+
+  add_executable(
+    lightgraph_core_drawing_allocation
+    tests/drawing_allocation_test.cpp
+  )
+  target_link_libraries(lightgraph_core_drawing_allocation PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_allocation PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_allocation COMMAND lightgraph_core_drawing_allocation)
+
+  add_executable(lightgraph_core_builtin_drawing tests/builtin_drawing_test.cpp)
+  target_link_libraries(lightgraph_core_builtin_drawing PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_builtin_drawing PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_builtin_drawing COMMAND lightgraph_core_builtin_drawing)
+
+  add_executable(lightgraph_core_drawing_presentation tests/drawing_presentation_test.cpp)
+  target_link_libraries(lightgraph_core_drawing_presentation PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_presentation PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_presentation COMMAND lightgraph_core_drawing_presentation)
+
+  add_executable(lightgraph_core_drawing_recovery tests/drawing_recovery_test.cpp)
+  target_link_libraries(lightgraph_core_drawing_recovery PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_core_drawing_recovery PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_core_drawing_recovery COMMAND lightgraph_core_drawing_recovery)
+
+  add_executable(lightgraph_drawing_golden tests/drawing_golden_test.cpp)
+  target_link_libraries(lightgraph_drawing_golden PRIVATE lightgraph::integration)
+  if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
+    target_compile_options(lightgraph_drawing_golden PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
+  endif()
+  add_test(NAME lightgraph_drawing_golden COMMAND lightgraph_drawing_golden)
+
+  get_property(LIGHTGRAPH_CORE_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
   add_test(
     NAME lightgraph_core_package_smoke
     COMMAND
@@ -402,6 +505,10 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
         -Dsource_dir=${CMAKE_CURRENT_SOURCE_DIR}/tests/package_smoke
         -Dbinary_dir=${CMAKE_BINARY_DIR}/tests/package_smoke/build
         -Dinstall_dir=${CMAKE_BINARY_DIR}/tests/package_smoke/install
+        "-Dgenerator=${CMAKE_GENERATOR}"
+        "-Dcxx_compiler=${CMAKE_CXX_COMPILER}"
+        "-Dbuild_config=$<CONFIG>"
+        "-Dmulti_config=${LIGHTGRAPH_CORE_MULTI_CONFIG}"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/package_smoke/run.cmake
   )
 endif()

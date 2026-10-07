@@ -16,11 +16,16 @@ bool isDestinationIntersectionFullyOwnedByPreviousLight(const RuntimeLight* ligh
   }
 
   const RuntimeLight* previous = light->getPrev();
+#if LIGHTGRAPH_FRACTIONAL_RENDERING
   return previous != nullptr &&
          previous->owner == destination &&
          previous->pixel1 == static_cast<int16_t>(destination->topPixel) &&
          previous->pixel1Weight > 0 &&
          !previous->hasSecondaryPixel();
+#else
+  return previous != nullptr && previous->owner == destination &&
+         previous->pixel1 == static_cast<int16_t>(destination->topPixel);
+#endif
 }
 
 bool hasAvailablePortSlot(const Intersection* intersection) {
@@ -129,20 +134,20 @@ void Connection::configurePixels(uint16_t objectPixelCount) {
         pixelDir = to->topPixel > from->bottomPixel;
         fromPixel = from->bottomPixel + (pixelDir ? 1 : -1);
         toPixel = to->topPixel - (pixelDir ? 1 : -1);
-        leds = abs(fromPixel - toPixel) + 1;
+        leds = static_cast<uint16_t>(abs(fromPixel - toPixel) + 1);
     }
     if (to->bottomPixel > -1 && (leds == 0 || abs(from->topPixel - to->bottomPixel) < leds)) {
         pixelDir = to->bottomPixel > from->topPixel;
         fromPixel = from->topPixel + (pixelDir ? 1 : -1);
         toPixel = to->bottomPixel - (pixelDir ? 1 : -1);
-        leds = abs(fromPixel - toPixel) + 1;
+        leds = static_cast<uint16_t>(abs(fromPixel - toPixel) + 1);
     }
     if (from->bottomPixel > -1 && to->bottomPixel > -1 &&
         (leds == 0 || abs(from->bottomPixel - to->bottomPixel) < leds)) {
         pixelDir = to->bottomPixel > from->bottomPixel;
         fromPixel = from->bottomPixel + (pixelDir ? 1 : -1);
         toPixel = to->bottomPixel - (pixelDir ? 1 : -1);
-        leds = abs(fromPixel - toPixel) + 1;
+        leds = static_cast<uint16_t>(abs(fromPixel - toPixel) + 1);
     }
     numLeds = leds;
 }
@@ -191,7 +196,7 @@ bool Connection::shouldExpire(const RuntimeLight* const light) const {
 
 bool Connection::render(RuntimeLight* const light) const {
     // handle float inprecision
-    float pos = round(light->position * 1000) / 1000.0;
+    float pos = static_cast<float>(round(light->position * 1000) / 1000.0);
     if (numLeds > 0 && pos < numLeds) {
         const float coordRaw = ofxeasing::map(light->position, 0, numLeds, 0, numLeds, light->getEasing());
 #if LIGHTGRAPH_FRACTIONAL_RENDERING

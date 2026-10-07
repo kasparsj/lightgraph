@@ -1,20 +1,20 @@
 #include "Weight.h"
 #include "../core/Platform.h"
 
-void Weight::add(const Port *incoming, uint8_t w) {
+void Weight::add(const Port *incoming, uint8_t weight) {
     if (incoming == nullptr) {
         return;
     }
-    add(incoming->id, w);
+    add(incoming->id, weight);
 }
 
-void Weight::add(uint16_t incomingPortId, uint8_t w) {
+void Weight::add(uint16_t incomingPortId, uint8_t weight) {
     if (conditional.size() >= MAX_CONDITIONAL_WEIGHTS &&
         conditional.find(incomingPortId) == conditional.end()) {
         LG_LOGLN("Weight conditional map overflow");
         return;
     }
-    conditional[incomingPortId] = w;
+    conditional[incomingPortId] = weight;
 }
 
 uint8_t Weight::get(const Port *incoming) const {
