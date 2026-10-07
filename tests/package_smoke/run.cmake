@@ -20,6 +20,12 @@ endif()
 
 set(run_cwd "${CMAKE_CURRENT_BINARY_DIR}")
 
+foreach(required_var generator cxx_compiler build_config multi_config)
+  if(NOT DEFINED ${required_var})
+    message(FATAL_ERROR "${required_var} is required")
+  endif()
+endforeach()
+
 macro(resolve_to_absolute path_var)
   if(NOT IS_ABSOLUTE "${${path_var}}")
     cmake_path(ABSOLUTE_PATH ${path_var} BASE_DIRECTORY "${run_cwd}" NORMALIZE)
@@ -36,7 +42,8 @@ resolve_to_absolute(install_dir)
 file(REMOVE_RECURSE "${binary_dir}" "${install_dir}")
 
 execute_process(
-  COMMAND "${cmake_command}" --install "${main_build_dir}" --prefix "${install_dir}"
+  COMMAND "${cmake_command}" --install "${main_build_dir}"
+    --config "${build_config}" --prefix "${install_dir}"
   RESULT_VARIABLE install_result
 )
 if(NOT install_result EQUAL 0)
@@ -48,6 +55,9 @@ execute_process(
     "${cmake_command}"
     -S "${source_dir}"
     -B "${binary_dir}"
+    -G "${generator}"
+    "-DCMAKE_CXX_COMPILER=${cxx_compiler}"
+    "-DCMAKE_BUILD_TYPE=${build_config}"
     "-DCMAKE_PREFIX_PATH=${install_dir}"
   RESULT_VARIABLE configure_result
 )
@@ -56,17 +66,21 @@ if(NOT configure_result EQUAL 0)
 endif()
 
 execute_process(
-  COMMAND "${cmake_command}" --build "${binary_dir}" --parallel
+  COMMAND "${cmake_command}" --build "${binary_dir}"
+    --config "${build_config}" --parallel
   RESULT_VARIABLE build_result
 )
 if(NOT build_result EQUAL 0)
   message(FATAL_ERROR "Package smoke build failed with code ${build_result}")
 endif()
 
+set(smoke_exe_dir "${binary_dir}")
+if(multi_config)
+  string(APPEND smoke_exe_dir "/${build_config}")
+endif()
+set(smoke_exe "${smoke_exe_dir}/lightgraph_package_smoke")
 if(WIN32)
-  set(smoke_exe "${binary_dir}/lightgraph_package_smoke.exe")
-else()
-  set(smoke_exe "${binary_dir}/lightgraph_package_smoke")
+  string(APPEND smoke_exe ".exe")
 endif()
 
 execute_process(

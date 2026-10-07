@@ -495,6 +495,7 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
   endif()
   add_test(NAME lightgraph_drawing_golden COMMAND lightgraph_drawing_golden)
 
+  get_property(LIGHTGRAPH_CORE_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
   add_test(
     NAME lightgraph_core_package_smoke
     COMMAND
@@ -504,6 +505,10 @@ if(LIGHTGRAPH_CORE_BUILD_TESTS)
         -Dsource_dir=${CMAKE_CURRENT_SOURCE_DIR}/tests/package_smoke
         -Dbinary_dir=${CMAKE_BINARY_DIR}/tests/package_smoke/build
         -Dinstall_dir=${CMAKE_BINARY_DIR}/tests/package_smoke/install
+        "-Dgenerator=${CMAKE_GENERATOR}"
+        "-Dcxx_compiler=${CMAKE_CXX_COMPILER}"
+        "-Dbuild_config=$<CONFIG>"
+        "-Dmulti_config=${LIGHTGRAPH_CORE_MULTI_CONFIG}"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/package_smoke/run.cmake
   )
 endif()
