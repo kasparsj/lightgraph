@@ -53,46 +53,46 @@ bool LightList::ownsContiguousLight(const RuntimeLight* light) const {
     return probe >= start && probe < end && ((probe - start) % contiguousLightStrideBytes) == 0;
 }
 
-void LightList::init(uint16_t numLights) {
+void LightList::init(uint16_t lightCount) {
     clearAllocatedLights();
-    this->numLights = numLights;
-    allocatedLights = numLights;
+    numLights = lightCount;
+    allocatedLights = lightCount;
     numEmitted = 0;
-    lights = new (std::nothrow) RuntimeLight*[numLights]();
-    if (numLights > 0 && lights == NULL) {
-        LG_LOGF("LightList::init failed: OOM for %u lights\n", numLights);
+    lights = new (std::nothrow) RuntimeLight*[lightCount]();
+    if (lightCount > 0 && lights == NULL) {
+        LG_LOGF("LightList::init failed: OOM for %u lights\n", lightCount);
         lightgraphReportAllocationFailure(
             runtimeContext(),
             LightgraphAllocationFailureSite::LightListArrayAllocation,
-            numLights,
+            lightCount,
             0);
         this->numLights = 0;
         allocatedLights = 0;
     }
 }
 
-bool LightList::initContiguousLights(uint16_t numLights,
+bool LightList::initContiguousLights(uint16_t lightCount,
                                      LightgraphAllocationFailureSite failureSite) {
     const auto allocation = runtimeContext().contiguousAllocation;
     if ((allocation.allocate == nullptr) != (allocation.deallocate == nullptr)) {
-        lightgraphReportAllocationFailure(runtimeContext(), failureSite, numLights, 0);
+        lightgraphReportAllocationFailure(runtimeContext(), failureSite, lightCount, 0);
         return false;
     }
-    init(numLights);
-    if (numLights == 0 || lights == NULL) {
-        return numLights == 0;
+    init(lightCount);
+    if (lightCount == 0 || lights == NULL) {
+        return lightCount == 0;
     }
 
-    const size_t storageBytes = static_cast<size_t>(numLights) * sizeof(Light);
+    const size_t storageBytes = static_cast<size_t>(lightCount) * sizeof(Light);
     contiguousLightStorage = allocation.allocate != nullptr
         ? allocation.allocate(storageBytes, allocation.user)
         : std::malloc(storageBytes);
     if (contiguousLightStorage == nullptr) {
-        LG_LOGF("LightList::initContiguousLights failed: OOM for %u lights\n", numLights);
+        LG_LOGF("LightList::initContiguousLights failed: OOM for %u lights\n", lightCount);
         lightgraphReportAllocationFailure(
             runtimeContext(),
             failureSite,
-            numLights,
+            lightCount,
             0);
         delete[] lights;
         lights = NULL;
@@ -107,12 +107,12 @@ bool LightList::initContiguousLights(uint16_t numLights,
     return true;
 }
 
-void LightList::setup(uint16_t numLights, uint8_t maxBri) {
-    init(lead + numLights + trail);
-    this->maxBri = maxBri;
+void LightList::setup(uint16_t lightCount, uint8_t maxBrightness) {
+    init(static_cast<uint16_t>(lead + lightCount + trail));
+    maxBri = maxBrightness;
     uint16_t createdLights = 0;
     for (uint16_t i=0; i<this->numLights; i++) {
-        if (createLight(i, maxBri) == NULL) {
+        if (createLight(i, maxBrightness) == NULL) {
             LG_LOGF("LightList::setup truncated: OOM at light %u/%u\n", i + 1, this->numLights);
             break;
         }
@@ -123,17 +123,17 @@ void LightList::setup(uint16_t numLights, uint8_t maxBri) {
     }
 }
 
-bool LightList::setupContiguous(uint16_t numLights,
-                                uint8_t maxBri,
+bool LightList::setupContiguous(uint16_t lightCount,
+                                uint8_t maxBrightness,
                                 LightgraphAllocationFailureSite failureSite) {
-    const uint16_t targetLights = static_cast<uint16_t>(lead + numLights + trail);
+    const uint16_t targetLights = static_cast<uint16_t>(lead + lightCount + trail);
     if (!initContiguousLights(targetLights, failureSite)) {
         return targetLights == 0;
     }
-    this->maxBri = maxBri;
+    maxBri = maxBrightness;
     for (uint16_t i = 0; i < this->numLights; ++i) {
         const float mult = getBriMult(i);
-        const float scaled = static_cast<float>(maxBri) * mult;
+        const float scaled = static_cast<float>(maxBrightness) * mult;
         const uint8_t brightness = static_cast<uint8_t>(
             std::max(0.0f, std::min(255.0f, scaled)));
         if (createContiguousLight(i, speed, lifeMillis, linked ? i : 0, brightness) == nullptr) {
@@ -162,13 +162,15 @@ RuntimeLight* LightList::createLight(uint16_t i, uint8_t brightness) {
         return NULL;
     }
     float mult = getBriMult(i);
+    const uint8_t scaledBrightness = static_cast<uint8_t>(
+        std::max(0.0f, std::min(255.0f, static_cast<float>(brightness) * mult)));
     RuntimeLight *light;
     // todo: fix if statement
     if (behaviour != NULL/* && behaviour->colorChangeGroups > 0*/) {
-        light = new (std::nothrow) Light(this, speed, lifeMillis, linked ? i : 0, brightness * mult);
+        light = new (std::nothrow) Light(this, speed, lifeMillis, linked ? i : 0, scaledBrightness);
     }
     else {
-        light = new (std::nothrow) RuntimeLight(this, linked ? i : 0, brightness * mult);
+        light = new (std::nothrow) RuntimeLight(this, linked ? i : 0, scaledBrightness);
     }
     if (light == NULL) {
         LG_LOGF("LightList::createLight failed: OOM at index %u\n", i);
@@ -183,7 +185,7 @@ RuntimeLight* LightList::createLight(uint16_t i, uint8_t brightness) {
     return light;
 }
 
-Light* LightList::createContiguousLight(uint16_t slot, float speed, uint32_t lifeMillis, uint16_t idx, uint8_t maxBri) {
+Light* LightList::createContiguousLight(uint16_t slot, float speedValue, uint32_t expirationMillis, uint16_t idx, uint8_t maxBrightness) {
     if (lights == NULL || contiguousLightStorage == nullptr || slot >= numLights) {
         return NULL;
     }
@@ -195,7 +197,7 @@ Light* LightList::createContiguousLight(uint16_t slot, float speed, uint32_t lif
 
     uint8_t* const base = static_cast<uint8_t*>(contiguousLightStorage);
     void* const storage = static_cast<void*>(base + (static_cast<size_t>(slot) * contiguousLightStrideBytes));
-    Light* const light = new (storage) Light(this, speed, lifeMillis, idx, maxBri);
+    Light* const light = new (storage) Light(this, speedValue, expirationMillis, idx, maxBrightness);
     existing = light;
     return light;
 }
@@ -235,20 +237,20 @@ void LightList::setLightColors() {
     }
 }
 
-void LightList::setLeadTrail(uint16_t trail) {
+void LightList::setLeadTrail(uint16_t trailLength) {
     if (head == LIST_HEAD_FRONT) {
-        if (trail > 0) {
-            this->lead = 1;
-            trail -= 1;
+        if (trailLength > 0) {
+            lead = 1;
+            trailLength -= 1;
         }
-        this->trail = trail;
+        trail = trailLength;
     }
     else if (head == LIST_HEAD_BACK) {
-        this->lead = trail;
+        lead = trailLength;
     }
     else {
-        this->lead = (uint16_t) trail / 2;
-        this->trail = (uint16_t) ceil(trail / 2.f);
+        lead = static_cast<uint16_t>(trailLength / 2);
+        trail = static_cast<uint16_t>(std::ceil(trailLength / 2.0f));
     }
 }
 
@@ -263,7 +265,7 @@ void LightList::setupFrom(const EmitParams &params) {
     noteId = params.noteId;
     uint16_t numTrail = params.speed == 0 ? params.trail : params.getSpeedTrail(speed, length);
     maxBri = params.getMaxBri();
-    numLights = max(1, length - numTrail);
+    numLights = static_cast<uint16_t>(max(1, length - numTrail));
     setLeadTrail(numTrail);
     
     duration = params.getDuration();
@@ -304,11 +306,12 @@ void LightList::initBri(uint16_t i, RuntimeLight* const light) const {
   switch (order) {
     case LIST_ORDER_RANDOM:
       if (fadeThresh > 0) {
-        light->bri = LG_RANDOM(fadeThresh * 3);
+        light->bri = static_cast<uint16_t>(LG_RANDOM(fadeThresh * 3));
       }
       break;
     case LIST_ORDER_NOISE:
-      light->bri = runtimeContext().perlinNoise.GetValue(id * 10, i * 100) * FULL_BRIGHTNESS;
+      light->bri = static_cast<uint16_t>(
+          runtimeContext().perlinNoise.GetValue(id * 10, i * 100) * FULL_BRIGHTNESS);
       break;
     default:
       break;
@@ -323,12 +326,13 @@ uint16_t LightList::getBri(const RuntimeLight* light) const {
 }
 
 void LightList::initLife(uint16_t i, RuntimeLight* const light) const {
-  uint32_t lifeMillis = light->lifeMillis;
+  uint32_t expirationMillis = light->lifeMillis;
   if (lengthMode != lightgraph::LengthMode::Centered &&
       order == LIST_ORDER_SEQUENTIAL && light->getSpeed() > 0) {
-    lifeMillis += ceil(1.f / light->getSpeed() * i) * EmitParams::frameMs();
+    expirationMillis += static_cast<uint32_t>(
+        std::ceil(1.0f / light->getSpeed() * i) * EmitParams::frameMs());
   }
-  light->lifeMillis = lifeMillis;
+  light->lifeMillis = expirationMillis;
 }
 
 uint8_t LightList::centeredCoverage(uint16_t slot) const {
@@ -409,7 +413,7 @@ void LightList::split() {
     numSplits++;
     if (numSplits < numLights) {
     for (uint8_t i=0; i<numSplits; i++) {
-      uint16_t split = (i+1)*(numLights/(numSplits+1));
+      uint16_t split = static_cast<uint16_t>((i + 1) * (numLights / (numSplits + 1)));
       if ((*this)[split] == 0) continue;
       (*this)[split]->idx = 0;
     }

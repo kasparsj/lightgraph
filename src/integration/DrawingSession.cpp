@@ -21,7 +21,8 @@ void DrawingSession::bind(DrawingRuntime& runtime) {
         generation_ = generation;
         lease_ = {};
         assembling_ = queued_ = poisoned_ = committed_ = false;
-        producer_ = started_ = mask_ = dropped_ = 0;
+        producer_ = started_ = dropped_ = 0;
+        mask_ = 0;
     }
     synchronize();
 }

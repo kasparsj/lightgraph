@@ -12,12 +12,14 @@ class Light : public RuntimeLight {
 
   public:
 
-    Light(LightList *parent, float speed, uint32_t lifeMillis, uint16_t idx = 0, uint8_t maxBri = 255);
+    Light(LightList *parent, float speedValue, uint32_t expirationMillis, uint16_t idx = 0,
+          uint8_t maxBrightness = 255);
     
-    Light(uint8_t maxBri, float speed, uint32_t lifeMillis) : Light(nullptr, speed, lifeMillis, 0, maxBri) {
+    Light(uint8_t maxBrightness, float speedValue, uint32_t expirationMillis)
+        : Light(nullptr, speedValue, expirationMillis, 0, maxBrightness) {
     }
     
-    Light(uint8_t maxBri) : Light(maxBri, DEFAULT_SPEED, INFINITE_DURATION) {
+    Light(uint8_t maxBrightness) : Light(maxBrightness, DEFAULT_SPEED, INFINITE_DURATION) {
     }
     
     Light() : Light(255) {
@@ -26,8 +28,8 @@ class Light : public RuntimeLight {
     float getSpeed() const override {
         return speed;
     }
-    void setSpeed(float speed) {
-        this->speed = speed;
+    void setSpeed(float speedValue) {
+        speed = speedValue;
     }
     uint32_t getLife() const override {
         return lifeMillis;
@@ -40,8 +42,8 @@ class Light : public RuntimeLight {
     ColorRGB getColor() const override {
         return color;
     }
-    void setColor(ColorRGB color) override {
-      this->color = color;
+    void setColor(ColorRGB colorValue) override {
+      color = colorValue;
     }
 
     uint8_t getBrightness() const override;

@@ -78,7 +78,8 @@ jobs:
         run: cmake --preset warnings
 
       - name: Build warnings
-        run: cmake --build --preset warnings --parallel
+        # Report all failing translation units in a single Windows run.
+        run: cmake --build --preset warnings --parallel -- -k 0
 
       - name: Test warnings
         run: ctest --preset warnings --output-on-failure

@@ -3,21 +3,23 @@
 #include "LightList.h"
 #include "../Globals.h"
 
-Light::Light(LightList *list, float speed, uint32_t lifeMillis, uint16_t idx, uint8_t maxBri) : RuntimeLight(list, idx, maxBri) {
-    this->speed = speed;
-    this->lifeMillis = lifeMillis;
-    this->color = ColorRGB(255, 255, 255);
+Light::Light(LightList *list, float speedValue, uint32_t expirationMillis, uint16_t idx,
+             uint8_t maxBrightness)
+    : RuntimeLight(list, idx, maxBrightness) {
+    speed = speedValue;
+    lifeMillis = expirationMillis;
+    color = ColorRGB(255, 255, 255);
 }
 
 uint8_t Light::getBrightness() const {
   uint16_t value = bri % 511;
   value = (value > 255 ? 511 - value : value);
-  const uint8_t fadeThresh = (list != NULL ? list->fadeThresh : 0);
-  const int16_t fadeRange = 255 - static_cast<int16_t>(fadeThresh);
+  const uint8_t fadeThreshold = (list != NULL ? list->fadeThresh : 0);
+  const int16_t fadeRange = 255 - static_cast<int16_t>(fadeThreshold);
   if (fadeRange <= 0) {
     return 0;
   }
-  const int16_t aboveThreshold = static_cast<int16_t>(value) - static_cast<int16_t>(fadeThresh);
+  const int16_t aboveThreshold = static_cast<int16_t>(value) - static_cast<int16_t>(fadeThreshold);
   if (aboveThreshold <= 0) {
     return 0;
   }
@@ -55,8 +57,8 @@ bool Light::shouldExpire() const {
   if (lifeMillis >= INFINITE_DURATION) {
     return false;
   }
-  const uint8_t fadeSpeed = (list != nullptr) ? list->fadeSpeed : 0;
-  return runtimeContext().nowMillis >= lifeMillis && (fadeSpeed == 0 || brightness == 0);
+  const uint8_t fadeSpeedValue = (list != nullptr) ? list->fadeSpeed : 0;
+  return runtimeContext().nowMillis >= lifeMillis && (fadeSpeedValue == 0 || brightness == 0);
 }
 
 const Model* Light::getModel() const {

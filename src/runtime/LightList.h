@@ -135,10 +135,10 @@ class LightList {
 
     virtual ~LightList();
     
-    virtual void init(uint16_t numLights);
-    virtual void setup(uint16_t numLights, uint8_t brightness = 255);
+    virtual void init(uint16_t lightCount);
+    virtual void setup(uint16_t lightCount, uint8_t brightness = 255);
     bool setupContiguous(
-        uint16_t numLights,
+        uint16_t lightCount,
         uint8_t brightness = 255,
         LightgraphAllocationFailureSite failureSite = LightgraphAllocationFailureSite::RemoteLightAllocation);
     virtual void reset();
@@ -153,22 +153,22 @@ class LightList {
       return lights[i];
     }
 
-    void setSpeed(float speed, uint8_t ease = 0) {
-        this->speed = speed;
-        this->easeIndex = ease; // Store the ease index
-        this->ease = ease == EASE_NONE ?
+    void setSpeed(float speedValue, uint8_t easeValue = 0) {
+        speed = speedValue;
+        easeIndex = easeValue; // Store the ease index
+        ease = easeValue == EASE_NONE ?
             ofxeasing::linear::easeNone :
-            ofxeasing::easing(static_cast<ofxeasing::Function>((ease - 1) / 3), static_cast<ofxeasing::Type>((ease - 1) % 3));
+            ofxeasing::easing(static_cast<ofxeasing::Function>((easeValue - 1) / 3), static_cast<ofxeasing::Type>((easeValue - 1) % 3));
     }
-    void setFade(uint8_t fadeSpeed, uint8_t fadeThresh = 0, uint8_t fadeEase = 0) {
-        this->fadeSpeed = fadeSpeed;
-        this->fadeThresh = fadeThresh;
-        this->fadeEaseIndex = fadeEase; // Store the fade ease index
-        this->fadeEase = fadeEase == EASE_NONE ?
+    void setFade(uint8_t fadeSpeedValue, uint8_t fadeThreshold = 0, uint8_t fadeEaseValue = 0) {
+        fadeSpeed = fadeSpeedValue;
+        fadeThresh = fadeThreshold;
+        fadeEaseIndex = fadeEaseValue; // Store the fade ease index
+        fadeEase = fadeEaseValue == EASE_NONE ?
             ofxeasing::linear::easeNone :
-            ofxeasing::easing(static_cast<ofxeasing::Function>((fadeEase - 1) / 3), static_cast<ofxeasing::Type>((fadeEase - 1) % 3));
+            ofxeasing::easing(static_cast<ofxeasing::Function>((fadeEaseValue - 1) / 3), static_cast<ofxeasing::Type>((fadeEaseValue - 1) % 3));
     }
-    void setLeadTrail(uint16_t trail);
+    void setLeadTrail(uint16_t trailLength);
     void setDuration(uint32_t durMillis);
     
     virtual void setPalette(const Palette& newPalette) {
@@ -209,10 +209,10 @@ class LightList {
     RuntimeLight* createAutoLight(uint16_t slot, uint8_t brightness);
     void releaseOwnedLight(RuntimeLight*& light);
     bool initContiguousLights(
-        uint16_t numLights,
+        uint16_t lightCount,
         LightgraphAllocationFailureSite failureSite = LightgraphAllocationFailureSite::RemoteLightAllocation);
-    Light* createContiguousLight(uint16_t slot, float speed, uint32_t lifeMillis,
-                                 uint16_t idx = 0, uint8_t maxBri = 255);
+    Light* createContiguousLight(uint16_t slot, float speedValue, uint32_t expirationMillis,
+                                 uint16_t idx = 0, uint8_t maxBrightness = 255);
     void clearExternalBatchForwardState() {
       externalBatchForwarded = false;
       externalBatchHasTargetId = false;

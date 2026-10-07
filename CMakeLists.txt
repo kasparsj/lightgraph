@@ -244,6 +244,7 @@ if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
       /W4
       /WX
       "/external:I${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxColorTheory/src"
+      "/external:I${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxEasing"
       /external:W0
     )
     target_compile_options(lightgraph PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})

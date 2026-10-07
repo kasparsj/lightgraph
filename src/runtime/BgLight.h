@@ -47,10 +47,10 @@ public:
     }
 
     // Override setup to avoid creating actual lights
-    void setup(uint16_t numPixels, uint8_t maxBri = 255) override {
+    void setup(uint16_t numPixels, uint8_t maxBrightness = 255) override {
         // Just store the pixel count but don't actually create any lights
         this->length = numPixels;
-        this->maxBri = maxBri;
+        maxBri = maxBrightness;
     }
     
     void reset() override {
@@ -87,14 +87,14 @@ public:
         // Apply easing to determine the actual offset
         // For EASE_NONE, we do direct linear mapping
         if (easeIndex == EASE_NONE) {
-            position = offset + fmod(internalTime, length);
+            position = offset + std::fmod(internalTime, static_cast<float>(length));
         } else {
             // For all other easings, we map through a repeating pattern
             // Scale internal time to 0-1 range for each cycle
-            float cyclePosition = fmod(internalTime, 100) / 100.0f;
+            float cyclePosition = std::fmod(internalTime, 100.0f) / 100.0f;
             
             // Apply easing to this cycle position (0-1 range)
-            float easedPosition = ofxeasing::map(cyclePosition, 0, 1, 0, 1, ease);
+            float easedPosition = ofxeasing::map(cyclePosition, 0.0f, 1.0f, 0.0f, 1.0f, ease);
             
             // Map the eased position to the length of colors
             position = offset + easedPosition * length;
@@ -114,7 +114,7 @@ public:
             return Palette::noColor;
         }
 
-        ColorRGB color = getLightColor(uint32_t(position + pixel) % length);
+        ColorRGB color = getLightColor(static_cast<uint32_t>(position + pixel) % length);
         if (maxBri < 255) {
             return color.dim(maxBri);
         }
