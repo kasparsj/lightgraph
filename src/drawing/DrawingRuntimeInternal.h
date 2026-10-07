@@ -4,6 +4,7 @@
 #include "DrawingRuntime.h"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -37,7 +38,13 @@ float normalizedDegrees(float degrees);
 bool sameFloat(float a, float b);
 bool sameScene(const DrawingScene& a, const DrawingScene& b);
 bool canonicalizeScene(const DrawingScene& value, DrawingScene& canonical);
-Vec2 rotate(Vec2 point, double degrees);
+inline Vec2 rotate(Vec2 point, double degrees) {
+    constexpr double kPi = 3.1415926535897932384626433832795;
+    const double radians = degrees * kPi / 180.0;
+    const double c = std::cos(radians);
+    const double s = std::sin(radians);
+    return {c * point.x + s * point.y, -s * point.x + c * point.y};
+}
 Rgb unpack(std::uint32_t rgb);
 Rgb composite(Rgb destination, Rgb source, std::uint8_t opacity);
 double distanceToSegment(Vec2 p, Vec2 a, Vec2 b);

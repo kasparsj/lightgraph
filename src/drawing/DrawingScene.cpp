@@ -10,8 +10,6 @@
 namespace lightgraph::drawing::detail {
 namespace {
 
-constexpr double kPi = 3.1415926535897932384626433832795;
-
 bool sameShape(const DrawingShape& a, const DrawingShape& b) {
     if (a.kind != b.kind || a.id != b.id || a.rgb != b.rgb || a.opacity != b.opacity) {
         return false;
@@ -58,13 +56,6 @@ bool canonicalizeScene(const DrawingScene& value, DrawingScene& canonical) {
     std::sort(canonical.shapes.begin(), canonical.shapes.begin() + canonical.shapeCount,
               [](const DrawingShape& a, const DrawingShape& b) { return a.id < b.id; });
     return true;
-}
-
-Vec2 rotate(Vec2 point, double degrees) {
-    const double radians = degrees * kPi / 180.0;
-    const double c = std::cos(radians);
-    const double s = std::sin(radians);
-    return {c * point.x + s * point.y, -s * point.x + c * point.y};
 }
 
 Rgb unpack(std::uint32_t rgb) {
