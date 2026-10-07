@@ -637,9 +637,83 @@ void checkUnsupportedRefreshFallsBackBeforeComposition() {
     CHECK_EQ(drawing.applyQueued(queuedImage), DrawingResult::Stale);
 }
 
+void checkCanonicalizationAndQueuedHandlePrecedence() {
+    Heptagon919 object;
+    RuntimeState state(object);
+    auto& drawing = state.drawing();
+    DrawingScene scene;
+    scene.rotationDegrees = -360.0f;
+    scene.shapeCount = 2;
+    scene.shapes[0] = shape(DrawingShapeKind::Circle, 8, 0xFF0000, 255, {0.5f, 0.5f, 0.2f});
+    scene.shapes[1] = shape(DrawingShapeKind::Circle, 2, 0x00FF00, 255, {0.5f, 0.5f, 0.1f});
+    CHECK_EQ(drawing.replaceScene(scene), DrawingResult::Applied);
+    DrawingScene equivalent = scene;
+    equivalent.rotationDegrees = 360.0f;
+    std::swap(equivalent.shapes[0], equivalent.shapes[1]);
+    CHECK_EQ(drawing.replaceScene(equivalent), DrawingResult::NoChange);
+    DrawingHandle first, second;
+    CHECK_EQ(drawing.queueScene(equivalent, first), DrawingResult::Applied);
+    CHECK_EQ(drawing.applyQueued(first), DrawingResult::NoChange);
+    equivalent.rotationDegrees = -0.0f;
+    CHECK_EQ(drawing.queueScene(equivalent, first), DrawingResult::Applied);
+    CHECK_EQ(drawing.queueScene(scene, second), DrawingResult::Applied);
+    DrawingScene invalid = scene;
+    invalid.shapeCount = static_cast<std::uint8_t>(invalid.shapes.size() + 1);
+    DrawingHandle invalidHandle;
+    CHECK_EQ(drawing.queueScene(invalid, invalidHandle), DrawingResult::Invalid);
+    CHECK(std::strcmp(drawing.status().lastRejection.data(), "invalid_scene") == 0);
+    DrawingHandle unknown = first;
+    unknown.kind = static_cast<DrawingHandleKind>(255);
+    CHECK_EQ(drawing.applyQueued(unknown), DrawingResult::Invalid);
+    CHECK(!drawing.validQueued(unknown));
+    drawing.releaseQueued(unknown);
+    CHECK(drawing.validQueued(first));
+    ++unknown.runtimeGeneration;
+    CHECK_EQ(drawing.applyQueued(unknown), DrawingResult::Stale);
+    for (DrawingHandle malformed : {first, second}) {
+        malformed.slot = 255;
+        CHECK_EQ(drawing.applyQueued(malformed), DrawingResult::Stale);
+        drawing.releaseQueued(malformed);
+        CHECK(drawing.validQueued(first));
+        CHECK(drawing.validQueued(second));
+    }
+    DrawingHandle stale = first;
+    ++stale.slotGeneration;
+    CHECK_EQ(drawing.applyQueued(stale), DrawingResult::Stale);
+    drawing.releaseQueued(stale);
+    CHECK(drawing.validQueued(first));
+    drawing.releaseQueued(first);
+    drawing.releaseQueued(second);
+
+    DrawingRuntime::ImageLease lease;
+    CHECK_EQ(drawing.leaseImage(1, 1, 1, lease), DrawingResult::Applied);
+    std::fill_n(lease.bytes, lease.size, 0x42);
+    DrawingHandle image;
+    CHECK_EQ(drawing.submitImage(lease, &image), DrawingResult::Applied);
+    stale = image;
+    ++stale.slotGeneration;
+    CHECK_EQ(drawing.applyQueued(stale), DrawingResult::Stale);
+    drawing.releaseQueued(stale);
+    CHECK(drawing.validQueued(image));
+    stale = image;
+    stale.slot = 255;
+    CHECK_EQ(drawing.applyQueued(stale), DrawingResult::Stale);
+    drawing.releaseQueued(stale);
+    CHECK(drawing.validQueued(image));
+    drawing.releaseQueued(image);
+    CHECK_EQ(drawing.leaseImage(2, 1, 1, lease), DrawingResult::Applied);
+    std::fill_n(lease.bytes, lease.size, 0x43);
+    DrawingHandle replacement;
+    CHECK_EQ(drawing.submitImage(lease, &replacement), DrawingResult::Applied);
+    drawing.releaseQueued(image);
+    CHECK(drawing.validQueued(replacement));
+    CHECK_EQ(drawing.applyQueued(replacement), DrawingResult::Applied);
+}
+
 } // namespace
 
 int main() {
+    checkCanonicalizationAndQueuedHandlePrecedence();
     checkDefaultsModesAndRevision();
     checkDefaultBlackActivation();
     checkVisibilityMutationsAdvanceRevision();

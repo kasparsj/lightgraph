@@ -789,6 +789,12 @@ int main() {
         if (state.setListLengths(negativeUnknown, 1)) {
             return fail("Invalid lengths must reject the whole batch even for unknown IDs");
         }
+        const lightgraph::ListLengthUpdate negativeLive[] = {{42, -1.0f}};
+        const lightgraph::ListLengthUpdate mixedInvalid[] = {{42, 3.0f}, {65000, -1.0f}};
+        if (state.setListLengths(negativeLive, 1) || state.setListLengths(mixedInvalid, 2) ||
+            list->visibleLength != 1.0f) {
+            return fail("Negative lengths must reject live and mixed batches atomically");
+        }
         const lightgraph::ListLengthUpdate duplicate[] = {{42, 0.0f}, {42, 2.0f}};
         if (state.setListLengths(duplicate, 2) || list->visibleLength != 1.0f) {
             return fail("Duplicate IDs must reject atomically without changing visible length");
