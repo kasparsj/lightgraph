@@ -73,6 +73,7 @@ void* operator new[](size_t size, const std::nothrow_t&) noexcept {
     return allocateArray(size);
 }
 void operator delete[](void* pointer) noexcept { releaseArray(pointer); }
+void operator delete[](void* pointer, size_t) noexcept { releaseArray(pointer); }
 void operator delete[](void* pointer, const std::nothrow_t&) noexcept { releaseArray(pointer); }
 
 int main() {

@@ -102,6 +102,11 @@ target_include_directories(
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxColorTheory/src"
 )
 
+if(MSVC)
+  # ofxColorTheory relies on the opt-in MSVC math constants (including M_PI).
+  target_compile_definitions(lightgraph_vendor_colortheory PRIVATE _USE_MATH_DEFINES)
+endif()
+
 add_library(lightgraph STATIC ${LIGHTGRAPH_CORE_SOURCES} $<TARGET_OBJECTS:lightgraph_vendor_colortheory>)
 add_library(lightgraph::lightgraph ALIAS lightgraph)
 # Source-tree compatibility alias.
@@ -234,8 +239,14 @@ if(LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS)
         ${LIGHTGRAPH_CORE_VENDOR_WARNING_SUPPRESSIONS}
     )
   elseif(MSVC)
-    set(LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS /W4 /WX)
-    target_compile_options(lightgraph PRIVATE /W4 /WX)
+    set(
+      LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS
+      /W4
+      /WX
+      "/external:I${CMAKE_CURRENT_SOURCE_DIR}/vendor/ofxColorTheory/src"
+      /external:W0
+    )
+    target_compile_options(lightgraph PRIVATE ${LIGHTGRAPH_CORE_STRICT_WARNING_FLAGS})
   else()
     message(WARNING "LIGHTGRAPH_CORE_ENABLE_STRICT_WARNINGS is not configured for this compiler")
   endif()

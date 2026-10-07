@@ -80,7 +80,7 @@ class EmitParams {
     uint8_t colorChangeGroups = 0;
 
     static uint16_t frameMs() {
-        return (1000.f / EmitParams::DURATION_FPS);
+        return static_cast<uint16_t>(1000.0f / EmitParams::DURATION_FPS);
     }
 
     EmitParams(int8_t model, float speed, int64_t color) : model(model), speed(speed) {
@@ -116,7 +116,7 @@ class EmitParams {
             rgb.setRandom();
         }
         else {
-            rgb.set(colorValue);
+            rgb.set(static_cast<uint32_t>(colorValue));
         }
         return rgb;
     }
@@ -175,11 +175,11 @@ class EmitParams {
         length.reset();
     }
     
-    uint16_t getSpeedTrail(float speed, uint16_t length) const {
+    uint16_t getSpeedTrail(float speedValue, uint16_t lengthValue) const {
       return lightgraph::memory::resolveEmitSpan(
-          length,
+          lengthValue,
           0,
-          speed,
+          speedValue,
           0,
           false,
           order == LIST_ORDER_SEQUENTIAL,

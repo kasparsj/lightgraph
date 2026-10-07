@@ -135,7 +135,13 @@ void* operator new[](std::size_t size, const std::nothrow_t&) noexcept {
     return allocateArray(size);
 }
 void operator delete[](void* pointer) noexcept { releaseArray(pointer); }
+void operator delete[](void* pointer, std::size_t) noexcept { releaseArray(pointer); }
 void operator delete[](void* pointer, const std::nothrow_t&) noexcept { releaseArray(pointer); }
+void* operator new(std::size_t size) {
+    if (void* result = std::malloc(size == 0 ? 1 : size))
+        return result;
+    throw std::bad_alloc();
+}
 void* operator new(std::size_t size, const std::nothrow_t&) noexcept {
     return allocateScalar(size);
 }

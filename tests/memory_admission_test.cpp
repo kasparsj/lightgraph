@@ -159,6 +159,18 @@ void* operator new[](std::size_t bytes) {
     return ::operator new(bytes);
 }
 
+void* operator new(std::size_t bytes, const std::nothrow_t&) noexcept {
+    try {
+        return ::operator new(bytes);
+    } catch (const std::bad_alloc&) {
+        return nullptr;
+    }
+}
+
+void* operator new[](std::size_t bytes, const std::nothrow_t&) noexcept {
+    return ::operator new(bytes, std::nothrow);
+}
+
 void operator delete(void* pointer) noexcept {
     std::free(pointer);
 }
@@ -167,11 +179,19 @@ void operator delete(void* pointer, std::size_t) noexcept {
     std::free(pointer);
 }
 
+void operator delete(void* pointer, const std::nothrow_t&) noexcept {
+    std::free(pointer);
+}
+
 void operator delete[](void* pointer) noexcept {
     std::free(pointer);
 }
 
 void operator delete[](void* pointer, std::size_t) noexcept {
+    std::free(pointer);
+}
+
+void operator delete[](void* pointer, const std::nothrow_t&) noexcept {
     std::free(pointer);
 }
 
