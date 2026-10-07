@@ -123,9 +123,11 @@ uint8_t RuntimeLight::getBrightness() const {
     if (adjusted > 0.f) {
         const float clamped = (adjusted > 511.f ? 511.f : adjusted);
         if (list != NULL) {
-            return ofxeasing::map(clamped, 0, 511, list->minBri, maxBri, list->fadeEase);
+            return static_cast<uint8_t>(
+                ofxeasing::map(clamped, 0, 511, list->minBri, maxBri, list->fadeEase));
         }
-        return ofxeasing::map(clamped, 0, 511, 0, maxBri, ofxeasing::linear::easeNone);
+        return static_cast<uint8_t>(
+            ofxeasing::map(clamped, 0, 511, 0, maxBri, ofxeasing::linear::easeNone));
     }
     return 0;
 }
@@ -186,7 +188,7 @@ uint16_t RuntimeLight::setSegmentPixels(uint16_t* buffer, size_t capacity) const
 uint16_t RuntimeLight::setLinkPixels(uint16_t* buffer, size_t capacity) const {
     RuntimeLight* prev = getPrev();
     if (prev != NULL && owner == prev->owner) {
-        uint16_t numPixels = abs(pixel1 - prev->pixel1);
+        uint16_t numPixels = static_cast<uint16_t>(abs(pixel1 - prev->pixel1));
         const uint32_t required = static_cast<uint32_t>(numPixels) + 1U;
         if (required > capacity) {
             return setPixel1(buffer, capacity);

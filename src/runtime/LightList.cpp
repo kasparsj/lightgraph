@@ -306,12 +306,15 @@ void LightList::initBri(uint16_t i, RuntimeLight* const light) const {
   switch (order) {
     case LIST_ORDER_RANDOM:
       if (fadeThresh > 0) {
-        light->bri = static_cast<uint16_t>(LG_RANDOM(fadeThresh * 3));
+        light->bri = static_cast<uint16_t>(
+            LG_RANDOM(static_cast<float>(fadeThresh * 3)));
       }
       break;
     case LIST_ORDER_NOISE:
       light->bri = static_cast<uint16_t>(
-          runtimeContext().perlinNoise.GetValue(id * 10, i * 100) * FULL_BRIGHTNESS);
+          runtimeContext().perlinNoise.GetValue(
+              static_cast<FN_DECIMAL>(id * 10),
+              static_cast<FN_DECIMAL>(i * 100)) * FULL_BRIGHTNESS);
       break;
     default:
       break;

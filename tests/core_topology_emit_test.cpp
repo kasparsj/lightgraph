@@ -133,7 +133,7 @@ void advanceFrame(State& state, unsigned long deltaMillis = 16) {
 class NoMirrorObject : public TopologyObject {
   public:
     explicit NoMirrorObject(uint16_t pixelCount) : TopologyObject(pixelCount) {
-        addModel(new Model(0, pixelCount, GROUP1));
+        addModel(new Model(0, static_cast<uint8_t>(pixelCount), GROUP1));
     }
 
     uint16_t* getMirroredPixels(uint16_t, Owner*, bool) override {
@@ -152,7 +152,7 @@ class NoMirrorObject : public TopologyObject {
 class FixedMirrorObject : public TopologyObject {
   public:
     explicit FixedMirrorObject(uint16_t pixelCount) : TopologyObject(pixelCount) {
-        addModel(new Model(0, pixelCount, GROUP1));
+        addModel(new Model(0, static_cast<uint8_t>(pixelCount), GROUP1));
     }
 
     uint16_t* getMirroredPixels(uint16_t pixel, Owner*, bool) override {
@@ -366,7 +366,7 @@ int main() {
         EmitParams params(C_HORIZONTAL, 1.0f, 0x00FF00);
         params.setLength(1);
         params.linked = false;
-        params.from = findIntersectionIndexByTopPixel(cross, left->topPixel);
+        params.from = static_cast<int8_t>(findIntersectionIndexByTopPixel(cross, left->topPixel));
         if (params.from < 0) {
             return fail("Could not resolve source intersection index for cross routing test");
         }
@@ -411,7 +411,7 @@ int main() {
         EmitParams params(L_BOUNCE, 1.0f, 0xCC2200);
         params.setLength(1);
         params.linked = false;
-        params.from = findIntersectionIndexByTopPixel(line, 0);
+        params.from = static_cast<int8_t>(findIntersectionIndexByTopPixel(line, 0));
         if (params.from < 0) {
             return fail("Unable to resolve line intersection index for emit test");
         }
@@ -447,7 +447,7 @@ int main() {
         EmitParams params(L_BOUNCE, 1.0f, 0x22CC44);
         params.setLength(6);
         params.duration = 1000;
-        params.from = findIntersectionIndexByTopPixel(line, 0);
+        params.from = static_cast<int8_t>(findIntersectionIndexByTopPixel(line, 0));
         if (params.from < 0) {
             return fail("Unable to resolve line intersection for duration rebase regression");
         }
@@ -482,7 +482,7 @@ int main() {
         params.setLength(1);
         params.linked = false;
         params.behaviourFlags = B_EMIT_FROM_CONN;
-        params.from = physicalConnectionIndex;
+        params.from = static_cast<int8_t>(physicalConnectionIndex);
         params.emitOffset = 5;
 
         if (state.emit(params) < 0) {
@@ -514,7 +514,7 @@ int main() {
         params.setLength(1);
         params.linked = false;
         params.behaviourFlags = B_EMIT_FROM_CONN;
-        params.from = physicalConnectionIndex;
+        params.from = static_cast<int8_t>(physicalConnectionIndex);
 
         const int8_t listIndex = state.emit(params);
         if (listIndex < 0) {
@@ -584,7 +584,7 @@ int main() {
         EmitParams params(L_BOUNCE, 0.0f, 0xCC2200);
         params.setLength(1);
         params.linked = false;
-        params.from = findIntersectionIndexByTopPixel(line, 0);
+        params.from = static_cast<int8_t>(findIntersectionIndexByTopPixel(line, 0));
         if (params.from < 0) {
             return fail("Unable to resolve line intersection for fractional handoff test");
         }
@@ -844,7 +844,7 @@ int main() {
         params.setLength(1);
         params.linked = false;
         params.behaviourFlags = static_cast<uint16_t>(B_EMIT_FROM_CONN | B_RENDER_SEGMENT);
-        params.from = physicalConnectionIndex;
+        params.from = static_cast<int8_t>(physicalConnectionIndex);
 
         if (state.emit(params) < 0) {
             return fail("Line render-segment emit failed unexpectedly");
@@ -878,7 +878,7 @@ int main() {
         params.setLength(1);
         params.linked = false;
         params.behaviourFlags = static_cast<uint16_t>(B_EMIT_FROM_CONN | B_RENDER_SEGMENT);
-        params.from = physicalConnectionIndex;
+        params.from = static_cast<int8_t>(physicalConnectionIndex);
 
         if (state.emit(params) < 0) {
             return fail("Long render-segment emit failed unexpectedly");
@@ -901,7 +901,7 @@ int main() {
         params.setLength(1);
         params.linked = false;
         params.behaviourFlags = B_MIRROR_ROTATE;
-        params.from = findIntersectionIndexByTopPixel(line, 0);
+        params.from = static_cast<int8_t>(findIntersectionIndexByTopPixel(line, 0));
         if (params.from < 0) {
             return fail("Unable to resolve line intersection for mirror scenario");
         }
@@ -929,7 +929,7 @@ int main() {
         params.setLength(1);
         params.linked = false;
         params.maxBri = 128;
-        params.from = findIntersectionIndexByTopPixel(line, 0);
+        params.from = static_cast<int8_t>(findIntersectionIndexByTopPixel(line, 0));
         if (params.from < 0) {
             return fail("Unable to resolve line intersection for brightness scenario");
         }

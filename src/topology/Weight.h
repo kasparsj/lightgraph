@@ -11,10 +11,10 @@ class Weight {
 
   public:
     
-    Weight(uint8_t w) : w(w) {}
+    Weight(uint8_t weight) : w(weight) {}
     
-    void add(const Port *incoming, uint8_t w);
-    void add(uint16_t incomingPortId, uint8_t w);
+    void add(const Port *incoming, uint8_t weight);
+    void add(uint16_t incomingPortId, uint8_t weight);
     uint8_t get(const Port *incoming) const;
     void remove(const Port *incoming);
     uint8_t defaultWeight() const { return w; }

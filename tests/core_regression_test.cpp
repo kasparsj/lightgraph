@@ -1092,8 +1092,8 @@ int main() {
         uint16_t firstExpected = 0;
         uint16_t secondExpected = 0;
         for (int16_t pixel = 0; pixel < 128; ++pixel) {
-            const float firstValue = firstContext.perlinNoise.GetValue(list.id * 10, pixel * 100);
-            const float secondValue = secondContext.perlinNoise.GetValue(list.id * 10, pixel * 100);
+            const float firstValue = firstContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), static_cast<FN_DECIMAL>(pixel * 100));
+            const float secondValue = secondContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), static_cast<FN_DECIMAL>(pixel * 100));
             if (firstValue >= 0.0f && secondValue >= 0.0f) {
                 const uint16_t firstCandidate = static_cast<uint16_t>(firstValue * 255);
                 const uint16_t secondCandidate = static_cast<uint16_t>(secondValue * 255);
@@ -1130,13 +1130,13 @@ int main() {
         bool foundDistinctSample = false;
         for (int firstSeed = 1; firstSeed < 64 && !foundDistinctSample; ++firstSeed) {
             firstContext.perlinNoise.SetSeed(firstSeed);
-            const float firstValue = firstContext.perlinNoise.GetValue(list.id * 10, 0);
+            const float firstValue = firstContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), 0);
             if (firstValue < 0.0f) {
                 continue;
             }
             for (int secondSeed = firstSeed + 1; secondSeed < 64; ++secondSeed) {
                 secondContext.perlinNoise.SetSeed(secondSeed);
-                const float secondValue = secondContext.perlinNoise.GetValue(list.id * 10, 0);
+                const float secondValue = secondContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(list.id * 10), 0);
                 const uint16_t firstCandidate = static_cast<uint16_t>(firstValue * FULL_BRIGHTNESS);
                 if (secondValue >= 0.0f) {
                     const uint16_t secondCandidate =
@@ -1174,7 +1174,7 @@ int main() {
         float fallbackValue = -1.0f;
         for (int fallbackSeed = 1; fallbackSeed < 128 && fallbackValue < 0.0f; ++fallbackSeed) {
             defaultContext.perlinNoise.SetSeed(fallbackSeed);
-            fallbackValue = defaultContext.perlinNoise.GetValue(fallbackList.id * 10, 0);
+            fallbackValue = defaultContext.perlinNoise.GetValue(static_cast<FN_DECIMAL>(fallbackList.id * 10), 0);
         }
         if (fallbackValue < 0.0f) {
             defaultContext.perlinNoise.SetSeed(originalDefaultSeed);

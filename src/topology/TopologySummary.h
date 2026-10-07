@@ -96,7 +96,7 @@ inline TopologySummary buildTopologySummary(const TopologyObject& object) {
                 const Port* port = intersection->ports[slot];
                 if (port != nullptr) {
                     portEntry.present = true;
-                    portEntry.id = port->id;
+                    portEntry.id = static_cast<uint8_t>(port->id);
                     portEntry.isExternal = port->isExternal();
                     portEntry.direction = port->direction;
                     portEntry.group = port->group;
@@ -137,11 +137,11 @@ inline TopologySummary buildTopologySummary(const TopologyObject& object) {
             }
             if (connection->fromPort != nullptr) {
                 entry.hasFromPortId = true;
-                entry.fromPortId = connection->fromPort->id;
+                entry.fromPortId = static_cast<uint8_t>(connection->fromPort->id);
             }
             if (connection->toPort != nullptr) {
                 entry.hasToPortId = true;
-                entry.toPortId = connection->toPort->id;
+                entry.toPortId = static_cast<uint8_t>(connection->toPort->id);
             }
             out.connections.push_back(entry);
         }

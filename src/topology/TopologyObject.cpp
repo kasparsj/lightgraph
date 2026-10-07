@@ -1302,7 +1302,7 @@ Intersection* TopologyObject::getIntersection(uint8_t i, uint8_t groups) {
             if (i < inter[j].size()) {
                 return inter[j][i];
             }
-            i -= inter[j].size();
+            i = static_cast<uint8_t>(i - inter[j].size());
         }
     }
     return nullptr;
@@ -1332,7 +1332,7 @@ Connection* TopologyObject::getConnection(uint8_t i, uint8_t groups) {
             if (i < conn[j].size()) {
                 return conn[j][i];
             }
-            i -= conn[j].size();
+            i = static_cast<uint8_t>(i - conn[j].size());
         }
     }
     return nullptr;

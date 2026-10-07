@@ -75,10 +75,11 @@ float Cross::getProgressOnLine(uint16_t pixel, bool isVertical) const {
 uint16_t Cross::getPixelOnLine(float perc, bool isVertical) const {
     if (isVertical) {
         // For vertical line
-        return verticalLineStart + round(perc * (verticalLineEnd - verticalLineStart));
+        return static_cast<uint16_t>(
+            verticalLineStart + round(perc * (verticalLineEnd - verticalLineStart)));
     } else {
         // For horizontal line
-        return round(perc * horizontalLineEnd);
+        return static_cast<uint16_t>(round(perc * horizontalLineEnd));
     }
 }
 
@@ -94,11 +95,11 @@ uint16_t* Cross::getMirroredPixels(uint16_t pixel, Owner* /*mirrorFlipEmitter*/,
         if (isVertical) {
             // For vertical line, mirror horizontally
             progress = getProgressOnLine(pixel, true);
-            mirrorPixels[1] = getPixelOnLine(1.0 - progress, true);
+            mirrorPixels[1] = getPixelOnLine(1.0f - progress, true);
         } else {
             // For horizontal line, mirror vertically
             progress = getProgressOnLine(pixel, false);
-            mirrorPixels[1] = getPixelOnLine(1.0 - progress, false);
+            mirrorPixels[1] = getPixelOnLine(1.0f - progress, false);
         }
         
         mirrorPixels[0] = 1;

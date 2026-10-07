@@ -252,7 +252,7 @@ Port* Intersection::randomPort(const Port* const incoming, const Behaviour* cons
   if (candidates.empty()) {
       return nullptr;
   }
-  return candidates[(uint8_t) LG_RANDOM(candidates.size())];
+  return candidates[static_cast<uint8_t>(LG_RANDOM(static_cast<float>(candidates.size())))];
 }
 
 Port* Intersection::choosePort(const Model* const model, const RuntimeLight* const light) const {
@@ -287,7 +287,7 @@ Port* Intersection::choosePort(const Model* const model, const RuntimeLight* con
     if (sum == 0) {
       return randomPort(incoming, light->getBehaviour());
     }
-    uint16_t rnd = LG_RANDOM(sum);
+    uint16_t rnd = static_cast<uint16_t>(LG_RANDOM(static_cast<float>(sum)));
     for (uint8_t i=0; i<numPorts; i++) {
        Port *port = ports[i];
        if (port == nullptr) {

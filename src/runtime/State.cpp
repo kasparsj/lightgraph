@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <new>
 #include <memory>
@@ -165,7 +166,7 @@ const lightgraph::drawing::DrawingRuntime& State::drawing() const {
 }
 
 uint8_t State::randomModel() {
-  return floor(LG_RANDOM(object.models.size()));
+  return static_cast<uint8_t>(floor(LG_RANDOM(static_cast<float>(object.models.size()))));
 }
 
 ColorRGB State::paletteColor(uint8_t index, uint8_t /*maxBrightness*/) {
@@ -446,7 +447,7 @@ Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params)
             LG_LOGF("emit failed, no connections for groups %d\n", emitGroups);
             return NULL;
         }
-        from = from >= 0 ? from : LG_RANDOM(connCount);
+        from = from >= 0 ? from : static_cast<int8_t>(LG_RANDOM(connCount));
         return object.getConnection(from % connCount, emitGroups);
     }
     else {
@@ -456,7 +457,7 @@ Owner* State::getEmitter(Model* model, Behaviour* behaviour, EmitParams& params)
             LG_LOGF("emit failed, no intersections for groups %d\n", emitGroups);
             return NULL;
         }
-        from = from >= 0 ? from : LG_RANDOM(interCount);
+        from = from >= 0 ? from : static_cast<int8_t>(LG_RANDOM(interCount));
         return object.getEmittableIntersection(from % interCount, emitGroups);
     }
 }
@@ -775,15 +776,15 @@ void State::setListPixel(uint16_t pixel, ColorRGB &color) {
         listTouchedPixels.push_back(pixel);
     }
 
-    listPixelValuesR[pixel] = std::min<uint16_t>(
+    listPixelValuesR[pixel] = static_cast<uint8_t>(std::min<uint16_t>(
         FULL_BRIGHTNESS,
-        static_cast<uint16_t>(listPixelValuesR[pixel] + color.R));
-    listPixelValuesG[pixel] = std::min<uint16_t>(
+        static_cast<uint16_t>(listPixelValuesR[pixel] + color.R)));
+    listPixelValuesG[pixel] = static_cast<uint8_t>(std::min<uint16_t>(
         FULL_BRIGHTNESS,
-        static_cast<uint16_t>(listPixelValuesG[pixel] + color.G));
-    listPixelValuesB[pixel] = std::min<uint16_t>(
+        static_cast<uint16_t>(listPixelValuesG[pixel] + color.G)));
+    listPixelValuesB[pixel] = static_cast<uint8_t>(std::min<uint16_t>(
         FULL_BRIGHTNESS,
-        static_cast<uint16_t>(listPixelValuesB[pixel] + color.B));
+        static_cast<uint16_t>(listPixelValuesB[pixel] + color.B)));
 }
 #endif
 
@@ -943,9 +944,9 @@ void State::setFramePixel(uint16_t pixel, ColorRGB &color, const LightList* cons
     }
 
     // Set the calculated color values
-    pixelValuesR[pixel] = r * 255.0f * pixelDiv[pixel];
-    pixelValuesG[pixel] = g * 255.0f * pixelDiv[pixel];
-    pixelValuesB[pixel] = b * 255.0f * pixelDiv[pixel];
+    pixelValuesR[pixel] = static_cast<uint16_t>(r * 255.0f * pixelDiv[pixel]);
+    pixelValuesG[pixel] = static_cast<uint16_t>(g * 255.0f * pixelDiv[pixel]);
+    pixelValuesB[pixel] = static_cast<uint16_t>(b * 255.0f * pixelDiv[pixel]);
 }
 
 void State::markOccupancy(uint16_t pixel, const LightList* lightList) {
@@ -1242,11 +1243,11 @@ void State::debug() {
         continue;
       }
       else {
-        lights += j;
-        lights += "(";
-        lights += lightLists[i]->lights[j]->pixel1;
-        lights += ")";
-        lights += ", ";
+        char label[32];
+        std::snprintf(label, sizeof(label), "%u(%d), ",
+                      static_cast<unsigned>(j),
+                      static_cast<int>(lightLists[i]->lights[j]->pixel1));
+        lights += label;
       }
     }
     LG_LOGF("LightList %d (%d) active lights:", i, lightLists[i]->numLights);
